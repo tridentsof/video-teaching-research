@@ -649,19 +649,19 @@ export default function VideoDetailPage() {
               const jobForStep = jobs.find(
                 (j) => j.step === stepItem.key || (stepItem.altKey && j.step === stepItem.altKey)
               );
-              const isStepDone = isUploadStep
+              const isStepDone = video?.status === 'report_generated' || (isUploadStep
                 ? (jobForStep?.status === 'completed' || (!isUploadActive && Boolean(video?.id)))
-                : jobForStep?.status === 'completed';
+                : jobForStep?.status === 'completed');
 
               // If video is uploaded and we are at step 2, show active loading state
-              const isStartingStep2 = (video?.status === 'uploaded' || retrying) && stepIndex === 1 && !isStepDone;
+              const isStartingStep2 = isRunning && (video?.status === 'uploaded' || retrying) && stepIndex === 1 && !isStepDone;
 
-              const isStepActive = isUploadStep
+              const isStepActive = isRunning && (isUploadStep
                 ? isUploadActive
                 : jobForStep?.status === 'running' ||
                   video?.status === stepItem.key ||
                   (stepItem.altKey && video?.status === stepItem.altKey) ||
-                  isStartingStep2;
+                  isStartingStep2);
 
               let stepDurationStr = '';
               if (jobForStep && isStepDone && jobForStep.started_at && jobForStep.finished_at) {

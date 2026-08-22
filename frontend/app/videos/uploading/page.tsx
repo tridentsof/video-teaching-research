@@ -181,12 +181,34 @@ export default function VideoUploadingPage() {
     }
   };
 
-  const isCancelled = activeUpload.status === 'cancelled';
-  const isError = activeUpload.status === 'error';
-  const isServerProcessing = activeUpload.status === 'server_processing' || activeUpload.status === 'pipeline_started';
-  const isUploading = activeUpload.status === 'uploading';
+  const isCancelled = activeUpload.status === 'cancelled' || video?.status === 'cancelled';
+  const isError = activeUpload.status === 'error' || video?.status === 'error';
+  const isCompleted = video?.status === 'report_generated';
+  const isRunning = !isCompleted && !isError && !isCancelled;
+  const isUploading = isRunning && activeUpload.status === 'uploading' && !video?.id;
+  const isServerProcessing = isRunning && !isUploading;
   const isChunked = activeUpload.enableChunking;
   const currentStepOrder = isChunked ? chunkedStepOrder : fullVideoStepOrder;
+
+  // Calculate total completed duration across all finished jobs if available
+  const completedJobs = jobs.filter((j) => j.status === 'completed' && j.started_at && j.finished_at);
+  let totalCompletedDuration = elapsedSec;
+  if (completedJobs.length > 0) {
+    const minStart = Math.min(...completedJobs.map((j) => new Date(j.started_at!).getTime()));
+    const maxFinish = Math.max(...completedJobs.map((j) => new Date(j.finished_at!).getTime()));
+    if (maxFinish > minStart) {
+      totalCompletedDuration = Math.round((maxFinish - minStart) / 1000);
+    }
+  }
+
+  // Live stopwatch counter (only increments while running; freezes when complete, cancelled, or error)
+  useEffect(() => {
+    if (!activeUpload || !isRunning) return;
+    const timer = setInterval(() => {
+      setElapsedSec((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [activeUpload, isRunning]);
 
   const currentOverallStatus = isError
     ? 'error'
@@ -234,6 +256,8 @@ export default function VideoUploadingPage() {
                   ? '#FEE2E2'
                   : isCancelled
                   ? '#FEF3C7'
+                  : isCompleted
+                  ? '#DCFCE7'
                   : isServerProcessing || video?.status === 'extracting'
                   ? '#EFF6FF'
                   : '#FAF5EE',
@@ -241,6 +265,8 @@ export default function VideoUploadingPage() {
                   ? '#DC2626'
                   : isCancelled
                   ? '#B45309'
+                  : isCompleted
+                  ? '#166534'
                   : isServerProcessing || video?.status === 'extracting'
                   ? '#2563EB'
                   : 'var(--accent)',
@@ -249,6 +275,8 @@ export default function VideoUploadingPage() {
                     ? '#FECACA'
                     : isCancelled
                     ? '#FDE68A'
+                    : isCompleted
+                    ? '#86EFAC'
                     : isServerProcessing || video?.status === 'extracting'
                     ? '#BFDBFE'
                     : '#E8D9C8'
@@ -267,6 +295,8 @@ export default function VideoUploadingPage() {
                   ? '#DC2626'
                   : isCancelled
                   ? '#B45309'
+                  : isCompleted
+                  ? '#16A34A'
                   : isServerProcessing || video?.status === 'extracting'
                   ? '#2563EB'
                   : 'var(--accent)',
@@ -275,7 +305,7 @@ export default function VideoUploadingPage() {
                 ? 'UPLOAD FAILED'
                 : isCancelled
                 ? 'UPLOAD CANCELLED'
-                : video?.status === 'report_generated'
+                : isCompleted
                 ? 'COMPLETED'
                 : video?.status
                 ? getStatusLabel(video.status).toUpperCase()
@@ -295,8 +325,8 @@ export default function VideoUploadingPage() {
           </h2>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          {(isUploading || isServerProcessing || (video && video.status !== 'report_generated' && video.status !== 'error')) && (
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {isRunning && (
             <button
               onClick={handleCancel}
               disabled={cancelling}
@@ -313,9 +343,9 @@ export default function VideoUploadingPage() {
             </button>
           )}
 
-          {video?.status === 'report_generated' && (
-            <Link href={`/reports/${video.id}`} className="btn btn-primary btn-sm">
-              <FileText size={14} />
+          {isCompleted && (
+            <Link href={`/reports/${video?.id || activeUpload.videoId}`} className="btn btn-primary btn-sm" style={{ padding: '7px 16px', fontWeight: 700, gap: '6px', display: 'inline-flex', alignItems: 'center' }}>
+              <FileText size={15} />
               <span>{t('viewReport')}</span>
             </Link>
           )}
@@ -333,19 +363,19 @@ export default function VideoUploadingPage() {
       {!isError && !isCancelled && (
         <div
           style={{
-            backgroundColor: '#F0FDF4',
-            border: '1px solid #BBF7D0',
+            backgroundColor: isCompleted ? '#F0FDF4' : '#F0FDF4',
+            border: `1px solid ${isCompleted ? '#86EFAC' : '#BBF7D0'}`,
             borderRadius: 'var(--radius-md)',
             padding: '22px',
             display: 'flex',
             flexDirection: 'column',
             gap: '16px',
-            boxShadow: '0 4px 14px rgba(34, 197, 94, 0.12)',
+            boxShadow: isCompleted ? '0 4px 14px rgba(34, 197, 94, 0.08)' : '0 4px 14px rgba(34, 197, 94, 0.12)',
             position: 'relative',
             overflow: 'hidden',
           }}
         >
-          {/* Top animated flowing gradient bar */}
+          {/* Top progress bar: Animated while running, solid green when complete */}
           <div style={{
             position: 'absolute',
             top: 0,
@@ -355,12 +385,16 @@ export default function VideoUploadingPage() {
             backgroundColor: '#DCFCE7',
             overflow: 'hidden',
           }}>
-            <div style={{
-              width: '50%',
-              height: '100%',
-              background: 'linear-gradient(90deg, transparent, #16A34A, #4ADE80, transparent)',
-              animation: 'flowingBar 1.8s ease-in-out infinite',
-            }} />
+            {isCompleted ? (
+              <div style={{ width: '100%', height: '100%', backgroundColor: '#16A34A' }} />
+            ) : (
+              <div style={{
+                width: '50%',
+                height: '100%',
+                background: 'linear-gradient(90deg, transparent, #16A34A, #4ADE80, transparent)',
+                animation: 'flowingBar 1.8s ease-in-out infinite',
+              }} />
+            )}
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
@@ -378,14 +412,20 @@ export default function VideoUploadingPage() {
                   justifyContent: 'center',
                 }}
               >
-                <Loader2 size={18} className="animate-spin" />
+                {isCompleted ? (
+                  <CheckCircle2 size={20} color="#16A34A" />
+                ) : (
+                  <Loader2 size={18} className="animate-spin" />
+                )}
               </div>
               <div>
                 <h4 style={{ fontSize: '15px', fontWeight: 700, color: '#166534' }}>
-                  {t('liveProgressTitle')}
+                  {isCompleted ? 'Classroom Analysis Complete 🎉' : t('liveProgressTitle')}
                 </h4>
                 <p style={{ fontSize: '12px', color: '#15803D' }}>
-                  {isUploading
+                  {isCompleted
+                    ? 'All observation events extracted, deduplicated, mapped to rubric, and report generated.'
+                    : isUploading
                     ? `${t('status')}: ${t('liveUploadingBadge')} (${activeUpload.percentage}%) • ${t('liveProgressDesc')}`
                     : isServerProcessing && !video?.status
                     ? `${t('status')}: ${t('statusPreparing')} • ${t('liveProgressDesc')}`
@@ -395,7 +435,7 @@ export default function VideoUploadingPage() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              {/* Live Running Stopwatch */}
+              {/* Stopwatch Display */}
               <div
                 style={{
                   fontFamily: 'var(--font-mono)',
@@ -416,10 +456,26 @@ export default function VideoUploadingPage() {
                   height: '7px',
                   borderRadius: '50%',
                   backgroundColor: '#16A34A',
-                  boxShadow: '0 0 0 3px rgba(22, 163, 74, 0.25)',
+                  boxShadow: isCompleted ? 'none' : '0 0 0 3px rgba(22, 163, 74, 0.25)',
                 }} />
                 <Timer size={13} color="#166534" strokeWidth={2.2} />
-                <span>{t('pipelineRunningTime')}: <strong>{formatTimer(elapsedSec)}</strong></span>
+                <span>
+                  {isCompleted ? t('pipelineTotalDuration') : t('pipelineRunningTime')}:{' '}
+                  <strong>{formatTimer(isCompleted ? totalCompletedDuration : elapsedSec)}</strong>
+                </span>
+                {isCompleted && (
+                  <span style={{
+                    backgroundColor: '#16A34A',
+                    color: '#FFFFFF',
+                    fontSize: '9.5px',
+                    padding: '1px 6px',
+                    borderRadius: '4px',
+                    fontWeight: 700,
+                    letterSpacing: '0.5px',
+                  }}>
+                    COMPLETED
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -433,28 +489,30 @@ export default function VideoUploadingPage() {
               );
 
               // Upload Step Status
-              const isUploadDone = isUploadStep && (isServerProcessing || Boolean(video?.id));
-              const isUploadActive = isUploadStep && !isUploadDone;
+              const isUploadDone = isUploadStep && (isServerProcessing || isCompleted || Boolean(video?.id));
+              const isUploadActive = isUploadStep && !isUploadDone && isUploading;
 
               // Pipeline Steps Status
-              const isStepDone = isUploadStep ? isUploadDone : jobForStep?.status === 'completed';
+              const isStepDone = isCompleted || (isUploadStep ? isUploadDone : jobForStep?.status === 'completed');
 
               // If video is uploaded and we are at step 2, show active loading state
-              const isStartingStep2 = (video?.status === 'uploaded' || isServerProcessing) && index === 1 && !isStepDone;
+              const isStartingStep2 = isRunning && (video?.status === 'uploaded' || isServerProcessing) && index === 1 && !isStepDone;
 
-              const isStepActive = isUploadStep
-                ? isUploadActive
-                : jobForStep?.status === 'running' ||
-                  video?.status === stepItem.key ||
-                  (stepItem.altKey && video?.status === stepItem.altKey) ||
-                  isStartingStep2;
+              const isStepActive = !isCompleted && (
+                isUploadStep
+                  ? isUploadActive
+                  : jobForStep?.status === 'running' ||
+                    video?.status === stepItem.key ||
+                    (stepItem.altKey && video?.status === stepItem.altKey) ||
+                    isStartingStep2
+              );
 
               return (
                 <div
                   key={stepItem.key}
                   style={{
-                    backgroundColor: isStepActive ? '#FFFFFF' : 'rgba(255, 255, 255, 0.65)',
-                    border: `1px solid ${isStepActive ? '#86EFAC' : '#E5E7EB'}`,
+                    backgroundColor: isCompleted ? '#FFFFFF' : isStepActive ? '#FFFFFF' : 'rgba(255, 255, 255, 0.65)',
+                    border: `1px solid ${isCompleted ? '#BBF7D0' : isStepActive ? '#86EFAC' : '#E5E7EB'}`,
                     borderRadius: 'var(--radius-sm)',
                     padding: '14px 16px',
                     display: 'flex',
@@ -486,10 +544,10 @@ export default function VideoUploadingPage() {
                         <Clock size={16} color="#9CA3AF" />
                       )}
                       <div>
-                        <span style={{ fontSize: '13px', fontWeight: isStepActive ? 700 : 600, color: isStepActive ? '#166534' : 'var(--text-main)' }}>
+                        <span style={{ fontSize: '13px', fontWeight: isStepActive || isCompleted ? 700 : 600, color: isStepActive || isCompleted ? '#166534' : 'var(--text-main)' }}>
                           {t(stepItem.nameKey)}
                         </span>
-                        <span style={{ display: 'block', fontSize: '11px', color: isStepActive ? '#15803D' : 'var(--text-muted)' }}>
+                        <span style={{ display: 'block', fontSize: '11px', color: isStepActive || isCompleted ? '#15803D' : 'var(--text-muted)' }}>
                           {t(stepItem.descKey)}
                         </span>
                       </div>
@@ -580,6 +638,48 @@ export default function VideoUploadingPage() {
               );
             })}
           </div>
+
+          {/* Completion Action Banner */}
+          {isCompleted && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '14px 18px',
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #86EFAC',
+              borderRadius: 'var(--radius-sm)',
+              marginTop: '6px',
+              flexWrap: 'wrap',
+              gap: '12px',
+            }}>
+              <div>
+                <h5 style={{ fontSize: '13px', fontWeight: 700, color: '#166534', marginBottom: '2px' }}>
+                  Research Report Ready
+                </h5>
+                <p style={{ fontSize: '11.5px', color: '#15803D', margin: 0 }}>
+                  {events.length} pedagogical events extracted and rubric checklist statistics computed.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <Link
+                  href={`/reports/${video?.id || activeUpload.videoId}`}
+                  className="btn btn-primary btn-sm"
+                  style={{ gap: '6px', display: 'inline-flex', alignItems: 'center', fontWeight: 700 }}
+                >
+                  <FileText size={14} />
+                  <span>{t('viewReport')}</span>
+                </Link>
+                <Link
+                  href="/"
+                  onClick={clearUpload}
+                  className="btn btn-secondary btn-sm"
+                >
+                  <span>{t('commonBackVideos')}</span>
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -595,12 +695,22 @@ export default function VideoUploadingPage() {
           <h3 style={{ fontSize: '15px', fontWeight: 700 }}>
             {t('analysisProgress')}
           </h3>
-          <span style={{ fontSize: '12px', color: isCancelled ? '#B45309' : isError ? '#DC2626' : 'var(--accent)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {!isCancelled && !isError && <Loader2 size={12} className="animate-spin" />}
+          <span style={{
+            fontSize: '12px',
+            color: isCancelled ? '#B45309' : isError ? '#DC2626' : isCompleted ? '#166534' : 'var(--accent)',
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            {isRunning && <Loader2 size={12} className="animate-spin" />}
+            {isCompleted && <Check size={14} strokeWidth={3} color="#16A34A" />}
             {isCancelled
               ? 'Cancelled'
               : isError
               ? 'Failed'
+              : isCompleted
+              ? 'COMPLETED'
               : isServerProcessing
               ? t('liveProcessingBadge')
               : `${t('liveUploadingBadge')} (${activeUpload.percentage}%)`}
@@ -632,23 +742,31 @@ export default function VideoUploadingPage() {
 
         {events.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 18px', backgroundColor: '#FAF8F4', borderRadius: 'var(--radius-sm)', border: '1px solid var(--card-border)' }}>
-              <Loader2 size={16} className="animate-spin" color="var(--accent)" />
-              <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                {t('waitingEventsStream')}
-              </span>
-            </div>
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="animate-shimmer"
-                style={{
-                  height: '68px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--card-border)',
-                }}
-              />
-            ))}
+            {isRunning ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 18px', backgroundColor: '#FAF8F4', borderRadius: 'var(--radius-sm)', border: '1px solid var(--card-border)' }}>
+                  <Loader2 size={16} className="animate-spin" color="var(--accent)" />
+                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                    {t('waitingEventsStream')}
+                  </span>
+                </div>
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="animate-shimmer"
+                    style={{
+                      height: '68px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--card-border)',
+                    }}
+                  />
+                ))}
+              </>
+            ) : (
+              <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', backgroundColor: '#FAF8F4', borderRadius: 'var(--radius-sm)' }}>
+                No pedagogical events detected for this recording.
+              </div>
+            )}
           </div>
         ) : (
           <EventTimeline events={events} />
