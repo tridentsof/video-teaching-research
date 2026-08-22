@@ -1,8 +1,9 @@
 module github.com/video-teaching-research/backend
 
-go 1.26.5
+go 1.25.0
 
 require (
+	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
@@ -14,7 +15,6 @@ require (
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.22.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.0 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic v1.15.0 // indirect
 	github.com/bytedance/sonic/loader v0.5.0 // indirect

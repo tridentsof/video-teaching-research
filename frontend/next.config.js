@@ -4,6 +4,11 @@ const backendUrl = process.env.BACKEND_INTERNAL_URL || 'http://localhost:8000';
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '2gb',
+    },
+  },
   async rewrites() {
     return [
       {
