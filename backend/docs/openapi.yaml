@@ -1,0 +1,1110 @@
+openapi: 3.0.3
+info:
+  title: Video Teaching Research API
+  version: 1.0.0
+  description: |
+    Multi-modal AI classroom video observation & teaching strategy analysis platform.
+    Features automated video chunking, Gemini multimodal extraction, Claude 3.5 checklist mapping, and Grounded Theory theme synthesis.
+servers:
+  - url: http://localhost:8000
+    description: Local Backend Server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Enter your JWT token (e.g. from /api/auth/login or /api/auth/register)
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: invalid request payload
+
+    SuccessMessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: operation completed successfully
+
+    RegisterRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: researcher1
+        password:
+          type: string
+          example: securepass123
+
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: researcher1
+        password:
+          type: string
+          example: securepass123
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        user:
+          $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+          example: researcher1
+        created_at:
+          type: string
+          format: date-time
+
+    ChecklistItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        checklist_id:
+          type: string
+          format: uuid
+        section:
+          type: string
+          example: Warm-up & Engagement
+        text:
+          type: string
+          example: Teacher greets students warmly and sets clear expectations
+        sort_order:
+          type: integer
+          example: 1
+        created_at:
+          type: string
+          format: date-time
+
+    ChecklistItemInput:
+      type: object
+      required:
+        - section
+        - text
+        - sort_order
+      properties:
+        section:
+          type: string
+          example: Warm-up & Engagement
+        text:
+          type: string
+          example: Teacher greets students warmly and sets clear expectations
+        sort_order:
+          type: integer
+          example: 1
+
+    Checklist:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Standard Classroom Observation Protocol
+        version:
+          type: string
+          example: v1.0
+        created_at:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChecklistItem'
+
+    CreateChecklistRequest:
+      type: object
+      required:
+        - name
+        - version
+        - items
+      properties:
+        name:
+          type: string
+          example: Secondary English Observation Criteria
+        version:
+          type: string
+          example: v1.1
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChecklistItemInput'
+
+    UpdateItemsRequest:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChecklistItemInput'
+
+    Video:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        teacher_id:
+          type: string
+          example: T01
+        title:
+          type: string
+          example: Period 3 - English Literature Discussion
+        blob_url:
+          type: string
+          nullable: true
+          example: /storage/videos/T01/video1.mp4
+        duration_sec:
+          type: integer
+          nullable: true
+          example: 2700
+        status:
+          type: string
+          example: completed
+          enum: [uploaded, chunking, extracting, deduplicating, mapping, reporting, completed, failed]
+        uploaded_at:
+          type: string
+          format: date-time
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+
+    TriggerPipelineRequest:
+      type: object
+      properties:
+        checklist_id:
+          type: string
+          format: uuid
+          description: Optional specific checklist ID to map against. If omitted, latest is used.
+
+    PipelineStatus:
+      type: object
+      properties:
+        video_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          example: completed
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/PipelineJob'
+
+    PipelineJob:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        video_id:
+          type: string
+          format: uuid
+        step:
+          type: string
+          example: gemini_extraction
+        status:
+          type: string
+          example: completed
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        error_msg:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    RawEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        video_id:
+          type: string
+          format: uuid
+        teacher_id:
+          type: string
+          example: T01
+        chunk_id:
+          type: string
+          format: uuid
+          nullable: true
+        timestamp_sec:
+          type: number
+          format: float
+          example: 124.5
+        event_type:
+          type: string
+          example: visual
+        event_key:
+          type: string
+          example: teacher_board_writing
+        description:
+          type: string
+          example: Teacher writes key vocabulary words on the whiteboard
+        confidence:
+          type: number
+          format: float
+          nullable: true
+          example: 0.95
+        duration_sec:
+          type: number
+          format: float
+          nullable: true
+          example: 12.0
+        is_duplicate_of:
+          type: string
+          format: uuid
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    Report:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        video_id:
+          type: string
+          format: uuid
+        teacher_id:
+          type: string
+          example: T01
+        checklist_id:
+          type: string
+          format: uuid
+        checklist_version:
+          type: string
+          nullable: true
+          example: v1.0
+        markdown_content:
+          type: string
+          example: "# Classroom Observation Report for T01..."
+        generated_at:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportItem'
+
+    ReportItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        report_id:
+          type: string
+          format: uuid
+        checklist_item_id:
+          type: string
+          format: uuid
+        checklist_section:
+          type: string
+          example: Engagement
+        checklist_text:
+          type: string
+          example: Formative questioning
+        count:
+          type: integer
+          example: 8
+        avg_confidence:
+          type: number
+          format: float
+          nullable: true
+          example: 0.92
+        avg_duration_sec:
+          type: number
+          format: float
+          nullable: true
+          example: 15.4
+        occurrences:
+          type: string
+          example: "[{\"timestamp_sec\":120,\"confidence\":0.9,\"duration_sec\":10}]"
+
+    AnalysisRun:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        triggered_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          example: completed
+        config:
+          type: string
+          example: "{}"
+        error_msg:
+          type: string
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    Theme:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        analysis_run_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Scaffolding Autonomy in Guided Practice
+        description:
+          type: string
+          nullable: true
+          example: Teachers progressively reduce direct guidance while prompting peer review
+        reasoning_trace:
+          type: string
+          nullable: true
+        category_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        status:
+          type: string
+          example: confirmed
+          enum: [draft, confirmed]
+        created_at:
+          type: string
+          format: date-time
+
+    UpdateThemeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Advanced Scaffolding Strategies
+        description:
+          type: string
+          example: Updated qualitative description
+        status:
+          type: string
+          enum: [draft, confirmed]
+
+    MergeThemesRequest:
+      type: object
+      required:
+        - target_theme_id
+        - source_theme_id
+      properties:
+        target_theme_id:
+          type: string
+          format: uuid
+        source_theme_id:
+          type: string
+          format: uuid
+
+    InterviewQuestion:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        teacher_analysis_id:
+          type: string
+          format: uuid
+        teacher_id:
+          type: string
+          example: T01
+        type:
+          type: string
+          example: dynamic
+          enum: [core, dynamic]
+        question_text:
+          type: string
+          example: At 14:32 you paused after presenting the equation. What guided your choice?
+        evidence_ref:
+          type: string
+          nullable: true
+          example: Timestamp 14:32 (Wait-time Strategy)
+        sort_order:
+          type: integer
+          example: 1
+        created_at:
+          type: string
+          format: date-time
+
+    TeacherAnalysis:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        analysis_run_id:
+          type: string
+          format: uuid
+        teacher_id:
+          type: string
+          example: T01
+        theme_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        context_summary:
+          type: string
+          nullable: true
+        markdown_content:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+paths:
+  /healthz:
+    get:
+      tags:
+        - Health
+      summary: Health Check
+      description: Returns server operational status
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: video-teaching-research-api
+
+  /api/auth/register:
+    post:
+      tags:
+        - Auth
+      summary: Register a new user
+      description: Creates a new user account and returns JWT credentials
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid request payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Username already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/login:
+    post:
+      tags:
+        - Auth
+      summary: User login
+      description: Authenticates user and returns JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid username or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/me:
+    get:
+      tags:
+        - Auth
+      summary: Get current authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: string
+                    format: uuid
+                  username:
+                    type: string
+        '401':
+          description: Unauthorized
+
+  /api/checklists:
+    get:
+      tags:
+        - Checklists
+      summary: List all observation checklists
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of checklists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checklists:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Checklist'
+    post:
+      tags:
+        - Checklists
+      summary: Create an observation checklist
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChecklistRequest'
+      responses:
+        '201':
+          description: Checklist created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Checklist'
+
+  /api/checklists/{id}:
+    get:
+      tags:
+        - Checklists
+      summary: Get checklist details by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Checklist details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Checklist'
+        '404':
+          description: Checklist not found
+    delete:
+      tags:
+        - Checklists
+      summary: Delete a checklist
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Checklist deleted
+
+  /api/checklists/{id}/items:
+    put:
+      tags:
+        - Checklists
+      summary: Replace all items for a checklist
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateItemsRequest'
+      responses:
+        '200':
+          description: Items updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Checklist'
+
+  /api/videos:
+    get:
+      tags:
+        - Videos
+      summary: List all uploaded classroom videos
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of videos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  videos:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Video'
+
+  /api/videos/upload:
+    post:
+      tags:
+        - Videos
+      summary: Upload a classroom observation video
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - teacher_id
+                - file
+              properties:
+                teacher_id:
+                  type: string
+                  description: Teacher identifier code (e.g. T01)
+                  example: T01
+                title:
+                  type: string
+                  description: Optional title for the recording
+                  example: Period 2 Math Lesson
+                file:
+                  type: string
+                  format: binary
+                  description: Video file (MP4, MKV, MOV - max 2GB)
+      responses:
+        '201':
+          description: Video uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Video'
+        '400':
+          description: Missing teacher_id or file
+
+  /api/videos/{id}:
+    get:
+      tags:
+        - Videos
+      summary: Get video record by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Video details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Video'
+        '404':
+          description: Video not found
+
+  /api/videos/{id}/process:
+    post:
+      tags:
+        - Pipeline
+      summary: Trigger the multimodal analysis pipeline
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriggerPipelineRequest'
+      responses:
+        '200':
+          description: Pipeline triggered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: pipeline started successfully
+                  video_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    example: running
+
+  /api/videos/{id}/pipeline:
+    get:
+      tags:
+        - Pipeline
+      summary: Get pipeline execution progress and job steps
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Pipeline step progression
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PipelineStatus'
+
+  /api/videos/{id}/events:
+    get:
+      tags:
+        - Pipeline
+      summary: Get extracted raw multimodal event stream
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: include_duplicates
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: List of raw events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RawEvent'
+
+  /api/reports/video/{video_id}:
+    get:
+      tags:
+        - Reports
+      summary: Get structured report and checklist occurrences for a video
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: video_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Video analysis report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Report'
+        '404':
+          description: Report not found
+
+  /api/reports/video/{video_id}/export.md:
+    get:
+      tags:
+        - Reports
+      summary: Download full observation report in Markdown format
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: video_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Markdown report file
+          content:
+            text/markdown:
+              schema:
+                type: string
+
+  /api/analysis/run:
+    post:
+      tags:
+        - Analysis
+      summary: Trigger Phase 6 cross-video Grounded Theory analysis
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Analysis run triggered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisRun'
+
+  /api/analysis/{run_id}/themes:
+    get:
+      tags:
+        - Analysis
+      summary: Get qualitative teaching themes discovered during analysis
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: run_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Discovered themes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  themes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Theme'
+
+  /api/analysis/themes/{id}:
+    put:
+      tags:
+        - Analysis
+      summary: Edit or update a teaching theme
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateThemeRequest'
+      responses:
+        '200':
+          description: Theme updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+
+  /api/analysis/themes/merge:
+    post:
+      tags:
+        - Analysis
+      summary: Merge two complementary teaching themes
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MergeThemesRequest'
+      responses:
+        '200':
+          description: Themes merged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+
+  /api/analysis/themes/{id}/confirm:
+    put:
+      tags:
+        - Analysis
+      summary: Confirm and finalize a theme status
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Theme confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+
+  /api/analysis/{run_id}/teachers/{teacher_id}:
+    get:
+      tags:
+        - Analysis
+      summary: Get per-teacher qualitative summary and generated interview questions
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: run_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: teacher_id
+          required: true
+          schema:
+            type: string
+            example: T01
+      responses:
+        '200':
+          description: Teacher analysis and interview questions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  teacher_analysis:
+                    $ref: '#/components/schemas/TeacherAnalysis'
+                  interview_questions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/InterviewQuestion'
+
+  /api/analysis/{run_id}/teachers/{teacher_id}/interview.md:
+    get:
+      tags:
+        - Analysis
+      summary: Download teacher interview guide in Markdown format
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: run_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: teacher_id
+          required: true
+          schema:
+            type: string
+            example: T01
+      responses:
+        '200':
+          description: Markdown interview guide
+          content:
+            text/markdown:
+              schema:
+                type: string

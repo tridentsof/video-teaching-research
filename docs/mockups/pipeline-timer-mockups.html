@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockups: Pipeline Execution Timer & Step Duration Telemetry</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #F7F5F0;
+      --card-bg: #FFFFFF;
+      --card-border: #E8E2D8;
+      --card-border-soft: #EFEBE4;
+      --text-main: #2C2621;
+      --text-muted: #736B63;
+      --accent: #9E4A28;
+      --accent-soft: rgba(158, 74, 40, 0.08);
+      --accent-green: #15803D;
+      --accent-green-soft: #DCFCE7;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --shadow-sm: 0 1px 3px rgba(44, 38, 33, 0.04), 0 1px 2px rgba(44, 38, 33, 0.02);
+      --shadow-md: 0 4px 14px rgba(44, 38, 33, 0.08);
+      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-serif: 'Newsreader', Georgia, serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg);
+      color: var(--text-main);
+      padding: 40px 24px;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1040px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+    }
+
+    .header-banner {
+      background: linear-gradient(135deg, #2C2621 0%, #3D352E 100%);
+      color: #FFFFFF;
+      padding: 28px 32px;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-md);
+    }
+    .header-banner h1 {
+      font-family: var(--font-serif);
+      font-size: 30px;
+      font-weight: 400;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+      color: #FAF8F4;
+    }
+    .header-banner p {
+      color: #D1C7BA;
+      font-size: 14px;
+      max-width: 750px;
+    }
+
+    .variant-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 28px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .variant-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--card-border-soft);
+    }
+    .variant-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--accent-soft);
+      color: var(--accent);
+      padding: 4px 10px;
+      border-radius: 6px;
+      text-transform: uppercase;
+    }
+
+    /* Live Timer Console Box */
+    .live-console {
+      background: #F0FDF4;
+      border: 1px solid #BBF7D0;
+      border-radius: var(--radius-md);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 14px rgba(34, 197, 94, 0.12);
+    }
+
+    .top-flowing-bar {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: #DCFCE7;
+      overflow: hidden;
+    }
+    .top-flowing-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, transparent, #16A34A, #4ADE80, transparent);
+      width: 50%;
+      animation: flowing 1.8s infinite ease-in-out;
+    }
+
+    .timer-badge-live {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      color: #166534;
+      background: #DCFCE7;
+      border: 1px solid #86EFAC;
+      padding: 4px 12px;
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #16A34A;
+      box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.7);
+      animation: pulse 1.6s infinite;
+    }
+
+    .step-item {
+      background: rgba(255, 255, 255, 0.75);
+      border: 1px solid #E5E7EB;
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s ease;
+    }
+    .step-item.active {
+      background: #FFFFFF;
+      border-color: #86EFAC;
+      box-shadow: 0 2px 8px rgba(34, 197, 94, 0.1);
+    }
+
+    /* Completed Telemetry Banner */
+    .completed-console {
+      background: #FAF8F4;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 20px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .duration-stat-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .duration-stat-value {
+      font-family: var(--font-mono);
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--accent);
+    }
+    .duration-stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    @keyframes flowing {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(200%); }
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(22, 163, 74, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header-banner">
+    <h1>Pipeline Execution Timer & Step Duration Telemetry</h1>
+    <p>Giải pháp đếm thời gian thực thi của quy trình phân tích AI theo thời gian thực (Live Stopwatch) và thống kê thời lượng từng bước chi tiết (Per-step Duration Analysis).</p>
+  </div>
+
+  <!-- Variant A: Live Stopwatch Console + Per-step Telemetry Badges (Recommended) -->
+  <div class="variant-card">
+    <div class="variant-header">
+      <div>
+        <h2 style="font-size: 18px; font-weight: 700; color: var(--text-main);">Option 1: Đồng Hồ Đếm Giờ Trực Tiếp (Live Stopwatch) + Thời Lượng Từng Bước</h2>
+        <p style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">
+          Hiển thị đồng hồ đếm giây nhảy theo thời gian thực ở tiêu đề card phân tích, kèm mốc thời gian đã xử lý của từng bước (Step Duration).
+        </p>
+      </div>
+      <span class="variant-tag">Recommended</span>
+    </div>
+
+    <!-- Live Execution Preview -->
+    <div class="live-console">
+      <div class="top-flowing-bar">
+        <div class="top-flowing-bar-fill"></div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 38px; height: 38px; border-radius: 50%; background: #DCFCE7; border: 1px solid #86EFAC; display: flex; align-items: center; justify-content: center; color: var(--accent-green); font-size: 18px;">
+            ⚡
+          </div>
+          <div>
+            <h4 style="font-size: 16px; font-weight: 700; color: #166534;">Tiến Trình Phân Tích Trực Tiếp</h4>
+            <p style="font-size: 12px; color: #15803D;">Trạng thái: <strong>Extracting</strong> • Gemini 2.5 Multimodal đang trích xuất hành vi</p>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <!-- Live Elapsed Timer Pill -->
+          <div class="timer-badge-live">
+            <span class="pulse-dot"></span>
+            <span>⏱️ Đã chạy: <strong>01:45</strong></span>
+          </div>
+
+          <button style="background: #FEF2F2; border: 1px solid #FECACA; color: #DC2626; font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 6px; cursor: pointer;">
+            ■ Dừng
+          </button>
+        </div>
+      </div>
+
+      <!-- Step List with Live & Completed Timers -->
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <!-- Step 1: Upload (Completed) -->
+        <div class="step-item">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="color: var(--accent-green); font-size: 16px;">✓</span>
+            <div>
+              <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">Bước 1: Tải Lên & Lưu Trữ Đám Mây</span>
+              <span style="display: block; fontSize: 11px; color: var(--text-muted);">Lưu video an toàn vào Azure Blob Storage</span>
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <span style="font-size: 11px; font-weight: 700; color: var(--accent-green); font-family: var(--font-mono);">
+              ✓ Hoàn tất (3.2s)
+            </span>
+          </div>
+        </div>
+
+        <!-- Step 2: Extraction (Active with live timer) -->
+        <div class="step-item active">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 20px; height: 20px; border-radius: 50%; background: #DCFCE7; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #166534; font-weight: 700;">
+              ⏳
+            </div>
+            <div>
+              <span style="font-size: 13px; font-weight: 700; color: #166534;">Bước 2: Nhận Diện Hành Vi Giảng Dạy (Gemini AI)</span>
+              <span style="display: block; fontSize: 11px; color: #15803D;">Quan sát ngôn ngữ cơ thể, luân phiên lượt lời và nề nếp</span>
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <span style="font-size: 12px; font-weight: 700; color: #166534; font-family: var(--font-mono); background: #DCFCE7; border: 1px solid #86EFAC; padding: 3px 8px; border-radius: 4px;">
+              Đang xử lý (01:42)
+            </span>
+          </div>
+        </div>
+
+        <!-- Step 3: Normalization (Queued) -->
+        <div class="step-item">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="color: #9CA3AF; font-size: 14px;">🕒</span>
+            <div>
+              <span style="font-size: 13px; font-weight: 500; color: var(--text-muted);">Bước 3: Chuẩn Hóa Dòng Thời Gian</span>
+              <span style="display: block; fontSize: 11px; color: var(--text-muted);">Định dạng mốc thời gian và khử trùng sự kiện</span>
+            </div>
+          </div>
+          <span style="font-size: 11px; color: #9CA3AF; font-weight: 500;">Đang chờ</span>
+        </div>
+
+        <!-- Step 4: Checklist Mapping (Queued) -->
+        <div class="step-item">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="color: #9CA3AF; font-size: 14px;">🕒</span>
+            <div>
+              <span style="font-size: 13px; font-weight: 500; color: var(--text-muted);">Bước 4: Khớp Tiêu Chí Quan Sát</span>
+              <span style="display: block; fontSize: 11px; color: var(--text-muted);">Ánh xạ các sự kiện vào 5 nhóm tiêu chí Sections A–E</span>
+            </div>
+          </div>
+          <span style="font-size: 11px; color: #9CA3AF; font-weight: 500;">Đang chờ</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Variant B: Completed Summary Card with Total Duration Breakdown -->
+  <div class="variant-card">
+    <div class="variant-header">
+      <div>
+        <h2 style="font-size: 18px; font-weight: 700; color: var(--text-main);">Option 2: Thẻ Tổng Kết Thời Gian Khi Hoàn Tất Phân Tích</h2>
+        <p style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">
+          Khi pipeline hoàn tất, hiển thị thẻ tổng kết thời lượng phân tích, số sự kiện trích xuất và chi tiết thời gian thực thi của từng công đoạn.
+        </p>
+      </div>
+      <span class="variant-tag">Completed State</span>
+    </div>
+
+    <!-- Completed Telemetry Preview -->
+    <div class="completed-console">
+      <div style="display: flex; align-items: center; gap: 14px;">
+        <div style="width: 44px; height: 44px; border-radius: 50%; background: var(--accent-soft); border: 1px solid #E8D9C8; display: flex; align-items: center; justify-content: center; font-size: 22px;">
+          ⏱️
+        </div>
+        <div>
+          <h4 style="font-size: 15px; font-weight: 700; color: var(--text-main);">Hiệu Năng Phân Tích AI</h4>
+          <p style="font-size: 12px; color: var(--text-muted);">Toàn bộ quy trình từ tải video đến sinh báo cáo đã hoàn tất xuất sắc</p>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 24px; align-items: center;">
+        <div class="duration-stat-item">
+          <span class="duration-stat-value">02:18</span>
+          <span class="duration-stat-label">Tổng Thời Gian</span>
+        </div>
+        <div style="width: 1px; height: 28px; background: var(--card-border);"></div>
+        <div class="duration-stat-item">
+          <span class="duration-stat-value" style="color: var(--accent-green);">18</span>
+          <span class="duration-stat-label">Sự Kiện Thu Thập</span>
+        </div>
+        <div style="width: 1px; height: 28px; background: var(--card-border);"></div>
+        <div class="duration-stat-item">
+          <span class="duration-stat-value" style="color: #2563EB;">100%</span>
+          <span class="duration-stat-label">Khớp Tiêu Chí</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#221A15"/>
+      <stop offset="100%" stop-color="#120E0B"/>
+    </linearGradient>
+    <linearGradient id="terracottaGrad" x1="40" y1="40" x2="88" y2="88" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#D96A3F"/>
+      <stop offset="100%" stop-color="#9E4A28"/>
+    </linearGradient>
+    <filter id="centerGlow" x="36" y="36" width="56" height="56" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#9E4A28" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Background Base Container -->
+  <rect width="128" height="128" rx="28" fill="url(#bgGrad)"/>
+  <rect x="2" y="2" width="124" height="124" rx="26" stroke="#9E4A28" stroke-width="2.5" stroke-opacity="0.35"/>
+
+  <!-- Studio Viewfinder Corner Brackets -->
+  <path d="M26 48 V32 C26 28.6863 28.6863 26 32 26 H48" stroke="#D96A3F" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M102 48 V32 C102 28.6863 99.3137 26 96 26 H80" stroke="#D96A3F" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M26 80 V96 C26 99.3137 28.6863 102 32 102 H48" stroke="#D96A3F" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M102 80 V96 C102 99.3137 99.3137 102 96 102 H80" stroke="#D96A3F" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Multimodal Signal Status Dot (Top Center - Active Observation) -->
+  <circle cx="64" cy="20" r="4.5" fill="#10B981"/>
+
+  <!-- Center Video Observation Core (Rounded Square with Play Glyph) -->
+  <rect x="44" y="44" width="40" height="40" rx="12" fill="url(#terracottaGrad)" filter="url(#centerGlow)"/>
+  <polygon points="59,54 75,64 59,74" fill="#FFF8F0"/>
+
+  <!-- Acoustic / Timeline Grounded Theory Dot (Bottom Center) -->
+  <circle cx="64" cy="108" r="3.5" fill="#F59E0B" fill-opacity="0.85"/>
+</svg>

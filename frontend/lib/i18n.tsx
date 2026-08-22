@@ -1,0 +1,325 @@
+'use client';
+
+import React, { createContext, useContext, useState, useEffect } from 'react';
+
+export type Language = 'en' | 'vi';
+
+interface TranslationDict {
+  [key: string]: {
+    en: string;
+    vi: string;
+  };
+}
+
+export const translations: TranslationDict = {
+  // Brand & Sidebar
+  brandTitle: { en: 'Observation Studio', vi: 'Observation Studio' },
+  brandSub: { en: 'Classroom Video Lab', vi: 'Classroom Video Lab' },
+  navVideos: { en: 'Video Repository', vi: 'Kho Video Bài Giảng' },
+  navUpload: { en: 'Upload Video', vi: 'Tải Lên Video' },
+  navChecklists: { en: 'Observation Checklist', vi: 'Khung Tiêu Chí Quan Sát' },
+  navReports: { en: 'Reports & Stats', vi: 'Báo Cáo & Thống Kê' },
+  navThemes: { en: 'Teaching Themes', vi: 'Chiến Lược & Chủ Đề' },
+  navInterview: { en: 'Interview Studio', vi: 'Bộ Câu Hỏi Phỏng Vấn' },
+  navApiDocs: { en: 'API Docs', vi: 'Tài Liệu API' },
+  language: { en: 'Language', vi: 'Ngôn Ngữ' },
+
+  // Common UI Actions & Words
+  commonBack: { en: 'Back', vi: 'Quay Lại' },
+  commonBackVideos: { en: 'Back to Video Repository', vi: 'Quay Lại Kho Video' },
+  commonBackReports: { en: 'Back to Reports List', vi: 'Quay Lại Danh Sách Báo Cáo' },
+  commonRefresh: { en: 'Refresh', vi: 'Làm Mới' },
+  commonSave: { en: 'Save', vi: 'Lưu' },
+  commonSaving: { en: 'Saving...', vi: 'Đang Lưu...' },
+  commonCancel: { en: 'Cancel', vi: 'Hủy' },
+  commonAdd: { en: 'Add', vi: 'Thêm' },
+  commonAddItem: { en: 'Add Item', vi: 'Thêm Tiêu Chí' },
+  commonDelete: { en: 'Delete', vi: 'Xóa' },
+  commonEdit: { en: 'Edit', vi: 'Chỉnh Sửa' },
+  commonDetails: { en: 'Details', vi: 'Chi Tiết' },
+  commonStop: { en: 'Stop', vi: 'Dừng' },
+  commonStopping: { en: 'Stopping...', vi: 'Đang Dừng...' },
+  commonRestarting: { en: 'Restarting...', vi: 'Đang Khởi Động Lại...' },
+  commonDone: { en: 'Done', vi: 'Hoàn Thành' },
+  commonFailed: { en: 'Failed', vi: 'Thất Bại' },
+  commonInProgress: { en: 'In Progress', vi: 'Đang Xử Lý' },
+  commonQueued: { en: 'Queued', vi: 'Đang Chờ' },
+  commonCopy: { en: 'Copy Text', vi: 'Sao Chép' },
+  commonCopied: { en: 'Copied', vi: 'Đã Sao Chép' },
+  commonCopyQuestions: { en: 'Copy Questions', vi: 'Sao Chép Câu Hỏi' },
+  commonActive: { en: 'Active', vi: 'Đang Chạy' },
+  commonNeedsReview: { en: 'Needs Review', vi: 'Cần Xem Lại' },
+
+  // Dashboard & Video List
+  dashboardTitle: { en: 'Classroom Video Analysis', vi: 'Phân Tích Video Giảng Dạy' },
+  dashboardDesc: {
+    en: 'AI-assisted video analysis, observation checklist matching, and qualitative teaching strategy synthesis.',
+    vi: 'Tự động nhận diện hành vi trong lớp, đối chiếu khung tiêu chí quan sát và tổng hợp chiến lược giảng dạy.'
+  },
+  uploadNewLesson: { en: 'Upload Lesson Video', vi: 'Tải Video Bài Giảng' },
+  status: { en: 'Status', vi: 'Trạng Thái' },
+  bannerUploadRunningTitle: { en: 'Video Analysis Pipeline Running', vi: 'Tiến Trình Phân Tích Video Đang Chạy' },
+  bannerUploadRunningDesc: { en: 'A lesson video is currently uploading and being analyzed by Gemini AI.', vi: 'Một bài giảng đang được tải lên và phân tích tự động bằng Gemini AI.' },
+  btnViewLiveProgress: { en: 'View Live Progress', vi: 'Xem Tiến Trình Trực Tiếp' },
+  teacher: { en: 'Teacher', vi: 'Giáo Viên' },
+  lessonTitle: { en: 'Lesson Title', vi: 'Tiêu Đề Bài Giảng' },
+  duration: { en: 'Duration', vi: 'Thời Lượng' },
+  uploadedAt: { en: 'Uploaded At', vi: 'Ngày Tải Lên' },
+  actions: { en: 'Actions', vi: 'Thao Tác' },
+  runPipeline: { en: 'Start Analysis', vi: 'Bắt Đầu Phân Tích' },
+  rerunPipeline: { en: 'Re-run Analysis', vi: 'Chạy Lại Phân Tích' },
+  retryAnalysis: { en: 'Retry Analysis', vi: 'Thử Lại Phân Tích' },
+  viewReport: { en: 'View Report', vi: 'Xem Báo Cáo' },
+  reviewEvents: { en: 'Review Events', vi: 'Xem Sự Kiện' },
+  eventsList: { en: 'Events', vi: 'Sự Kiện' },
+  inspectError: { en: 'Inspect Error', vi: 'Kiểm Tra Lỗi' },
+  videosInRepo: { en: 'videos in repository', vi: 'video trong kho bài giảng' },
+  statTotalLessons: { en: 'Total Lessons', vi: 'Tổng Số Bài Giảng' },
+  statObservedTeachers: { en: 'Observed Teachers', vi: 'Giáo Viên Quan Sát' },
+  statChecklistCriteria: { en: 'Checklist Criteria', vi: 'Tiêu Chí Quan Sát' },
+  statTeachingThemes: { en: 'Teaching Themes', vi: 'Chiến Lược Sư Phạm' },
+  statTarget24: { en: 'Target: 24 Videos', vi: 'Mục Tiêu: 24 Video' },
+  statSectionsAE: { en: 'Sections A–E', vi: 'Sections A–E' },
+  statSynthesized: { en: 'Synthesized', vi: 'Đã Tổng Hợp' },
+
+  // Upload Page
+  uploadDesc: {
+    en: 'Upload recorded Zoom MP4 lessons (up to 2GB) for automated classroom event extraction & observation checklist matching.',
+    vi: 'Tải video bài giảng Zoom MP4 (tối đa 2GB) để tự động trích xuất sự kiện lớp học và khớp tiêu chí quan sát.'
+  },
+  uploadTeacherId: { en: 'Teacher ID *', vi: 'Mã Giáo Viên *' },
+  uploadLessonTitle: { en: 'Lesson Title', vi: 'Tiêu Đề Bài Giảng' },
+  uploadTitlePlaceholder: { en: 'e.g. Lesson 1 — Phonics & Turn-Taking Routines', vi: 'VD: Lesson 1 — Phonics & Turn-Taking Routines' },
+  uploadVideoFile: { en: 'Video File (.mp4) *', vi: 'Tệp Video (.mp4) *' },
+  uploadDropPrompt: { en: 'Click or drag Zoom MP4 file here', vi: 'Nhấn hoặc kéo thả tệp video MP4 vào đây' },
+  uploadDropSub: { en: 'Max 2GB per video recording (720p Recommended)', vi: 'Tối đa 2GB mỗi video bài giảng (khuyến nghị độ phân giải 720p)' },
+  uploadProcessingMode: { en: 'Video Processing Mode', vi: 'Chế Độ Phân Tích Video' },
+  uploadChooseMode: { en: 'Choose processing mode', vi: 'Chọn phương pháp xử lý' },
+  uploadModeSplit: { en: 'Split into 10-minute parts', vi: 'Chia nhỏ 10 phút/đoạn' },
+  uploadModeSplitDesc: {
+    en: 'Splits video into 10-min parts. Recommended for longer lessons (> 10 mins) to accurately capture turn-taking and classroom routines.',
+    vi: 'Chia nhỏ video thành từng đoạn 10 phút. Khuyến nghị cho bài giảng dài (> 10 phút) để nhận diện chi tiết luân phiên lượt lời và nề nếp lớp học.'
+  },
+  uploadModeFull: { en: 'Process full video', vi: 'Phân tích toàn bộ video' },
+  uploadModeFullDesc: {
+    en: 'Analyzes the whole video in one pass. Faster, best suited for short teaching clips (< 10 mins).',
+    vi: 'Phân tích trực tiếp toàn bộ video liên tục. Xử lý nhanh hơn, phù hợp với các video/clip ngắn (< 10 phút).'
+  },
+  uploadRecommended: { en: 'Recommended', vi: 'Khuyến Nghị' },
+  uploadPreview: { en: 'Preview', vi: 'Bản Thử Nghiệm' },
+  uploadDefault: { en: 'Default', vi: 'Mặc Định' },
+  uploadDirect: { en: 'Direct', vi: 'Trực Tiếp' },
+  uploadBtnSubmit: { en: 'Upload & Start Analysis', vi: 'Tải Lên & Bắt Đầu Phân Tích' },
+  uploadBtnUploading: { en: 'Uploading video...', vi: 'Đang tải video lên...' },
+
+  // Stepper (Steps)
+  stepUpload: { en: 'Upload', vi: 'Tải Lên' },
+  stepChunking: { en: 'Video Slicing', vi: 'Cắt Đoạn (10p)' },
+  stepExtraction: { en: 'AI Extraction', vi: 'Nhận Diện Hành Vi' },
+  stepDeduplication: { en: 'Deduplication', vi: 'Gộp & Khử Trùng' },
+  stepNormalization: { en: 'Timeline Normalization', vi: 'Chuẩn Hóa Dòng Thời Gian' },
+  stepMapping: { en: 'Checklist Match', vi: 'Khớp Tiêu Chí' },
+  stepReport: { en: 'Report & Stats', vi: 'Báo Cáo & Thống Kê' },
+
+  // Video Detail & Pipeline Live
+  analysisProgress: { en: 'Analysis Progress', vi: 'Tiến Trình Phân Tích' },
+  liveProgressTitle: { en: 'Real-time Analysis Progress', vi: 'Tiến Trình Phân Tích Trực Tiếp' },
+  liveProgressDesc: { en: 'Updating progress automatically', vi: 'Đang tự động cập nhật tiến độ' },
+  liveBadgeAnalyzing: { en: 'ANALYZING', vi: 'ĐANG XỬ LÝ' },
+  liveUploadTitle: { en: 'Uploading Video...', vi: 'Đang Tải Video Lên...' },
+  liveUploadSub: { en: 'Analysis pipeline will start automatically once upload reaches 100%', vi: 'Hệ thống sẽ tự động khởi chạy phân tích AI ngay khi tải xong 100%' },
+  liveUploadSpeed: { en: 'Speed', vi: 'Tốc độ' },
+  liveUploadRemaining: { en: 'Remaining', vi: 'Còn lại' },
+  liveUploadCompleted: { en: 'Upload completed • Initializing pipeline...', vi: 'Tải lên hoàn tất • Đang khởi tạo pipeline...' },
+  liveUploadCancel: { en: 'Cancel Upload', vi: 'Hủy Tải Lên' },
+  liveUploadingBadge: { en: 'UPLOADING', vi: 'ĐANG TẢI LÊN' },
+  liveProcessingBadge: { en: 'INITIALIZING', vi: 'ĐANG KHỞI TẠO' },
+  haltedAtStep: { en: 'Halted at step:', vi: 'Bị gián đoạn tại bước:' },
+  interruptedTitle: { en: 'Analysis Interrupted at Step:', vi: 'Quá Trình Phân Tích Bị Gián Đoạn Tại Bước:' },
+  interruptedDesc: {
+    en: 'An error occurred while analyzing this lesson video. You can review the diagnostic error details below or retry the analysis.',
+    vi: 'Đã xảy ra lỗi trong quá trình phân tích video bài giảng này. Bạn có thể xem chi tiết nhật ký lỗi bên dưới hoặc thử chạy lại.'
+  },
+  btnRetryNow: { en: 'Retry Analysis Now', vi: 'Thử Lại Phân Tích Ngay' },
+  btnViewTechLog: { en: 'View Technical Error Output', vi: 'Xem Nhật Ký Kỹ Thuật (Debug)' },
+  btnHideTechLog: { en: 'Hide Technical Error Output', vi: 'Ẩn Nhật Ký Kỹ Thuật (Debug)' },
+  waitingEventsStream: {
+    en: 'Extracting classroom interactions. Observed events will appear here in real-time...',
+    vi: 'Đang trích xuất tương tác lớp học. Các sự kiện ghi nhận sẽ xuất hiện tại đây theo thời gian thực...'
+  },
+  modeOptSplit: { en: '10-minute segments', vi: 'Chia đoạn 10 phút' },
+  modeOptFull: { en: 'Full video', vi: 'Toàn bộ video' },
+  pipelineRunningTime: { en: 'Elapsed', vi: 'Đã chạy' },
+  pipelineTotalDuration: { en: 'Total Duration', vi: 'Tổng thời gian' },
+  stepDuration: { en: 'Duration', vi: 'Thời lượng' },
+  liveProcessingDuration: { en: 'Processing', vi: 'Đang xử lý' },
+  liveTransferringVideo: { en: 'Transferring video to server', vi: 'Đang truyền video lên máy chủ' },
+  liveStartingPipeline: { en: 'Initializing analysis pipeline...', vi: 'Đang khởi tạo quy trình phân tích AI...' },
+  statusPreparing: { en: 'Preparing Analysis', vi: 'Chuẩn Bị Phân Tích' },
+  statusChunking: { en: 'Video Slicing', vi: 'Cắt Đoạn Video' },
+  statusExtracting: { en: 'AI Event Extraction', vi: 'Nhận Diện Hành Vi (AI)' },
+  statusMerging: { en: 'Timeline Normalization', vi: 'Chuẩn Hóa Dòng Thời Gian' },
+  statusMapping: { en: 'Checklist Matching', vi: 'Khớp Tiêu Chí Quan Sát' },
+  statusStatistics: { en: 'Synthesizing Report', vi: 'Tổng Hợp Báo Cáo' },
+  statusCompleted: { en: 'Completed', vi: 'Hoàn Tất' },
+
+  // Pipeline Step Titles & Descriptions
+  stepUploadTitle: { en: 'Step 1: Video Upload', vi: 'Bước 1: Tải Lên Video' },
+  stepUploadDesc: { en: 'Upload lesson video file to server', vi: 'Tải tệp video bài giảng lên máy chủ' },
+  stepChunkingTitle: { en: 'Step 2: Video Slicing', vi: 'Bước 2: Cắt Đoạn Video (10 Phút)' },
+  stepChunkingDesc: { en: 'Partition into 10-minute segments', vi: 'Phân đoạn video thành các phần 10 phút' },
+  stepExtractingTitle: { en: 'Step 2: AI Event Extraction', vi: 'Bước 2: Nhận Diện Hành Vi Giảng Dạy (Gemini AI)' },
+  stepExtractingChunkedTitle: { en: 'Step 3: Classroom Event Extraction', vi: 'Bước 3: Nhận Diện Hành Vi Giảng Dạy' },
+  stepExtractingDesc: { en: 'Direct multimodal extraction from full video', vi: 'Trích xuất đa phương thức trực tiếp từ video gốc' },
+  stepExtractingChunkedDesc: { en: 'Identify teacher & student interactions', vi: 'Gemini AI trích xuất tương tác sư phạm' },
+  stepNormalizationTitle: { en: 'Step 3: Timeline Normalization', vi: 'Bước 3: Chuẩn Hóa Dòng Thời Gian' },
+  stepNormalizationDesc: { en: 'Normalize events and timestamp sequence', vi: 'Định dạng mốc thời gian và chuẩn hóa sự kiện' },
+  stepMergeTitle: { en: 'Step 4: Timeline Merge & Deduplication', vi: 'Bước 4: Chuẩn Hóa Dòng Thời Gian' },
+  stepMergeDesc: { en: 'Combine and deduplicate events across parts', vi: 'Hợp nhất và khử trùng lặp sự kiện' },
+  stepMappingTitle: { en: 'Step 4: Checklist Matching', vi: 'Bước 4: Khớp Tiêu Chí Quan Sát' },
+  stepMappingChunkedTitle: { en: 'Step 5: Checklist Matching', vi: 'Bước 5: Khớp Tiêu Chí Quan Sát' },
+  stepMappingDesc: { en: 'Match observed events to observation criteria', vi: 'Ánh xạ vào 5 nhóm tiêu chí Sections A–E' },
+  stepReportTitle: { en: 'Step 5: Report Synthesis', vi: 'Bước 5: Tổng Hợp Báo Cáo' },
+  stepReportChunkedTitle: { en: 'Step 6: Report Synthesis', vi: 'Bước 6: Tổng Hợp Báo Cáo' },
+  stepReportDesc: { en: 'Synthesize findings and calculate frequencies', vi: 'Tổng hợp thống kê và sinh báo cáo hoàn chỉnh' },
+
+  // Event Timeline
+  timelineTitle: { en: 'Extracted Classroom Events', vi: 'Danh Sách Sự Kiện Lớp Học' },
+  eventsCount: { en: 'events captured', vi: 'sự kiện ghi nhận' },
+  filterAll: { en: 'All Events', vi: 'Tất Cả' },
+  filterVisual: { en: 'Visual', vi: 'Hình Ảnh' },
+  filterAudio: { en: 'Audio', vi: 'Âm Thanh' },
+  filterContext: { en: 'Context', vi: 'Ngữ Cảnh' },
+  timelineSearchPlaceholder: { en: 'Search events (e.g. wait time, points to slide)...', vi: 'Tìm sự kiện (VD: wait time, points to slide)...' },
+  timelineNoEvents: { en: 'No events found matching current criteria.', vi: 'Không tìm thấy sự kiện nào phù hợp với bộ lọc hiện tại.' },
+
+  // Checklists Page
+  checklistsTitle: { en: 'Observation Checklist', vi: 'Khung Tiêu Chí Quan Sát' },
+  checklistsDesc: {
+    en: 'Standard observation criteria for evaluating online Zoom English instruction for young learners (Sections A–E).',
+    vi: 'Khung tiêu chí chuẩn quan sát và đánh giá giờ dạy tiếng Anh trực tuyến trên Zoom cho trẻ em (Sections A–E).'
+  },
+  checklistsVersionBadge: { en: 'v1.0 Final', vi: 'Phiên Bản v1.0' },
+  checklistsSaveBtn: { en: 'Save Changes', vi: 'Lưu Thay Đổi' },
+  checklistsSecA: { en: 'Section A. Establishing Online Rules and Routines', vi: 'Section A. Establishing Online Rules and Routines' },
+  checklistsSecB: { en: 'Section B. Managing Turn-taking and Speaking Participation', vi: 'Section B. Managing Turn-taking and Speaking Participation' },
+  checklistsSecC: { en: 'Section C. Sustaining Learner Attention and Engagement', vi: 'Section C. Sustaining Learner Attention and Engagement' },
+  checklistsSecD: { en: 'Section D. Providing Scaffolding and Positive Reinforcement', vi: 'Section D. Providing Scaffolding and Positive Reinforcement' },
+  checklistsSecE: { en: 'Section E. Using Digital Tools to Support Learning and Interaction', vi: 'Section E. Using Digital Tools to Support Learning and Interaction' },
+
+  // Reports
+  reportsDesc: {
+    en: 'Formatted observational findings per lesson, ready for academic research thesis citations and qualitative analysis.',
+    vi: 'Báo cáo kết quả quan sát từng bài giảng, sẵn sàng cho trích dẫn luận văn nghiên cứu và phân tích định tính.'
+  },
+  reportsReadFull: { en: 'Read Full Report', vi: 'Xem Toàn Bộ Báo Cáo' },
+  reportsVersion: { en: 'Observation v1.0', vi: 'Quan Sát v1.0' },
+
+  // Teaching Themes & Strategies
+  themesTitle: { en: 'Teaching Themes & Strategies', vi: 'Chiến Lược Giảng Dạy & Chủ Đề' },
+  themesDesc: {
+    en: 'Qualitative synthesis of recurring teaching patterns and strategies across all recorded lessons, supported by video evidence.',
+    vi: 'Tổng hợp định tính các chiến lược và mô thức giảng dạy lặp lại trên toàn bộ bài giảng, kèm dẫn chứng video.'
+  },
+  themesBadge: { en: 'Teaching Strategies', vi: 'Chiến Lược Giảng Dạy' },
+  themesListTitle: { en: 'Identified Teaching Themes', vi: 'Các Chủ Đề Chiến Lược Nhận Diện' },
+  themesMergeBtn: { en: 'Merge Themes', vi: 'Gộp Chủ Đề' },
+  themesMergeFrom: { en: 'Merge from:', vi: 'Gộp từ chủ đề:' },
+  themesMergeInto: { en: 'into target:', vi: 'vào chủ đề đích:' },
+  themesSelectSource: { en: 'Select source theme...', vi: 'Chọn chủ đề nguồn...' },
+  themesSelectTarget: { en: 'Select target theme...', vi: 'Chọn chủ đề đích...' },
+  themesConfirmMerge: { en: 'Confirm Merge', vi: 'Xác Nhận Gộp' },
+  themesConfirmedStatus: { en: 'Confirmed', vi: 'Đã Xác Nhận' },
+  themesDraftStatus: { en: 'Draft', vi: 'Bản Nháp' },
+  themesConfirmThemeBtn: { en: 'Confirm Theme', vi: 'Xác Nhận Chủ Đề' },
+  runPhase6: { en: 'Analyze All 24 Lessons', vi: 'Tổng Hợp Tất Cả 24 Bài Giảng' },
+  reasoningTrace: { en: 'Evidence & Explanation', vi: 'Dẫn Chứng & Giải Thích' },
+
+  // Interview Studio
+  interviewTitle: { en: 'Teacher Interview Guide', vi: 'Bộ Câu Hỏi Phỏng Vấn Giáo Viên' },
+  interviewDesc: {
+    en: 'Semi-structured interview questions and follow-ups generated from observed video moments to explore teachers\' instructional choices.',
+    vi: 'Bộ câu hỏi phỏng vấn bán cấu trúc và câu hỏi đào sâu sinh từ các khoảnh khắc video thực tế để tìm hiểu ý đồ sư phạm của giáo viên.'
+  },
+  interviewBadge: { en: 'Evidence-based', vi: 'Dựa Trên Dẫn Chứng' },
+  coreQuestions: { en: 'Core Questions (All Teachers)', vi: 'Câu Hỏi Chung (Tất Cả Giáo Viên)' },
+  coreQuestionsSub: {
+    en: 'Core baseline questions asked to all teachers in the observation study.',
+    vi: 'Các câu hỏi phỏng vấn nền tảng áp dụng chung cho tất cả giáo viên trong nghiên cứu.'
+  },
+  dynamicQuestions: { en: 'Follow-up Questions (Based on Video Evidence)', vi: 'Câu Hỏi Chi Tiết (Dựa Trên Dẫn Chứng Video)' },
+  dynamicQuestionsSub: {
+    en: 'Specific questions referencing exact video timestamps and observed teaching behaviors for',
+    vi: 'Các câu hỏi chuyên biệt dẫn chiếu mốc thời gian và hành vi giảng dạy cụ thể của'
+  },
+  exportMarkdown: { en: 'Export Markdown (.md)', vi: 'Xuất File Markdown (.md)' },
+  printPDF: { en: 'Print / Export PDF', vi: 'In / Xuất File PDF' },
+  videoEvidenceTag: { en: 'Video Evidence', vi: 'Dẫn Chứng Video' },
+
+  // Activity Center
+  actCenterTitle: { en: 'Analysis Activity & Notifications', vi: 'Hoạt Động Xử Lý & Thông Báo' },
+  actAllClear: { en: 'All Analyses Clear', vi: 'Tất Cả Đã Xử Lý Xong' },
+  actAllClearSub: { en: 'No active errors or pending background jobs.', vi: 'Không có lỗi hoặc tác vụ nền nào đang chờ.' },
+  actAutoUpdating: { en: 'Auto-updating', vi: 'Tự động cập nhật' },
+  actAllVideos: { en: 'All Videos →', vi: 'Tất Cả Video →' },
+
+  // Authentication
+  authSignIn: { en: 'Sign In', vi: 'Đăng Nhập' },
+  authSignUp: { en: 'Create Account', vi: 'Tạo Tài Khoản' },
+  authSignOut: { en: 'Sign Out', vi: 'Đăng Xuất' },
+  authPortalTitle: { en: 'Researcher Sign In', vi: 'Đăng Nhập Nhà Nghiên Cứu' },
+  authPortalSubtitle: { en: 'Classroom Video Observation & Teaching Strategy Lab', vi: 'Phòng Phân Tích Video Giảng Dạy & Chiến Lược Sư Phạm' },
+  authUsername: { en: 'Username', vi: 'Tên Đăng Nhập' },
+  authEmail: { en: 'Academic Email', vi: 'Email Học Thuật' },
+  authPassword: { en: 'Password', vi: 'Mật Khẩu' },
+  authSigningIn: { en: 'Signing in...', vi: 'Đang đăng nhập...' },
+  authSigningUp: { en: 'Creating account...', vi: 'Đang tạo tài khoản...' },
+  authSuccessLogin: { en: 'Signed in successfully. Opening workspace...', vi: 'Đăng nhập thành công. Đang mở không gian làm việc...' },
+  authSuccessRegister: { en: 'Account created successfully. Redirecting...', vi: 'Tạo tài khoản thành công. Đang chuyển hướng...' },
+  authQuickDemo: { en: 'Fill Demo Account', vi: 'Điền Tài Khoản Mẫu' },
+  authRoleLab: { en: 'Researcher', vi: 'Nhà Nghiên Cứu' },
+  authNotSignedIn: { en: 'Not Signed In', vi: 'Chưa Đăng Nhập' }
+};
+
+interface I18nContextType {
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  t: (key: string) => string;
+}
+
+const I18nContext = createContext<I18nContextType>({
+  language: 'en',
+  setLanguage: () => {},
+  t: (key: string) => key,
+});
+
+export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [language, setLanguage] = useState<Language>('en');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('vtr_lang') as Language;
+    if (saved === 'en' || saved === 'vi') {
+      setLanguage(saved);
+    }
+  }, []);
+
+  const handleSetLanguage = (lang: Language) => {
+    setLanguage(lang);
+    localStorage.setItem('vtr_lang', lang);
+  };
+
+  const t = (key: string): string => {
+    if (translations[key] && translations[key][language]) {
+      return translations[key][language];
+    }
+    return key;
+  };
+
+  return (
+    <I18nContext.Provider value={{ language, setLanguage: handleSetLanguage, t }}>
+      {children}
+    </I18nContext.Provider>
+  );
+};
+
+export const useTranslation = () => useContext(I18nContext);

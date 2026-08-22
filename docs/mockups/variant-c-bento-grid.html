@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Teaching Research — Variant C (Minimalist Bento Grid)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #F8FAFC;
+      --card-bg: #FFFFFF;
+      --card-border: #E2E8F0;
+      --text-main: #0F172A;
+      --text-muted: #64748B;
+      --primary: #4F46E5; /* Indigo */
+      --primary-soft: #EEF2FF;
+      --teal: #0D9488;
+      --teal-soft: #F0FDFA;
+      --amber: #D97706;
+      --amber-soft: #FFFBEB;
+      --font-heading: 'Outfit', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --radius-sm: 8px;
+      --radius-md: 16px;
+      --radius-lg: 24px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      display: flex;
+      min-height: 100vh;
+    }
+
+    aside {
+      width: 260px;
+      background: white;
+      border-right: 1px solid var(--card-border);
+      padding: 28px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+
+    .brand-title {
+      font-family: var(--font-heading);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .brand-sub { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+
+    nav { display: flex; flex-direction: column; gap: 6px; }
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.15s ease;
+    }
+    .nav-link:hover, .nav-link.active {
+      background: var(--primary-soft);
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    main {
+      flex: 1;
+      padding: 36px 40px;
+      max-width: 1400px;
+      overflow-y: auto;
+    }
+
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+    }
+    .page-title {
+      font-family: var(--font-heading);
+      font-size: 30px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    /* Bento Grid */
+    .bento-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 20px;
+    }
+    .bento-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 22px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+
+    .col-12 { grid-column: span 12; }
+    .col-8 { grid-column: span 8; }
+    .col-4 { grid-column: span 4; }
+    .col-6 { grid-column: span 6; }
+
+    .stat-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .stat-teal { background: var(--teal-soft); color: var(--teal); }
+    .stat-indigo { background: var(--primary-soft); color: var(--primary); }
+
+    .report-preview-box {
+      background: #F8FAFC;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.6;
+      max-height: 240px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <aside>
+    <div class="brand">
+      <h1 class="brand-title">PedagogyAI</h1>
+      <span class="brand-sub">Classroom Video Research</span>
+    </div>
+    <nav>
+      <a href="#" class="nav-link active">Dashboard</a>
+      <a href="#" class="nav-link">Video Upload & Queue</a>
+      <a href="#" class="nav-link">Checklists (A–E)</a>
+      <a href="#" class="nav-link">Reports & Export</a>
+      <a href="#" class="nav-link">Theme Tree (Phase 6)</a>
+      <a href="#" class="nav-link">Interview Studio</a>
+    </nav>
+  </aside>
+
+  <main>
+    <div class="page-header">
+      <div>
+        <h2 class="page-title">Classroom Video Analysis Suite</h2>
+        <p style="color: var(--text-muted); font-size: 14px;">Modular bento overview of corpus processing, checklist alignment, and grounded theory outputs.</p>
+      </div>
+      <button style="background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer;">
+        + Upload Zoom MP4
+      </button>
+    </div>
+
+    <div class="bento-grid">
+      <!-- Overview stats -->
+      <div class="bento-card col-4">
+        <span class="stat-badge stat-indigo">Corpus Status</span>
+        <h3 style="font-size: 32px; font-family: var(--font-heading); margin: 12px 0 4px;">25 Videos</h3>
+        <p style="color: var(--text-muted); font-size: 13px;">12 Teachers × 2 Lessons (720p Zoom records)</p>
+      </div>
+
+      <div class="bento-card col-4">
+        <span class="stat-badge stat-teal">Extracted Events</span>
+        <h3 style="font-size: 32px; font-family: var(--font-heading); margin: 12px 0 4px;">1,420 Events</h3>
+        <p style="color: var(--text-muted); font-size: 13px;">±30s Overlap Deduplication Active</p>
+      </div>
+
+      <div class="bento-card col-4">
+        <span class="stat-badge stat-indigo">Phase 6 Themes</span>
+        <h3 style="font-size: 32px; font-family: var(--font-heading); margin: 12px 0 4px;">4 Themes</h3>
+        <p style="color: var(--text-muted); font-size: 13px;">Grounded Theory + Reasoning Traces</p>
+      </div>
+
+      <!-- Markdown Report Live View -->
+      <div class="bento-card col-6">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h3 style="font-family: var(--font-heading); font-size: 16px;">Generated Markdown Report (T01_V01)</h3>
+          <button style="background: #F1F5F9; border: 1px solid #CBD5E1; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;">Download .md</button>
+        </div>
+        <div class="report-preview-box">
+# Classroom Analysis Report
+**Teacher:** T01 | **Video:** V01 | **Session date:** 2024-01-15
+**Checklist version:** v1.0 | **Generated:** 2024-03-01
+
+## Section B — Managing Turn-taking and Speaking Participation
+### Teacher provides wait time
+- **Count:** 9 | **Avg Confidence:** 0.91 | **Avg Duration:** 5.2s
+
+| # | Timestamp | Confidence | Duration |
+|---|-----------|------------|----------|
+| 1 | 00:04:31  | 0.95       | 6s       |
+| 2 | 00:07:13  | 0.88       | 5s       |
+| 3 | 00:12:54  | 0.90       | 5s       |
+        </div>
+      </div>
+
+      <!-- Theme & Question Preview -->
+      <div class="bento-card col-6">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h3 style="font-family: var(--font-heading); font-size: 16px;">Teacher Interview Question Synthesis (T01)</h3>
+          <span style="font-size: 12px; font-weight: 600; color: var(--teal);">Status: Ready</span>
+        </div>
+        <div style="font-size: 13px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="padding: 10px; background: #F8FAFC; border-radius: 6px; border-left: 3px solid var(--primary);">
+            <strong>Core Q1:</strong> Why do you use extended wait time after open-ended questions?
+          </div>
+          <div style="padding: 10px; background: #F8FAFC; border-radius: 6px; border-left: 3px solid var(--teal);">
+            <strong>Dynamic Q1 (T01):</strong> In video V02 (00:23:15), you waited 7 seconds after asking a question before nominating a learner. Was this intentional?
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

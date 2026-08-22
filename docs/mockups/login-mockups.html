@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login & Auth UI Mockup Gate — Video Teaching Research</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0C0A09;
+      --card-bg: #1C1917;
+      --card-border: #292524;
+      --text-main: #F5F5F4;
+      --text-muted: #A8A29E;
+      --accent: #D97706;
+      --accent-soft: rgba(217, 119, 6, 0.15);
+      --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      padding: 40px 20px;
+      line-height: 1.5;
+    }
+
+    .container { max-width: 1200px; margin: 0 auto; }
+    .header { text-align: center; margin-bottom: 48px; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background: var(--accent-soft);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 999px;
+      margin-bottom: 12px;
+      font-family: var(--font-mono);
+    }
+    h1 { font-size: 32px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.02em; }
+    p.sub { color: var(--text-muted); font-size: 15px; max-width: 600px; margin: 0 auto; }
+
+    .variants-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 32px;
+      margin-top: 32px;
+    }
+
+    .variant-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .variant-card:hover {
+      border-color: #44403C;
+      transform: translateY(-2px);
+    }
+
+    .variant-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--card-border);
+      background: #181513;
+    }
+    .variant-title { font-size: 18px; font-weight: 700; color: #FFF; }
+    .variant-desc { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+
+    .preview-box {
+      padding: 32px 24px;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* --- Variant 1: Warm Editorial Studio --- */
+    .v1-wrapper {
+      width: 100%;
+      max-width: 340px;
+      background: #FBF9F5;
+      color: #1A1612;
+      border-radius: 12px;
+      padding: 28px;
+      border: 1px solid #E8E3D9;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    }
+    .v1-title { font-size: 22px; font-weight: 700; color: #1A1612; }
+    .v1-sub { font-size: 12px; color: #736B63; margin-top: 4px; margin-bottom: 20px; }
+    .v1-label { font-size: 12px; font-weight: 600; color: #4A443E; margin-bottom: 4px; display: block; }
+    .v1-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #D6CEBE;
+      border-radius: 6px;
+      font-size: 13px;
+      background: #FFF;
+      color: #1A1612;
+      margin-bottom: 14px;
+    }
+    .v1-btn {
+      width: 100%;
+      padding: 10px;
+      background: #9E4A28;
+      color: #FFF;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    /* --- Variant 2: Modern Dark Lab Studio --- */
+    .v2-wrapper {
+      width: 100%;
+      max-width: 340px;
+      background: #141210;
+      color: #F5F5F4;
+      border-radius: 12px;
+      padding: 28px;
+      border: 1px solid #292524;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+    }
+    .v2-title { font-size: 20px; font-weight: 700; color: #F5F5F4; }
+    .v2-sub { font-size: 12px; color: #A8A29E; margin-top: 4px; margin-bottom: 20px; }
+    .v2-label { font-size: 12px; font-weight: 600; color: #D6D3D1; margin-bottom: 4px; display: block; font-family: var(--font-mono); }
+    .v2-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #44403C;
+      border-radius: 6px;
+      font-size: 13px;
+      background: #1C1917;
+      color: #FFF;
+      margin-bottom: 14px;
+    }
+    .v2-btn {
+      width: 100%;
+      padding: 10px;
+      background: #D97706;
+      color: #0C0A09;
+      border: none;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    /* --- Variant 3: Clean Modal Drawer with Role Pill --- */
+    .v3-wrapper {
+      width: 100%;
+      max-width: 340px;
+      background: #18181B;
+      color: #FAFAFA;
+      border-radius: 16px;
+      padding: 24px;
+      border: 1px solid #27272A;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    }
+    .v3-tabs {
+      display: flex;
+      background: #27272A;
+      padding: 3px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .v3-tab {
+      flex: 1;
+      text-align: center;
+      padding: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .v3-tab.active { background: #3F3F46; color: #FFF; }
+    .v3-tab:not(.active) { color: #A1A1AA; }
+    .v3-input {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid #3F3F46;
+      border-radius: 8px;
+      font-size: 13px;
+      background: #09090B;
+      color: #FFF;
+      margin-bottom: 12px;
+    }
+    .v3-btn {
+      width: 100%;
+      padding: 10px;
+      background: #3B82F6;
+      color: #FFF;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="badge">UI Mockup Gate · Pre-Implementation</div>
+      <h1>Choose Authentication Interface Style</h1>
+      <p class="sub">Select the visual aesthetic and interaction pattern for the Video Teaching Research authentication portal.</p>
+    </div>
+
+    <div class="variants-grid">
+      <!-- Option A -->
+      <div class="variant-card">
+        <div class="variant-header">
+          <div class="variant-title">Variant A: Warm Editorial Lab (Matches App Theme)</div>
+          <div class="variant-desc">Warm bone canvas, Terracotta primary accent, subtle typography contrast, cohesive with current editorial research layout.</div>
+        </div>
+        <div class="preview-box">
+          <div class="v1-wrapper">
+            <div class="v1-title">Researcher Sign In</div>
+            <div class="v1-sub">Classroom Observation & Grounded Theory Lab</div>
+            <label class="v1-label">Username or Email</label>
+            <input class="v1-input" value="researcher" readonly />
+            <label class="v1-label">Password</label>
+            <input class="v1-input" type="password" value="••••••••••••" readonly />
+            <button class="v1-btn">Authenticate Session →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Option B -->
+      <div class="variant-card">
+        <div class="variant-header">
+          <div class="variant-title">Variant B: Sleek Dark Monospace Studio</div>
+          <div class="variant-desc">Charcoal dark background, Amber research accent, JetBrains Mono labels, high tactile contrast.</div>
+        </div>
+        <div class="preview-box">
+          <div class="v2-wrapper">
+            <div class="v2-title">Lab Access Portal</div>
+            <div class="v2-sub">Authenticate to access video pipelines & qualitative data</div>
+            <label class="v2-label">RESEARCHER_ID</label>
+            <input class="v2-input" value="researcher@lab.local" readonly />
+            <label class="v2-label">SECRET_KEY</label>
+            <input class="v2-input" type="password" value="••••••••••••" readonly />
+            <button class="v2-btn">ENTER LAB →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Option C -->
+      <div class="variant-card">
+        <div class="variant-header">
+          <div class="variant-title">Variant C: Tabbed Modal with Sign In / Register</div>
+          <div class="variant-desc">Tab switcher for instant login & new researcher account creation, inline error handling, quick demo autofill.</div>
+        </div>
+        <div class="preview-box">
+          <div class="v3-wrapper">
+            <div class="v3-tabs">
+              <div class="v3-tab active">Sign In</div>
+              <div class="v3-tab">Register</div>
+            </div>
+            <input class="v3-input" placeholder="Username" value="researcher" readonly />
+            <input class="v3-input" type="password" placeholder="Password" value="••••••••••••" readonly />
+            <button class="v3-btn">Continue to Workspace</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

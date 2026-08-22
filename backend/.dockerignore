@@ -1,0 +1,7 @@
+bin/
+storage/videos/*
+!storage/videos/.gitkeep
+server.log
+.env
+.git
+.DS_Store
