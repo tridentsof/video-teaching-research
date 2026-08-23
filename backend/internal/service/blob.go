@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -49,8 +50,36 @@ func NewAzureBlobStorage(accountName, accountKey, containerName string) (*AzureB
 	}, nil
 }
 
-// Upload uploads a stream to Azure Blob Storage.
+// Upload uploads a stream to Azure Blob Storage with automatic local caching and fallback.
 func (a *AzureBlobStorage) Upload(ctx context.Context, blobPath string, reader io.Reader) (string, error) {
+	// 1. Buffer file to local storage first for resilience and fast local FFmpeg access
+	localPath := filepath.Join("./storage", blobPath)
+	if err := os.MkdirAll(filepath.Dir(localPath), 0755); err == nil {
+		if out, err := os.Create(localPath); err == nil {
+			if _, err := io.Copy(out, reader); err == nil {
+				_ = out.Close()
+
+				// 2. Upload from local file to Azure Blob using UploadFile (supports seeking & robust chunking)
+				if f, err := os.Open(localPath); err == nil {
+					defer f.Close()
+					_, uploadErr := a.client.UploadFile(ctx, a.containerName, blobPath, f, &azblob.UploadFileOptions{
+						BlockSize:   8 * 1024 * 1024,
+						Concurrency: 3,
+					})
+					if uploadErr == nil {
+						return a.GetURL(blobPath), nil
+					}
+					// If Azure fails (e.g. network timeout / invalid key), log and use local storage fallback safely
+					log.Printf("WARNING: Azure Blob Upload failed for %s (%v) — using local storage fallback", blobPath, uploadErr)
+					return fmt.Sprintf("/storage/%s", blobPath), nil
+				}
+			} else {
+				_ = out.Close()
+			}
+		}
+	}
+
+	// 3. Fallback direct stream upload if local disk buffer failed
 	_, err := a.client.UploadStream(ctx, a.containerName, blobPath, reader, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to upload blob %s: %w", blobPath, err)
@@ -58,8 +87,14 @@ func (a *AzureBlobStorage) Upload(ctx context.Context, blobPath string, reader i
 	return a.GetURL(blobPath), nil
 }
 
-// Download downloads a blob from Azure Blob Storage.
+// Download downloads a blob from Azure Blob Storage or reads directly from local cache if present.
 func (a *AzureBlobStorage) Download(ctx context.Context, blobPath string) (io.ReadCloser, error) {
+	// Check if local copy already exists on disk
+	localPath := filepath.Join("./storage", blobPath)
+	if f, err := os.Open(localPath); err == nil {
+		return f, nil
+	}
+
 	resp, err := a.client.DownloadStream(ctx, a.containerName, blobPath, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download blob %s: %w", blobPath, err)

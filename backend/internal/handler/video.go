@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -44,6 +45,7 @@ func (h *VideoHandler) Upload(c *gin.Context) {
 
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
+		log.Printf("[VideoHandler.Upload] FormFile parse error: %v", err)
 		RespondError(c, http.StatusBadRequest, "file form field is required: "+err.Error())
 		return
 	}
@@ -56,6 +58,8 @@ func (h *VideoHandler) Upload(c *gin.Context) {
 		}
 	}
 
+	log.Printf("[VideoHandler.Upload] Receiving upload: teacher=%s, title=%s, filename=%s, size=%d bytes", teacherID, title, header.Filename, header.Size)
+
 	video, err := h.svc.Upload(c.Request.Context(), service.UploadVideoRequest{
 		TeacherID:   teacherID,
 		Title:       title,
@@ -65,10 +69,12 @@ func (h *VideoHandler) Upload(c *gin.Context) {
 		UserID:      userID,
 	})
 	if err != nil {
+		log.Printf("[VideoHandler.Upload] Storage or DB error: %v", err)
 		RespondError(c, http.StatusInternalServerError, "failed to upload video: "+err.Error())
 		return
 	}
 
+	log.Printf("[VideoHandler.Upload] Video uploaded successfully: id=%s, blob_url=%v", video.ID, video.BlobURL)
 	RespondCreated(c, video)
 }
 
