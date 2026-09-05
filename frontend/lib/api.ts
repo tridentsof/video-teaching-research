@@ -5,6 +5,8 @@ export interface Video {
   blob_url?: string;
   duration_sec?: number;
   status: string;
+  error_msg?: string;
+  failed_step?: string;
   uploaded_at: string;
 }
 
@@ -15,6 +17,8 @@ export interface RawEvent {
   timestamp_sec: number;
   event_type: 'visual' | 'audio' | 'context';
   event_key: string;
+  code?: string;
+  quote?: string;
   description: string;
   confidence?: number;
   duration_sec?: number;
@@ -38,8 +42,12 @@ export interface Checklist {
 
 export interface ReportItemOccurrence {
   timestamp_sec: number;
+  timestamp_str?: string;
   confidence: number;
   duration_sec: number;
+  code?: string;
+  quote?: string;
+  context?: string;
 }
 
 export interface ReportItem {
@@ -68,7 +76,7 @@ export interface PipelineJob {
   id: string;
   video_id: string;
   step: string;
-  status: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'error' | 'cancelled' | 'skipped' | string;
   started_at?: string;
   finished_at?: string;
   error_msg?: string;
@@ -77,6 +85,8 @@ export interface PipelineJob {
 export interface PipelineStatusSummary {
   video_id: string;
   current_status: string;
+  failed_step?: string;
+  error_msg?: string;
   jobs: PipelineJob[];
 }
 
@@ -117,6 +127,21 @@ export interface AuthResponse {
   token: string;
   expires_at: string;
   user: User;
+}
+
+export interface CodebookEntry {
+  id?: string;
+  video_id?: string;
+  code: string;
+  definition: string;
+  inclusion_criteria: string;
+  exclusion_criteria: string;
+  example: string;
+  category: string;
+  theme: string;
+  sort_order?: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
@@ -246,6 +271,31 @@ export const api = {
 
   getReportDownloadUrl(videoId: string): string {
     return `${API_BASE}/reports/video/${videoId}/export.md`;
+  },
+
+  // Codebook
+  async getCodebook(videoId: string): Promise<CodebookEntry[]> {
+    const data = await request<{ entries: CodebookEntry[] }>(`/codebook/video/${videoId}`);
+    return data.entries || [];
+  },
+
+  async saveCodebook(videoId: string, entries: CodebookEntry[]): Promise<CodebookEntry[]> {
+    const data = await request<{ entries: CodebookEntry[] }>(`/codebook/video/${videoId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ entries }),
+    });
+    return data.entries || [];
+  },
+
+  async generateCodebook(videoId: string): Promise<CodebookEntry[]> {
+    const data = await request<{ entries: CodebookEntry[] }>(`/codebook/video/${videoId}/generate`, {
+      method: 'POST',
+    });
+    return data.entries || [];
+  },
+
+  getCodebookExportUrl(): string {
+    return `${API_BASE}/codebook/export.xlsx`;
   },
 
   // Phase 6 Analysis

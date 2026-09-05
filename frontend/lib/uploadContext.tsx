@@ -14,7 +14,7 @@ export interface UploadProgress {
   percentage: number;
   speedBytesPerSec: number;
   etaSeconds: number;
-  status: 'uploading' | 'server_processing' | 'pipeline_started' | 'completed' | 'cancelled' | 'error';
+  status: 'uploading' | 'server_processing' | 'pipeline_started' | 'completed' | 'cancelled' | 'failed' | 'error';
   videoId?: string;
   errorMessage?: string;
   enableChunking: boolean;

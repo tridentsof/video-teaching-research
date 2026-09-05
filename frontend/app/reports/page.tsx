@@ -43,6 +43,49 @@ export default function ReportsIndexPage() {
         gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
         gap: '18px',
       }}>
+        {videos.length === 0 && !loading && (
+          <Link
+            href="/reports/00000000-0000-0000-0000-000000000001"
+            style={{
+              backgroundColor: '#FFFFFF',
+              border: '1px solid var(--card-border)',
+              borderRadius: 'var(--radius-md)',
+              padding: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              boxShadow: 'var(--shadow-sm)',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="badge badge-audio">Teacher T01</span>
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                Sample Report
+              </span>
+            </div>
+
+            <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-main)' }}>
+              Phonics & Turn-Taking (Sample Observation Checklist)
+            </h3>
+
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginTop: 'auto',
+              paddingTop: '12px',
+              borderTop: '1px solid var(--card-border-soft)',
+              color: 'var(--accent)',
+              fontWeight: 600,
+              fontSize: '13px',
+            }}>
+              <span>{t('reportsReadFull')}</span>
+              <ArrowRight size={15} />
+            </div>
+          </Link>
+        )}
+
         {videos.map((v) => (
           <Link
             key={v.id}

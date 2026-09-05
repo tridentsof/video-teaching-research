@@ -24,6 +24,8 @@ import {
   Clock,
   Check,
   FileText,
+  Copy,
+  RotateCcw,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -108,6 +110,37 @@ export default function VideoUploadingPage() {
     }
   };
 
+  const [retrying, setRetrying] = useState(false);
+
+  const handleRetryPipeline = async () => {
+    const targetVideoId = video?.id || activeUpload?.videoId;
+    if (!targetVideoId) {
+      router.push('/upload');
+      return;
+    }
+    setRetrying(true);
+    try {
+      await api.triggerPipeline(targetVideoId, undefined, activeUpload?.enableChunking ?? true);
+      toast.success('Pipeline analysis restarted successfully!', {
+        title: 'Restarted Analysis',
+      });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to restart pipeline');
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  const handleCopyError = (msg: string) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(msg);
+      toast.info('Error log copied to clipboard', {
+        title: 'Copied',
+        duration: 2000,
+      });
+    }
+  };
+
   const formatTimer = (sec: number) => {
     if (!sec || isNaN(sec) || sec < 0) return '00:00';
     const m = Math.floor(sec / 60);
@@ -182,13 +215,29 @@ export default function VideoUploadingPage() {
   };
 
   const isCancelled = activeUpload.status === 'cancelled' || video?.status === 'cancelled';
-  const isError = activeUpload.status === 'error' || video?.status === 'error';
-  const isCompleted = video?.status === 'report_generated';
+  const isError =
+    activeUpload.status === 'error' ||
+    activeUpload.status === 'failed' ||
+    video?.status === 'error' ||
+    video?.status === 'failed' ||
+    jobs.some((j) => j.status === 'failed' || j.status === 'error');
+  const isCompleted = video?.status === 'report_generated' || video?.status === 'completed';
   const isRunning = !isCompleted && !isError && !isCancelled;
   const isUploading = isRunning && activeUpload.status === 'uploading' && !video?.id;
   const isServerProcessing = isRunning && !isUploading;
   const isChunked = activeUpload.enableChunking;
   const currentStepOrder = isChunked ? chunkedStepOrder : fullVideoStepOrder;
+
+  const failedStep =
+    video?.failed_step ||
+    jobs.find((j) => j.status === 'failed' || j.status === 'error')?.step ||
+    (activeUpload.status === 'error' || activeUpload.status === 'failed' ? 'upload' : undefined);
+
+  const errorMessage =
+    activeUpload.errorMessage ||
+    video?.error_msg ||
+    jobs.find((j) => j.status === 'failed' || j.status === 'error')?.error_msg ||
+    (isError ? 'An unexpected error occurred during video processing.' : '');
 
   // Calculate total completed duration across all finished jobs if available
   const completedJobs = jobs.filter((j) => j.status === 'completed' && j.started_at && j.finished_at);
@@ -211,7 +260,7 @@ export default function VideoUploadingPage() {
   }, [activeUpload, isRunning]);
 
   const currentOverallStatus = isError
-    ? 'error'
+    ? 'failed'
     : isCancelled
     ? 'cancelled'
     : video?.status
@@ -351,13 +400,182 @@ export default function VideoUploadingPage() {
           )}
 
           {(isCancelled || isError) && (
-            <Link href="/upload" onClick={clearUpload} className="btn btn-primary btn-sm">
-              <RefreshCw size={14} />
-              <span>{t('btnRetryNow')}</span>
-            </Link>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {video?.id && (
+                <button
+                  onClick={handleRetryPipeline}
+                  disabled={retrying}
+                  className="btn btn-primary btn-sm"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}
+                >
+                  {retrying ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                  <span>{retrying ? 'Retrying...' : 'Retry Pipeline'}</span>
+                </button>
+              )}
+              <Link href="/upload" onClick={clearUpload} className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <RefreshCw size={14} />
+                <span>New Upload</span>
+              </Link>
+            </div>
           )}
         </div>
       </div>
+
+      {/* Error / Failure Banner Card */}
+      {isError && (
+        <div
+          style={{
+            backgroundColor: '#FEF2F2',
+            border: '1px solid #F87171',
+            borderRadius: 'var(--radius-md)',
+            padding: '20px 24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '14px',
+            boxShadow: '0 4px 14px rgba(220, 38, 38, 0.08)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  backgroundColor: '#FEE2E2',
+                  border: '1px solid #FCA5A5',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#DC2626',
+                  flexShrink: 0,
+                }}
+              >
+                <AlertTriangle size={20} />
+              </div>
+              <div>
+                <h4 style={{ fontSize: '15px', fontWeight: 700, color: '#991B1B', margin: 0 }}>
+                  Pipeline Execution Failed
+                </h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                  {failedStep && (
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        backgroundColor: '#FEE2E2',
+                        color: '#B91C1C',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        border: '1px solid #FCA5A5',
+                        fontFamily: 'var(--font-mono)',
+                      }}
+                    >
+                      Step: {failedStep}
+                    </span>
+                  )}
+                  <span style={{ fontSize: '12px', color: '#7F1D1D' }}>
+                    An error occurred while processing this stage.
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {errorMessage && (
+                <button
+                  onClick={() => handleCopyError(errorMessage)}
+                  className="btn btn-sm btn-secondary"
+                  style={{ fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#FFFFFF' }}
+                  title="Copy technical error message"
+                >
+                  <Copy size={13} />
+                  <span>Copy Log</span>
+                </button>
+              )}
+              {video?.id && (
+                <button
+                  onClick={handleRetryPipeline}
+                  disabled={retrying}
+                  className="btn btn-sm btn-primary"
+                  style={{ fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  {retrying ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
+                  <span>{retrying ? 'Restarting...' : 'Retry Analysis'}</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {errorMessage && (
+            <div
+              style={{
+                backgroundColor: '#1E293B',
+                color: '#F87171',
+                padding: '12px 16px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontFamily: 'var(--font-mono)',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-all',
+                maxHeight: '120px',
+                overflowY: 'auto',
+                border: '1px solid #334155',
+              }}
+            >
+              {errorMessage}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Cancelled Banner Card */}
+      {isCancelled && (
+        <div
+          style={{
+            backgroundColor: '#FFFBEB',
+            border: '1px solid #FDE68A',
+            borderRadius: 'var(--radius-md)',
+            padding: '18px 22px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '16px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '50%',
+                backgroundColor: '#FEF3C7',
+                border: '1px solid #FCD34D',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#D97706',
+              }}
+            >
+              <XCircle size={18} />
+            </div>
+            <div>
+              <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#92400E', margin: 0 }}>
+                Analysis Cancelled
+              </h4>
+              <span style={{ fontSize: '12px', color: '#B45309' }}>
+                The pipeline execution was stopped by user request.
+              </span>
+            </div>
+          </div>
+
+          <Link href="/upload" onClick={clearUpload} className="btn btn-primary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <RefreshCw size={13} />
+            <span>Upload Another Video</span>
+          </Link>
+        </div>
+      )}
 
       {/* Live Real-Time Analysis Console with In-Place Upload Telemetry */}
       {!isError && !isCancelled && (
@@ -718,6 +936,8 @@ export default function VideoUploadingPage() {
         </div>
         <PipelineStepper
           status={currentOverallStatus as any}
+          failedStep={failedStep}
+          jobs={jobs}
           isChunked={activeUpload.enableChunking}
           uploadPercentage={isCancelled || isError ? undefined : activeUpload.percentage}
         />

@@ -34,3 +34,12 @@ migrate-up-env:
 
 migrate-down-env:
 	@export $$(cat .env | grep -v '^#' | xargs) && migrate -path migrations -database "$$DB_URL" down
+
+# Truncate operational data (keep users & checklist seeds)
+truncate-data:
+	@./scripts/truncate_data.sh
+
+# Full truncate all tables (including users, re-seeds checklists)
+truncate-all:
+	@./scripts/truncate_data.sh --all
+

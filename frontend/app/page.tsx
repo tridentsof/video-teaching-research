@@ -70,6 +70,8 @@ export default function VideoListPage() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
+      case 'uploading':
+        return t('liveUploadingBadge');
       case 'uploaded':
         return t('commonQueued');
       case 'chunking':
@@ -83,19 +85,24 @@ export default function VideoListPage() {
       case 'mapping':
         return t('statusMapping');
       case 'statistics':
+      case 'generating_report':
       case 'report_generation':
         return t('statusStatistics');
       case 'report_generated':
+      case 'completed':
         return t('statusCompleted');
+      case 'failed':
       case 'error':
         return t('commonFailed');
+      case 'cancelled':
+        return 'Cancelled';
       default:
         return status.replace('_', ' ');
     }
   };
 
   const isVideoRunning = (status: string) => {
-    return ['chunking', 'extracting', 'merging', 'mapping', 'statistics'].includes(status);
+    return ['uploading', 'chunking', 'extracting', 'merging', 'mapping', 'statistics', 'generating_report'].includes(status);
   };
 
   // Find most relevant running video to show in the banner
@@ -349,9 +356,10 @@ export default function VideoListPage() {
 
             {videos.map((v) => {
               const durMin = v.duration_sec ? Math.round(v.duration_sec / 60) : 30;
-              const isFailed = v.status === 'error';
+              const isFailed = v.status === 'error' || v.status === 'failed';
+              const isCancelled = v.status === 'cancelled';
               const isRunning = isVideoRunning(v.status);
-              const isCompleted = v.status === 'report_generated';
+              const isCompleted = v.status === 'report_generated' || v.status === 'completed';
 
               return (
                 <tr key={v.id} style={{ borderBottom: '1px solid var(--card-border)', backgroundColor: isRunning ? '#FAFCF8' : 'transparent' }}>
@@ -372,9 +380,12 @@ export default function VideoListPage() {
                   <td style={{ padding: '14px' }}>
                     <span
                       className="badge"
+                      title={isFailed && v.error_msg ? v.error_msg : undefined}
                       style={
                         isFailed
-                          ? { backgroundColor: '#FEE2E2', color: '#DC2626', border: '1px solid #FECACA', fontWeight: 700 }
+                          ? { backgroundColor: '#FEE2E2', color: '#DC2626', border: '1px solid #FECACA', fontWeight: 700, cursor: v.error_msg ? 'help' : 'default' }
+                          : isCancelled
+                          ? { backgroundColor: '#FEF3C7', color: '#D97706', border: '1px solid #FCD34D', fontWeight: 700 }
                           : isRunning
                           ? {
                               backgroundColor: '#DCFCE7',

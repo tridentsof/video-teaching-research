@@ -1,0 +1,3 @@
+DROP INDEX IF EXISTS idx_raw_events_code;
+ALTER TABLE raw_events DROP COLUMN IF EXISTS code;
+ALTER TABLE raw_events DROP COLUMN IF EXISTS quote;

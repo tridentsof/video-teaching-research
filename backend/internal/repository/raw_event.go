@@ -29,14 +29,14 @@ func (r *RawEventRepository) CreateBatch(ctx context.Context, events []model.Raw
 	query := `
 		INSERT INTO raw_events (
 			id, video_id, teacher_id, chunk_id, timestamp_sec,
-			event_type, event_key, description, confidence, duration_sec,
+			event_type, event_key, code, quote, description, confidence, duration_sec,
 			is_duplicate_of, created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 	`
 	for _, e := range events {
 		batch.Queue(query,
 			e.ID, e.VideoID, e.TeacherID, e.ChunkID, e.TimestampSec,
-			e.EventType, e.EventKey, e.Description, e.Confidence, e.DurationSec,
+			e.EventType, e.EventKey, e.Code, e.Quote, e.Description, e.Confidence, e.DurationSec,
 			e.IsDuplicateOf, e.CreatedAt,
 		)
 	}
@@ -57,7 +57,7 @@ func (r *RawEventRepository) CreateBatch(ctx context.Context, events []model.Raw
 func (r *RawEventRepository) ListByVideoID(ctx context.Context, videoID uuid.UUID, excludeDuplicates bool) ([]model.RawEvent, error) {
 	query := `
 		SELECT id, video_id, teacher_id, chunk_id, timestamp_sec,
-		       event_type, event_key, description, confidence, duration_sec,
+		       event_type, event_key, code, quote, description, confidence, duration_sec,
 		       is_duplicate_of, created_at
 		FROM raw_events
 		WHERE video_id = $1
@@ -78,7 +78,7 @@ func (r *RawEventRepository) ListByVideoID(ctx context.Context, videoID uuid.UUI
 		var e model.RawEvent
 		if err := rows.Scan(
 			&e.ID, &e.VideoID, &e.TeacherID, &e.ChunkID, &e.TimestampSec,
-			&e.EventType, &e.EventKey, &e.Description, &e.Confidence, &e.DurationSec,
+			&e.EventType, &e.EventKey, &e.Code, &e.Quote, &e.Description, &e.Confidence, &e.DurationSec,
 			&e.IsDuplicateOf, &e.CreatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan raw event: %w", err)

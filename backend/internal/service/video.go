@@ -49,62 +49,71 @@ func (s *VideoService) Upload(ctx context.Context, req UploadVideoRequest) (*mod
 	}
 
 	videoID := uuid.New()
+	uploadJobID := uuid.New()
 	startTime := time.Now()
 	ext := strings.ToLower(filepath.Ext(req.Filename))
 	if ext == "" {
 		ext = ".mp4"
 	}
 
-	blobPath := fmt.Sprintf("raw/%s/%s%s", req.TeacherID, videoID.String(), ext)
-	blobURL, err := s.storage.Upload(ctx, blobPath, req.Reader)
-	if err != nil {
-		if s.chunkRepo != nil {
-			now := time.Now()
-			errMsg := err.Error()
-			_ = s.chunkRepo.CreateJob(ctx, &model.PipelineJob{
-				ID:         uuid.New(),
-				VideoID:    videoID,
-				Step:       "upload",
-				Status:     "error",
-				StartedAt:  &startTime,
-				FinishedAt: &now,
-				ErrorMsg:   &errMsg,
-				CreatedAt:  now,
-			})
-		}
-		return nil, fmt.Errorf("failed to store video file: %w", err)
-	}
-
-	now := time.Now()
+	// 1. Pre-create video in database with status 'uploading'
 	video := &model.Video{
 		ID:          videoID,
 		TeacherID:   strings.TrimSpace(req.TeacherID),
 		Title:       strings.TrimSpace(req.Title),
 		DurationSec: req.DurationSec,
-		BlobURL:     &blobURL,
-		Status:      "uploaded",
-		UploadedAt:  now,
+		BlobURL:     nil,
+		Status:      "uploading",
+		UploadedAt:  startTime,
 		UserID:      req.UserID,
 	}
 
 	if err := s.repo.Create(ctx, video); err != nil {
-		return nil, fmt.Errorf("failed to save video record: %w", err)
+		return nil, fmt.Errorf("failed to initialize video record in database: %w", err)
 	}
 
-	// Record explicit completed upload step in pipeline_jobs
+	// 2. Pre-create upload pipeline job with status 'running'
 	if s.chunkRepo != nil {
-		finishedTime := time.Now()
 		_ = s.chunkRepo.CreateJob(ctx, &model.PipelineJob{
-			ID:         uuid.New(),
-			VideoID:    videoID,
-			Step:       "upload",
-			Status:     "completed",
-			StartedAt:  &startTime,
-			FinishedAt: &finishedTime,
-			CreatedAt:  finishedTime,
+			ID:        uploadJobID,
+			VideoID:   videoID,
+			Step:      "upload",
+			Status:    "running",
+			StartedAt: &startTime,
+			CreatedAt: startTime,
 		})
 	}
 
+	// 3. Stream upload file to blob storage
+	blobPath := fmt.Sprintf("raw/%s/%s%s", req.TeacherID, videoID.String(), ext)
+	blobURL, err := s.storage.Upload(ctx, blobPath, req.Reader)
+	if err != nil {
+		errMsg := err.Error()
+		failedStep := "upload"
+		_ = s.repo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
+		if s.chunkRepo != nil {
+			_ = s.chunkRepo.UpdateJob(ctx, uploadJobID, "failed", &errMsg)
+		}
+		return nil, fmt.Errorf("failed to store video file: %w", err)
+	}
+
+	// 4. Update video and job records on successful upload
+	if err := s.repo.UpdateBlobDetails(ctx, videoID, blobURL, req.DurationSec, "uploaded"); err != nil {
+		errMsg := err.Error()
+		failedStep := "upload"
+		_ = s.repo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
+		if s.chunkRepo != nil {
+			_ = s.chunkRepo.UpdateJob(ctx, uploadJobID, "failed", &errMsg)
+		}
+		return nil, fmt.Errorf("failed to finalize video record: %w", err)
+	}
+
+	if s.chunkRepo != nil {
+		_ = s.chunkRepo.UpdateJob(ctx, uploadJobID, "completed", nil)
+	}
+
+	video.BlobURL = &blobURL
+	video.Status = "uploaded"
 	return video, nil
 }
 

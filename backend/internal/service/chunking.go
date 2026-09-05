@@ -183,8 +183,9 @@ func (s *ChunkingService) ProcessVideoChunks(ctx context.Context, videoID uuid.U
 	tempDir, err := os.MkdirTemp("", fmt.Sprintf("chunking-%s-*", videoID.String()))
 	if err != nil {
 		errMsg := err.Error()
-		_ = s.chunkRepo.UpdateJob(ctx, jobID, "error", &errMsg)
-		_ = s.videoRepo.UpdateStatus(ctx, videoID, "error", nil)
+		failedStep := "chunking"
+		_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+		_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
 		return nil, fmt.Errorf("failed to create temp dir: %w", err)
 	}
 	defer os.RemoveAll(tempDir)
@@ -192,8 +193,9 @@ func (s *ChunkingService) ProcessVideoChunks(ctx context.Context, videoID uuid.U
 	// Download original video from BlobStorage
 	if video.BlobURL == nil {
 		errMsg := "video blob_url is missing"
-		_ = s.chunkRepo.UpdateJob(ctx, jobID, "error", &errMsg)
-		_ = s.videoRepo.UpdateStatus(ctx, videoID, "error", nil)
+		failedStep := "chunking"
+		_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+		_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
 		return nil, fmt.Errorf("%s", errMsg)
 	}
 
@@ -203,8 +205,9 @@ func (s *ChunkingService) ProcessVideoChunks(ctx context.Context, videoID uuid.U
 	reader, err := s.storage.Download(ctx, blobPath)
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to download video: %v", err)
-		_ = s.chunkRepo.UpdateJob(ctx, jobID, "error", &errMsg)
-		_ = s.videoRepo.UpdateStatus(ctx, videoID, "error", nil)
+		failedStep := "chunking"
+		_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+		_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
 		return nil, fmt.Errorf("%s", errMsg)
 	}
 	defer reader.Close()
@@ -213,14 +216,18 @@ func (s *ChunkingService) ProcessVideoChunks(ctx context.Context, videoID uuid.U
 	localInputFile, err := os.Create(localInputPath)
 	if err != nil {
 		errMsg := err.Error()
-		_ = s.chunkRepo.UpdateJob(ctx, jobID, "error", &errMsg)
+		failedStep := "chunking"
+		_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+		_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
 		return nil, fmt.Errorf("failed to create input file: %w", err)
 	}
 
 	if _, err := io.Copy(localInputFile, reader); err != nil {
 		localInputFile.Close()
 		errMsg := err.Error()
-		_ = s.chunkRepo.UpdateJob(ctx, jobID, "error", &errMsg)
+		failedStep := "chunking"
+		_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+		_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
 		return nil, fmt.Errorf("failed to save input video locally: %w", err)
 	}
 	localInputFile.Close()
@@ -229,8 +236,9 @@ func (s *ChunkingService) ProcessVideoChunks(ctx context.Context, videoID uuid.U
 	totalDurationSec, err := s.GetVideoDurationSec(ctx, localInputPath)
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to probe video duration: %v (ensure ffmpeg/ffprobe is installed)", err)
-		_ = s.chunkRepo.UpdateJob(ctx, jobID, "error", &errMsg)
-		_ = s.videoRepo.UpdateStatus(ctx, videoID, "error", nil)
+		failedStep := "chunking"
+		_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+		_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
 		return nil, fmt.Errorf("%s", errMsg)
 	}
 
@@ -247,8 +255,9 @@ func (s *ChunkingService) ProcessVideoChunks(ctx context.Context, videoID uuid.U
 	if enableChunking && len(intervals) > 1 {
 		if _, err := exec.LookPath(s.ffmpegPath); err != nil {
 			errMsg := fmt.Sprintf("ffmpeg executable not found in PATH (%s) — FFmpeg is required for multi-segment video chunking", s.ffmpegPath)
-			_ = s.chunkRepo.UpdateJob(ctx, jobID, "error", &errMsg)
-			_ = s.videoRepo.UpdateStatus(ctx, videoID, "error", nil)
+			failedStep := "chunking"
+			_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+			_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
 			return nil, fmt.Errorf("%s", errMsg)
 		}
 	}
@@ -279,17 +288,26 @@ func (s *ChunkingService) ProcessVideoChunks(ctx context.Context, videoID uuid.U
 			cmd.Stderr = &errBuf
 			if err := cmd.Run(); err != nil {
 				errMsg := fmt.Sprintf("ffmpeg chunk %d failed: %v, log: %s", interval.Index, err, errBuf.String())
-				_ = s.chunkRepo.UpdateJob(ctx, jobID, "error", &errMsg)
-				_ = s.videoRepo.UpdateStatus(ctx, videoID, "error", nil)
+				failedStep := "chunking"
+				_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+				_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
 				return nil, fmt.Errorf("%s", errMsg)
 			}
 		} else {
 			// Single full video mode: copy input file directly as chunk 0
 			inputData, err := os.ReadFile(localInputPath)
 			if err != nil {
+				errMsg := err.Error()
+				failedStep := "chunking"
+				_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+				_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
 				return nil, fmt.Errorf("failed to read input file for full video chunk: %w", err)
 			}
 			if err := os.WriteFile(chunkOutPath, inputData, 0644); err != nil {
+				errMsg := err.Error()
+				failedStep := "chunking"
+				_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+				_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
 				return nil, fmt.Errorf("failed to write full video chunk file: %w", err)
 			}
 		}
@@ -298,7 +316,9 @@ func (s *ChunkingService) ProcessVideoChunks(ctx context.Context, videoID uuid.U
 		chunkFile, err := os.Open(chunkOutPath)
 		if err != nil {
 			errMsg := err.Error()
-			_ = s.chunkRepo.UpdateJob(ctx, jobID, "error", &errMsg)
+			failedStep := "chunking"
+			_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+			_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
 			return nil, fmt.Errorf("failed to open chunk file: %w", err)
 		}
 
@@ -307,7 +327,9 @@ func (s *ChunkingService) ProcessVideoChunks(ctx context.Context, videoID uuid.U
 		chunkFile.Close()
 		if err != nil {
 			errMsg := fmt.Sprintf("failed to upload chunk %d: %v", interval.Index, err)
-			_ = s.chunkRepo.UpdateJob(ctx, jobID, "error", &errMsg)
+			failedStep := "chunking"
+			_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+			_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
 			return nil, fmt.Errorf("%s", errMsg)
 		}
 
@@ -325,7 +347,9 @@ func (s *ChunkingService) ProcessVideoChunks(ctx context.Context, videoID uuid.U
 
 		if err := s.chunkRepo.CreateChunk(ctx, &chunkModel); err != nil {
 			errMsg := fmt.Sprintf("failed to persist chunk record %d: %v", interval.Index, err)
-			_ = s.chunkRepo.UpdateJob(ctx, jobID, "error", &errMsg)
+			failedStep := "chunking"
+			_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+			_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
 			return nil, fmt.Errorf("%s", errMsg)
 		}
 

@@ -52,6 +52,7 @@ func main() {
 	var pipelineHandler *handler.PipelineHandler
 	var reportHandler *handler.ReportHandler
 	var analysisHandler *handler.AnalysisHandler
+	var codebookHandler *handler.CodebookHandler
 
 	// Initialize Blob Storage (Azure if credentials set, else Local fallback)
 	var blobStorage service.BlobStorage
@@ -107,7 +108,11 @@ func main() {
 		reportSvc := service.NewReportService(reportRepo, mappingRepo, checklistRepo, videoRepo, chunkRepo)
 		analysisSvc := service.NewAnalysisService(analysisRepo, reportRepo, rawEventRepo, checklistRepo, videoRepo, textProvider, textModel)
 
-		orchestrator := service.NewPipelineOrchestrator(chunkingSvc, extractionSvc, dedupSvc, mappingSvc, reportSvc, videoRepo, chunkRepo, checklistRepo)
+		codebookRepo := repository.NewCodebookRepository(db)
+		codebookSvc := service.NewCodebookService(codebookRepo, reportRepo, mappingRepo, checklistRepo, videoRepo, textProvider, textModel)
+		codebookHandler = handler.NewCodebookHandler(codebookSvc, videoService)
+
+		orchestrator := service.NewPipelineOrchestrator(chunkingSvc, extractionSvc, dedupSvc, mappingSvc, reportSvc, codebookSvc, videoRepo, chunkRepo, checklistRepo)
 		pipelineHandler = handler.NewPipelineHandler(orchestrator, rawEventRepo)
 		reportHandler = handler.NewReportHandler(reportSvc)
 		analysisHandler = handler.NewAnalysisHandler(analysisSvc)
@@ -205,6 +210,17 @@ func main() {
 						analysis.PUT("/themes/:id/confirm", analysisHandler.ConfirmTheme)
 						analysis.GET("/:run_id/teachers/:teacher_id", analysisHandler.GetTeacherAnalysis)
 						analysis.GET("/:run_id/teachers/:teacher_id/interview.md", analysisHandler.ExportInterviewMarkdown)
+					}
+				}
+
+				// Code Book routes
+				if codebookHandler != nil {
+					codebook := protected.Group("/codebook")
+					{
+						codebook.GET("/video/:video_id", codebookHandler.GetByVideoID)
+						codebook.PUT("/video/:video_id", codebookHandler.SaveByVideoID)
+						codebook.POST("/video/:video_id/generate", codebookHandler.GenerateByVideoID)
+						codebook.GET("/export.xlsx", codebookHandler.ExportExcel)
 					}
 				}
 			}

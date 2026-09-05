@@ -108,7 +108,7 @@ func (r *ChunkRepository) CreateJob(ctx context.Context, job *model.PipelineJob)
 // UpdateJob updates the status of a pipeline job.
 func (r *ChunkRepository) UpdateJob(ctx context.Context, id uuid.UUID, status string, errorMsg *string) error {
 	var finishedAt *time.Time
-	if status == "completed" || status == "error" || status == "cancelled" {
+	if status == "completed" || status == "error" || status == "failed" || status == "cancelled" || status == "skipped" {
 		now := time.Now()
 		finishedAt = &now
 	}

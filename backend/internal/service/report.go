@@ -93,8 +93,9 @@ func (s *ReportService) GenerateReportForVideo(ctx context.Context, videoID uuid
 	details, err := s.mappingRepo.ListDetailsByVideoID(ctx, videoID)
 	if err != nil {
 		errMsg := err.Error()
-		_ = s.chunkRepo.UpdateJob(ctx, jobID, "error", &errMsg)
-		_ = s.videoRepo.UpdateStatus(ctx, videoID, "error", nil)
+		failedStep := "report_generation"
+		_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+		_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
 		return nil, fmt.Errorf("failed to fetch mapping details: %w", err)
 	}
 
@@ -115,11 +116,19 @@ func (s *ReportService) GenerateReportForVideo(ctx context.Context, videoID uuid
 	}
 
 	var md strings.Builder
-	md.WriteString("# Classroom Analysis Report\n")
-	md.WriteString(fmt.Sprintf("**Teacher:** %s | **Video:** %s | **Session date:** %s\n",
-		video.TeacherID, video.Title, video.UploadedAt.Format("2006-01-02")))
-	md.WriteString(fmt.Sprintf("**Checklist version:** %s | **Generated:** %s\n\n",
-		checklist.Version, now.Format("2006-01-02 15:04:05")))
+	md.WriteString("# Classroom Observation Checklist\n\n")
+	md.WriteString("### Lesson Information\n")
+	md.WriteString(fmt.Sprintf("- **Observation No.:** #%s\n", video.ID.String()[:8]))
+	md.WriteString(fmt.Sprintf("- **Teacher:** %s\n", video.TeacherID))
+	md.WriteString(fmt.Sprintf("- **Date:** %s\n", video.UploadedAt.Format("2006-01-02")))
+	md.WriteString("- **Class:** English Class\n")
+	md.WriteString("- **Platform (Zoom/Google Meet):** Zoom\n")
+	md.WriteString(fmt.Sprintf("- **Lesson Topic:** %s\n", video.Title))
+	durStr := "Unknown"
+	if video.DurationSec != nil && *video.DurationSec > 0 {
+		durStr = FormatTimestampHHMMSS(float64(*video.DurationSec))
+	}
+	md.WriteString(fmt.Sprintf("- **Duration:** %s\n\n", durStr))
 	md.WriteString("---\n\n")
 
 	for _, sec := range sectionOrder {
@@ -133,6 +142,8 @@ func (s *ReportService) GenerateReportForVideo(ctx context.Context, videoID uuid
 			secTitle = fmt.Sprintf("Section %s", sec)
 		}
 		md.WriteString(fmt.Sprintf("## %s\n\n", secTitle))
+		md.WriteString("| Indicators | Observed | Frequency | Timestamp | Context |\n")
+		md.WriteString("|---|:---:|:---:|:---:|---|\n")
 
 		for _, item := range items {
 			evts := grouped[item.ID]
@@ -140,7 +151,9 @@ func (s *ReportService) GenerateReportForVideo(ctx context.Context, videoID uuid
 
 			var totalConf float64
 			var totalDur float64
-			var occurrences []model.Occurrence
+			occurrences := make([]model.Occurrence, 0)
+			var timestamps []string
+			var contexts []string
 
 			for _, ev := range evts {
 				conf := 0.90
@@ -154,10 +167,35 @@ func (s *ReportService) GenerateReportForVideo(ctx context.Context, videoID uuid
 				totalConf += conf
 				totalDur += dur
 
+				codeVal := ""
+				if ev.Code != nil {
+					codeVal = *ev.Code
+				}
+				quoteVal := ""
+				if ev.Quote != nil {
+					quoteVal = *ev.Quote
+				}
+				contextVal := ev.EventDescription
+				if contextVal == "" && ev.Quote != nil {
+					contextVal = *ev.Quote
+				}
+
+				tsStr := FormatTimestampHHMMSS(ev.TimestampSec)
+				timestamps = append(timestamps, tsStr)
+				if contextVal != "" {
+					cleanContext := strings.ReplaceAll(contextVal, "|", "\\|")
+					cleanContext = strings.ReplaceAll(cleanContext, "\n", " ")
+					contexts = append(contexts, cleanContext)
+				}
+
 				occurrences = append(occurrences, model.Occurrence{
 					TimestampSec: ev.TimestampSec,
+					TimestampStr: tsStr,
 					Confidence:   conf,
 					DurationSec:  dur,
+					Code:         codeVal,
+					Quote:        quoteVal,
+					Context:      contextVal,
 				})
 			}
 
@@ -185,25 +223,29 @@ func (s *ReportService) GenerateReportForVideo(ctx context.Context, videoID uuid
 			}
 			reportItems = append(reportItems, repItem)
 
-			// Markdown formatting for item
-			md.WriteString(fmt.Sprintf("### %s\n", item.Text))
+			// Table Row
+			observedStr := "No"
+			tsDisplay := "-"
+			contextDisplay := "-"
 			if count > 0 {
-				md.WriteString(fmt.Sprintf("- **Count:** %d | **Avg Confidence:** %.2f | **Avg Duration:** %.1fs\n\n",
-					count, *avgConf, *avgDur))
-				md.WriteString("| # | Timestamp | Confidence | Duration |\n")
-				md.WriteString("|---|-----------|------------|----------|\n")
-				for idx, ev := range occurrences {
-					md.WriteString(fmt.Sprintf("| %d | %s  | %.2f       | %.0fs       |\n",
-						idx+1, FormatTimestampHHMMSS(ev.TimestampSec), ev.Confidence, ev.DurationSec))
+				observedStr = "Yes"
+				tsDisplay = strings.Join(timestamps, ", ")
+				if len(contexts) > 0 {
+					contextDisplay = strings.Join(contexts, "; ")
 				}
-				md.WriteString("\n")
-			} else {
-				md.WriteString("- **Count:** 0 | *No occurrences detected*\n\n")
 			}
+
+			cleanText := strings.ReplaceAll(item.Text, "|", "\\|")
+			md.WriteString(fmt.Sprintf("| %s | %s | %d | %s | %s |\n",
+				cleanText, observedStr, count, tsDisplay, contextDisplay))
 		}
 
-		md.WriteString("---\n\n")
+		md.WriteString("\n---\n\n")
 	}
+
+	md.WriteString("## General Observation Notes\n\n")
+	md.WriteString("...........................................................................................................................\n\n")
+	md.WriteString("...........................................................................................................................\n\n")
 
 	reportID := uuid.New()
 	reportModel := &model.Report{
@@ -219,8 +261,9 @@ func (s *ReportService) GenerateReportForVideo(ctx context.Context, videoID uuid
 
 	if err := s.reportRepo.CreateReport(ctx, reportModel, reportItems); err != nil {
 		errMsg := fmt.Sprintf("failed to save report: %v", err)
-		_ = s.chunkRepo.UpdateJob(ctx, jobID, "error", &errMsg)
-		_ = s.videoRepo.UpdateStatus(ctx, videoID, "error", nil)
+		failedStep := "report_generation"
+		_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+		_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
 		return nil, fmt.Errorf("%s", errMsg)
 	}
 

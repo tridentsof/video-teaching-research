@@ -6,19 +6,21 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/video-teaching-research/backend/internal/model"
 	"github.com/video-teaching-research/backend/internal/repository"
 )
 
-// PipelineOrchestrator coordinates the end-to-end video analysis pipeline (Phases 1–5).
+// PipelineOrchestrator coordinates the end-to-end video analysis pipeline (Phases 1–5 + Codebook).
 type PipelineOrchestrator struct {
 	chunkingSvc   *ChunkingService
 	extractionSvc *ExtractionService
 	dedupSvc      *DeduplicationService
 	mappingSvc    *MappingService
 	reportSvc     *ReportService
+	codebookSvc   *CodebookService
 	videoRepo     *repository.VideoRepository
 	chunkRepo     *repository.ChunkRepository
 	checklistRepo *repository.ChecklistRepository
@@ -33,6 +35,7 @@ func NewPipelineOrchestrator(
 	dedupSvc *DeduplicationService,
 	mappingSvc *MappingService,
 	reportSvc *ReportService,
+	codebookSvc *CodebookService,
 	videoRepo *repository.VideoRepository,
 	chunkRepo *repository.ChunkRepository,
 	checklistRepo *repository.ChecklistRepository,
@@ -43,6 +46,7 @@ func NewPipelineOrchestrator(
 		dedupSvc:      dedupSvc,
 		mappingSvc:    mappingSvc,
 		reportSvc:     reportSvc,
+		codebookSvc:   codebookSvc,
 		videoRepo:     videoRepo,
 		chunkRepo:     chunkRepo,
 		checklistRepo: checklistRepo,
@@ -54,6 +58,8 @@ func NewPipelineOrchestrator(
 type PipelineStatusSummary struct {
 	VideoID       uuid.UUID           `json:"video_id"`
 	CurrentStatus string              `json:"current_status"`
+	FailedStep    *string             `json:"failed_step,omitempty"`
+	ErrorMsg      *string             `json:"error_msg,omitempty"`
 	Jobs          []model.PipelineJob `json:"jobs"`
 }
 
@@ -104,9 +110,12 @@ func (p *PipelineOrchestrator) TriggerPipeline(videoID uuid.UUID, checklistID *u
 			if errors.Is(err, context.Canceled) || pipelineCtx.Err() != nil {
 				log.Printf("Pipeline canceled for video %s", videoID)
 				_ = p.videoRepo.UpdateStatus(context.Background(), videoID, "cancelled", nil)
+				_ = p.chunkRepo.CancelRunningJobs(context.Background(), videoID)
 				return
 			}
 			log.Printf("Pipeline error for video %s: %v", videoID, err)
+			errMsg := err.Error()
+			_ = p.videoRepo.UpdateStatusWithError(context.Background(), videoID, "failed", nil, &errMsg, nil)
 		}
 	}()
 
@@ -153,6 +162,16 @@ func (p *PipelineOrchestrator) runPipeline(ctx context.Context, videoID uuid.UUI
 		log.Printf("[Video %s] Direct Full Video mode — skipping chunking step and using raw video directly", videoID)
 		// Clean up any previously created chunks for re-runs
 		_ = p.chunkRepo.DeleteByVideoID(ctx, videoID)
+		now := time.Now()
+		_ = p.chunkRepo.CreateJob(ctx, &model.PipelineJob{
+			ID:         uuid.New(),
+			VideoID:    videoID,
+			Step:       "chunking",
+			Status:     "skipped",
+			StartedAt:  &now,
+			FinishedAt: &now,
+			CreatedAt:  now,
+		})
 	}
 
 	if ctx.Err() != nil {
@@ -201,8 +220,19 @@ func (p *PipelineOrchestrator) runPipeline(ctx context.Context, videoID uuid.UUI
 	if err != nil {
 		return fmt.Errorf("step 5 report generation failed: %w", err)
 	}
-	log.Printf("[Video %s] Pipeline COMPLETE! Report ID: %s", videoID, report.ID)
+	log.Printf("[Video %s] Report Generated! Report ID: %s", videoID, report.ID)
 
+	// Step 6: Automated AI Code Book Generation
+	if p.codebookSvc != nil {
+		log.Printf("[Video %s] Step 6: Synthesizing AI Code Book from observed video behaviors...", videoID)
+		if _, cbErr := p.codebookSvc.GenerateCodebookForVideo(ctx, videoID); cbErr != nil {
+			log.Printf("[Video %s] Warning: Codebook generation encountered an issue: %v (continuing pipeline)", videoID, cbErr)
+		} else {
+			log.Printf("[Video %s] Step 6: Code Book generated successfully!", videoID)
+		}
+	}
+
+	log.Printf("[Video %s] Pipeline COMPLETE!", videoID)
 	return nil
 }
 
@@ -224,6 +254,8 @@ func (p *PipelineOrchestrator) GetStatus(ctx context.Context, videoID uuid.UUID)
 	return &PipelineStatusSummary{
 		VideoID:       videoID,
 		CurrentStatus: video.Status,
+		FailedStep:    video.FailedStep,
+		ErrorMsg:      video.ErrorMsg,
 		Jobs:          jobs,
 	}, nil
 }

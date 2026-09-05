@@ -16,13 +16,15 @@ type User struct {
 
 // Video represents an uploaded video.
 type Video struct {
-	ID          uuid.UUID `json:"id" db:"id"`
-	TeacherID   string    `json:"teacher_id" db:"teacher_id"`
-	Title       string    `json:"title" db:"title"`
-	BlobURL     *string   `json:"blob_url,omitempty" db:"blob_url"`
-	DurationSec *int      `json:"duration_sec,omitempty" db:"duration_sec"`
-	Status      string    `json:"status" db:"status"`
-	UploadedAt  time.Time `json:"uploaded_at" db:"uploaded_at"`
+	ID          uuid.UUID  `json:"id" db:"id"`
+	TeacherID   string     `json:"teacher_id" db:"teacher_id"`
+	Title       string     `json:"title" db:"title"`
+	BlobURL     *string    `json:"blob_url,omitempty" db:"blob_url"`
+	DurationSec *int       `json:"duration_sec,omitempty" db:"duration_sec"`
+	Status      string     `json:"status" db:"status"`
+	ErrorMsg    *string    `json:"error_msg,omitempty" db:"error_msg"`
+	FailedStep  *string    `json:"failed_step,omitempty" db:"failed_step"`
+	UploadedAt  time.Time  `json:"uploaded_at" db:"uploaded_at"`
 	UserID      *uuid.UUID `json:"user_id,omitempty" db:"user_id"`
 }
 
@@ -49,6 +51,8 @@ type RawEvent struct {
 	TimestampSec  float64    `json:"timestamp_sec" db:"timestamp_sec"`
 	EventType     string     `json:"event_type" db:"event_type"`
 	EventKey      string     `json:"event_key" db:"event_key"`
+	Code          *string    `json:"code,omitempty" db:"code"`
+	Quote         *string    `json:"quote,omitempty" db:"quote"`
 	Description   string     `json:"description" db:"description"`
 	Confidence    *float64   `json:"confidence,omitempty" db:"confidence"`
 	DurationSec   *float64   `json:"duration_sec,omitempty" db:"duration_sec"`
@@ -115,8 +119,12 @@ type ReportItem struct {
 // Occurrence represents a single occurrence of a checklist item event.
 type Occurrence struct {
 	TimestampSec float64 `json:"timestamp_sec"`
+	TimestampStr string  `json:"timestamp_str,omitempty"`
 	Confidence   float64 `json:"confidence"`
 	DurationSec  float64 `json:"duration_sec"`
+	Code         string  `json:"code,omitempty"`
+	Quote        string  `json:"quote,omitempty"`
+	Context      string  `json:"context,omitempty"`
 }
 
 // PipelineJob represents a tracking record for a pipeline processing step.
@@ -198,4 +206,20 @@ type InterviewQuestion struct {
 	EvidenceRef       *string   `json:"evidence_ref,omitempty" db:"evidence_ref"`
 	SortOrder         int       `json:"sort_order" db:"sort_order"`
 	CreatedAt         time.Time `json:"created_at" db:"created_at"`
+}
+
+// CodebookEntry represents a single observation code definition in a video's codebook.
+type CodebookEntry struct {
+	ID                 uuid.UUID `json:"id" db:"id"`
+	VideoID            uuid.UUID `json:"video_id" db:"video_id"`
+	Code               string    `json:"code" db:"code"`
+	Definition         string    `json:"definition" db:"definition"`
+	InclusionCriteria  string    `json:"inclusion_criteria" db:"inclusion_criteria"`
+	ExclusionCriteria  string    `json:"exclusion_criteria" db:"exclusion_criteria"`
+	Example            string    `json:"example" db:"example"`
+	Category           string    `json:"category" db:"category"`
+	Theme              string    `json:"theme" db:"theme"`
+	SortOrder          int       `json:"sort_order" db:"sort_order"`
+	CreatedAt          time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at" db:"updated_at"`
 }

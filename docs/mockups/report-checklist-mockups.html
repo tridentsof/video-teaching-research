@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Classroom Observation Checklist - UI Mockups</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Times+New+Roman&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #F8F6F0;
+      --paper-bg: #FFFFFF;
+      --card-border: #E2DBD0;
+      --text-main: #1F1D1A;
+      --text-muted: #6B655D;
+      --accent: #9E4A28;
+      --accent-hover: #843D1F;
+      --accent-soft: #F5EBE6;
+      --accent-blue: #1D5C8A;
+      --accent-blue-soft: #EBF3F9;
+      --accent-green: #2D6A4F;
+      --accent-green-soft: #EAF4EE;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+      --font-serif: 'Instrument Serif', Georgia, serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      padding: 32px 20px;
+    }
+
+    .header-bar {
+      max-width: 1080px;
+      margin: 0 auto 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      background: #EBE5DB;
+      padding: 4px;
+      border-radius: 10px;
+    }
+
+    .tab-btn {
+      padding: 8px 16px;
+      border: none;
+      background: transparent;
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text-muted);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: #FFFFFF;
+      color: var(--accent);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    }
+
+    .export-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      background: #2D6A4F;
+      color: white;
+      box-shadow: 0 2px 6px rgba(45, 106, 79, 0.25);
+      transition: background 0.15s;
+    }
+    .export-btn:hover { background: #23533e; }
+
+    .doc-container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #FFFFFF;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+      padding: 48px 56px;
+      display: none;
+    }
+    .doc-container.active { display: block; }
+
+    /* Academic Document Styling matching PDF */
+    .doc-title {
+      text-align: center;
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 24px;
+      font-family: 'Times New Roman', Times, serif;
+      color: #000000;
+      letter-spacing: 0.3px;
+    }
+
+    .lesson-info-box {
+      margin-bottom: 28px;
+      font-family: 'Times New Roman', Times, serif;
+      font-size: 14.5px;
+      line-height: 1.8;
+      color: #111111;
+    }
+
+    .lesson-info-title {
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .lesson-info-box ul {
+      list-style-type: none;
+      padding-left: 12px;
+    }
+
+    .lesson-info-box li {
+      margin-bottom: 4px;
+    }
+
+    .section-title {
+      font-weight: 700;
+      font-size: 15px;
+      margin: 28px 0 12px;
+      font-family: 'Times New Roman', Times, serif;
+      color: #000000;
+    }
+
+    .pdf-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'Times New Roman', Times, serif;
+      font-size: 13.5px;
+      margin-bottom: 24px;
+    }
+
+    .pdf-table th, .pdf-table td {
+      border: 1px solid #111111;
+      padding: 8px 10px;
+      vertical-align: top;
+    }
+
+    .pdf-table th {
+      background-color: #FFFFFF;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .col-indicator { width: 34%; text-align: left; }
+    .col-observed { width: 12%; text-align: center; }
+    .col-frequency { width: 12%; text-align: center; }
+    .col-timestamp { width: 16%; text-align: center; }
+    .col-context { width: 26%; text-align: left; }
+
+    .tag-observed-yes {
+      display: inline-block;
+      font-weight: 700;
+      color: #111;
+    }
+    .tag-observed-no {
+      color: #777;
+    }
+
+    .ts-chip {
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+      color: #1D5C8A;
+      margin-bottom: 3px;
+    }
+
+    .notes-section {
+      margin-top: 32px;
+      font-family: 'Times New Roman', Times, serif;
+    }
+    .notes-title {
+      font-weight: 700;
+      font-size: 15px;
+      margin-bottom: 12px;
+    }
+    .notes-content {
+      font-size: 14px;
+      line-height: 1.7;
+      color: #222;
+      border-bottom: 1px dotted #888;
+      padding-bottom: 8px;
+      margin-bottom: 8px;
+    }
+
+    /* Option B: Modern Interactive UI */
+    .interactive-card {
+      background: white;
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .interactive-header {
+      background: #FAF7F2;
+      padding: 16px 20px;
+      font-weight: 700;
+      font-size: 15px;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .indicator-row-interactive {
+      display: grid;
+      grid-template-columns: 2.2fr 0.8fr 0.8fr 1.2fr 2fr;
+      padding: 14px 20px;
+      border-bottom: 1px solid #F0EAE1;
+      align-items: center;
+      font-size: 13.5px;
+    }
+    .indicator-row-interactive:last-child { border-bottom: none; }
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-yes { background: #EAF4EE; color: #2D6A4F; }
+    .badge-no { background: #F0EAE1; color: #8A8175; }
+  </style>
+</head>
+<body>
+
+  <div class="header-bar">
+    <div>
+      <h2 style="font-size: 24px; font-weight: 700;">Report & Stats Preview</h2>
+      <p style="color: var(--text-muted); font-size: 14px;">Classroom Observation Checklist & Export Word (.docx)</p>
+    </div>
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchView('exact-paper')">Option 1: Exact PDF/Word Format (Recommended)</button>
+        <button class="tab-btn" onclick="switchView('interactive-hybrid')">Option 2: Interactive Table + Document View</button>
+      </div>
+      <button class="export-btn">
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+        Export Word (.docx)
+      </button>
+    </div>
+  </div>
+
+  <!-- OPTION 1: Exact Matching PDF Document Format -->
+  <div id="exact-paper" class="doc-container active">
+    <div class="doc-title">Classroom Observation Checklist</div>
+
+    <div class="lesson-info-box">
+      <div class="lesson-info-title">Lesson Information</div>
+      <ul>
+        <li>- Observation No.: <strong>#01</strong></li>
+        <li>- Teacher: <strong>Teacher T01 (Ms. Sarah Jenkins)</strong></li>
+        <li>- Date: <strong>2024-01-15</strong></li>
+        <li>- Class: <strong>Online ESL Grade 2</strong></li>
+        <li>- Platform (Zoom/Google Meet): <strong>Zoom</strong></li>
+        <li>- Lesson Topic: <strong>Phonics & Animal Vocabulary</strong></li>
+        <li>- Duration: <strong>25 minutes (00:25:00)</strong></li>
+      </ul>
+    </div>
+
+    <!-- Section A -->
+    <div class="section-title">Section A. Establishing Online Rules and Routines</div>
+    <table class="pdf-table">
+      <thead>
+        <tr>
+          <th class="col-indicator">Indicators</th>
+          <th class="col-observed">Observed</th>
+          <th class="col-frequency">Frequency</th>
+          <th class="col-timestamp">Timestamp</th>
+          <th class="col-context">Context</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Teacher explains classroom rules</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">2</td>
+          <td>
+            <span class="ts-chip">00:01:15</span>
+            <span class="ts-chip">00:03:40</span>
+          </td>
+          <td>Sets camera and microphone turn expectations at opening.</td>
+        </tr>
+        <tr>
+          <td>Teacher reminds students of classroom expectations</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">1</td>
+          <td><span class="ts-chip">00:08:22</span></td>
+          <td>Gentle reminder to raise virtual hand before unmuting.</td>
+        </tr>
+        <tr>
+          <td>Teacher establishes lesson routines</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">1</td>
+          <td><span class="ts-chip">00:00:45</span></td>
+          <td>Warm-up phonics song routine conducted at start.</td>
+        </tr>
+        <tr>
+          <td>Teacher provides clear task instructions</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">3</td>
+          <td>
+            <span class="ts-chip">00:05:10</span>
+            <span class="ts-chip">00:12:30</span>
+            <span class="ts-chip">00:18:05</span>
+          </td>
+          <td>Step-by-step game directions before matching exercise.</td>
+        </tr>
+        <tr>
+          <td>Teacher manages transitions between activities</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">2</td>
+          <td>
+            <span class="ts-chip">00:10:15</span>
+            <span class="ts-chip">00:17:40</span>
+          </td>
+          <td>Smooth countdown transition from vocabulary to quiz.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Section B -->
+    <div class="section-title">Section B. Managing Turn-taking and Speaking Participation</div>
+    <table class="pdf-table">
+      <thead>
+        <tr>
+          <th class="col-indicator">Indicators</th>
+          <th class="col-observed">Observed</th>
+          <th class="col-frequency">Frequency</th>
+          <th class="col-timestamp">Timestamp</th>
+          <th class="col-context">Context</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Teacher nominates students to speak</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">4</td>
+          <td>
+            <span class="ts-chip">00:04:12</span>
+            <span class="ts-chip">00:07:30</span>
+            <span class="ts-chip">00:11:05</span>
+            <span class="ts-chip">00:15:20</span>
+          </td>
+          <td>Directly names individual students (Leo, Maya, Tom) to answer.</td>
+        </tr>
+        <tr>
+          <td>Teacher encourages volunteers</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">2</td>
+          <td>
+            <span class="ts-chip">00:06:50</span>
+            <span class="ts-chip">00:13:45</span>
+          </td>
+          <td>Asks "Who wants to try the next one?" with reaction icon prompt.</td>
+        </tr>
+        <tr>
+          <td>Teacher provides wait time</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">3</td>
+          <td>
+            <span class="ts-chip">00:04:31</span>
+            <span class="ts-chip">00:07:13</span>
+            <span class="ts-chip">00:12:54</span>
+          </td>
+          <td>Pauses 4-6s after open questions before calling on student.</td>
+        </tr>
+        <tr>
+          <td>Teacher encourages quieter learners</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">1</td>
+          <td><span class="ts-chip">00:09:18</span></td>
+          <td>Warmly invites shy student with scaffolded sentence starter.</td>
+        </tr>
+        <tr>
+          <td>Teacher balances speaking opportunities</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">2</td>
+          <td>
+            <span class="ts-chip">00:14:02</span>
+            <span class="ts-chip">00:19:30</span>
+          </td>
+          <td>Rotates speaking turns so all 4 participants get equal turns.</td>
+        </tr>
+        <tr>
+          <td>Teacher organises pair/group speaking tasks</td>
+          <td style="text-align: center;"><span class="tag-observed-no">Không</span></td>
+          <td style="text-align: center;">0</td>
+          <td>-</td>
+          <td>No breakout or peer pair work in this whole-class session.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Section C -->
+    <div class="section-title">Section C. Sustaining Learner Attention and Engagement</div>
+    <table class="pdf-table">
+      <thead>
+        <tr>
+          <th class="col-indicator">Indicators</th>
+          <th class="col-observed">Observed</th>
+          <th class="col-frequency">Frequency</th>
+          <th class="col-timestamp">Timestamp</th>
+          <th class="col-context">Context</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Teacher monitors learner attention</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">2</td>
+          <td>
+            <span class="ts-chip">00:03:10</span>
+            <span class="ts-chip">00:16:45</span>
+          </td>
+          <td>Checks gallery view and addresses distracted student by name.</td>
+        </tr>
+        <tr>
+          <td>Teacher checks understanding</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">3</td>
+          <td>
+            <span class="ts-chip">00:06:20</span>
+            <span class="ts-chip">00:11:50</span>
+            <span class="ts-chip">00:20:10</span>
+          </td>
+          <td>Uses thumbs up/down visual check before moving to next slide.</td>
+        </tr>
+        <tr>
+          <td>Teacher asks follow-up questions</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">2</td>
+          <td>
+            <span class="ts-chip">00:08:40</span>
+            <span class="ts-chip">00:14:35</span>
+          </td>
+          <td>Asks "Why do you think so?" and "What else can you find?".</td>
+        </tr>
+        <tr>
+          <td>Teacher redirects distracted learners</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">1</td>
+          <td><span class="ts-chip">00:12:10</span></td>
+          <td>Uses cheerful visual puppet to regain student eye contact.</td>
+        </tr>
+        <tr>
+          <td>Teacher maintains lesson pace</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">1</td>
+          <td><span class="ts-chip">00:15:00</span></td>
+          <td>Maintains brisk cadence with animated slide transitions.</td>
+        </tr>
+        <tr>
+          <td>Teacher motivates learners to participate</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">3</td>
+          <td>
+            <span class="ts-chip">00:02:15</span>
+            <span class="ts-chip">00:10:00</span>
+            <span class="ts-chip">00:22:10</span>
+          </td>
+          <td>Awards digital stars and high-fives on camera.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Section D -->
+    <div class="section-title">Section D. Providing Scaffolding and Positive Reinforcement</div>
+    <table class="pdf-table">
+      <thead>
+        <tr>
+          <th class="col-indicator">Indicators</th>
+          <th class="col-observed">Observed</th>
+          <th class="col-frequency">Frequency</th>
+          <th class="col-timestamp">Timestamp</th>
+          <th class="col-context">Context</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Teacher models target language</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">3</td>
+          <td>
+            <span class="ts-chip">00:03:50</span>
+            <span class="ts-chip">00:07:10</span>
+            <span class="ts-chip">00:13:00</span>
+          </td>
+          <td>Exaggerates mouth shape for "th" sound with audio repetition.</td>
+        </tr>
+        <tr>
+          <td>Teacher provides sentence starters</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">2</td>
+          <td>
+            <span class="ts-chip">00:08:15</span>
+            <span class="ts-chip">00:16:20</span>
+          </td>
+          <td>Prompts: "I can see a..." on screen.</td>
+        </tr>
+        <tr>
+          <td>Teacher uses prompts</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">2</td>
+          <td>
+            <span class="ts-chip">00:09:40</span>
+            <span class="ts-chip">00:18:10</span>
+          </td>
+          <td>Phonetic cueing ("b... b... ball").</td>
+        </tr>
+        <tr>
+          <td>Teacher gives praise and encouragement</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">5</td>
+          <td>
+            <span class="ts-chip">00:04:45</span>
+            <span class="ts-chip">00:08:30</span>
+            <span class="ts-chip">00:11:40</span>
+            <span class="ts-chip">00:17:00</span>
+            <span class="ts-chip">00:23:15</span>
+          </td>
+          <td>"Brilliant effort Tommy! Super clear pronunciation."</td>
+        </tr>
+        <tr>
+          <td>Teacher provides corrective feedback</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">2</td>
+          <td>
+            <span class="ts-chip">00:06:40</span>
+            <span class="ts-chip">00:14:15</span>
+          </td>
+          <td>Recasts student response with correct vowel sound gently.</td>
+        </tr>
+        <tr>
+          <td>Teacher adjusts support based on learners' responses</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">2</td>
+          <td>
+            <span class="ts-chip">00:10:50</span>
+            <span class="ts-chip">00:19:00</span>
+          </td>
+          <td>Adds visual card hint when learner hesitates on spelling.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Section E -->
+    <div class="section-title">Section E. Using Digital Tools to Support Learning and Interaction</div>
+    <table class="pdf-table">
+      <thead>
+        <tr>
+          <th class="col-indicator">Indicators</th>
+          <th class="col-observed">Observed</th>
+          <th class="col-frequency">Frequency</th>
+          <th class="col-timestamp">Timestamp</th>
+          <th class="col-context">Context</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Teacher uses the chat box</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">1</td>
+          <td><span class="ts-chip">00:02:40</span></td>
+          <td>Types target word "ELEPHANT" in chat box for spelling.</td>
+        </tr>
+        <tr>
+          <td>Teacher uses reaction icons</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">3</td>
+          <td>
+            <span class="ts-chip">00:05:00</span>
+            <span class="ts-chip">00:12:00</span>
+            <span class="ts-chip">00:21:30</span>
+          </td>
+          <td>Sends celebratory party popper and thumbs up emojis.</td>
+        </tr>
+        <tr>
+          <td>Teacher uses breakout rooms</td>
+          <td style="text-align: center;"><span class="tag-observed-no">Không</span></td>
+          <td style="text-align: center;">0</td>
+          <td>-</td>
+          <td>Not used in this session.</td>
+        </tr>
+        <tr>
+          <td>Teacher shares screen</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">1</td>
+          <td><span class="ts-chip">00:01:00</span></td>
+          <td>Shares animated PowerPoint slides throughout the lesson.</td>
+        </tr>
+        <tr>
+          <td>Teacher uses a digital whiteboard</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">1</td>
+          <td><span class="ts-chip">00:15:30</span></td>
+          <td>Draws phonics blending lines on interactive canvas.</td>
+        </tr>
+        <tr>
+          <td>Teacher uses polls or annotation tools</td>
+          <td style="text-align: center;"><span class="tag-observed-yes">Có</span></td>
+          <td style="text-align: center;">2</td>
+          <td>
+            <span class="ts-chip">00:07:45</span>
+            <span class="ts-chip">00:18:20</span>
+          </td>
+          <td>Allows students to stamp and circle correct pictures on screen.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="notes-section">
+      <div class="notes-title">General Observation Notes</div>
+      <div class="notes-content">
+        Teacher maintains warm, energetic classroom rapport with strong use of positive reinforcement and multi-modal digital tools. Pacing and wait time effectively support second language acquisition for young learners.
+      </div>
+      <div class="notes-content" style="border-bottom: none; color: #999;">
+        ........................................................................................................................................................................................................
+      </div>
+    </div>
+  </div>
+
+  <!-- OPTION 2: Interactive Table + Document View -->
+  <div id="interactive-hybrid" class="doc-container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <div>
+        <h2 style="font-size: 22px; font-weight: 700;">Classroom Observation Checklist</h2>
+        <p style="color: var(--text-muted); font-size: 13px;">Teacher T01 &bull; 2024-01-15 &bull; Zoom Platform</p>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <span class="badge-pill badge-yes">22 Indicators Observed</span>
+        <span class="badge-pill badge-no">2 Not Observed</span>
+      </div>
+    </div>
+
+    <!-- Section A Card -->
+    <div class="interactive-card">
+      <div class="interactive-header">
+        <span>Section A. Establishing Online Rules and Routines</span>
+        <span style="font-size: 12px; color: var(--text-muted); font-weight: 500;">5 Indicators</span>
+      </div>
+      <div class="indicator-row-interactive" style="background: #FDFBF8; font-weight: 600; font-size: 12px; color: var(--text-muted);">
+        <div>INDICATOR</div>
+        <div>OBSERVED</div>
+        <div>FREQ</div>
+        <div>TIMESTAMPS</div>
+        <div>CONTEXT</div>
+      </div>
+      <div class="indicator-row-interactive">
+        <div><strong>Teacher explains classroom rules</strong></div>
+        <div><span class="badge-pill badge-yes">Có</span></div>
+        <div><strong>2</strong></div>
+        <div><span class="ts-chip">00:01:15</span><span class="ts-chip">00:03:40</span></div>
+        <div style="color: var(--text-muted);">Sets camera & mic expectations at lesson opening.</div>
+      </div>
+      <div class="indicator-row-interactive">
+        <div><strong>Teacher reminds students of expectations</strong></div>
+        <div><span class="badge-pill badge-yes">Có</span></div>
+        <div><strong>1</strong></div>
+        <div><span class="ts-chip">00:08:22</span></div>
+        <div style="color: var(--text-muted);">Gentle reminder to raise virtual hand.</div>
+      </div>
+      <div class="indicator-row-interactive">
+        <div><strong>Teacher establishes lesson routines</strong></div>
+        <div><span class="badge-pill badge-yes">Có</span></div>
+        <div><strong>1</strong></div>
+        <div><span class="ts-chip">00:00:45</span></div>
+        <div style="color: var(--text-muted);">Warm-up song routine.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function switchView(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.doc-container').forEach(doc => doc.classList.remove('active'));
+      
+      event.target.classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+    }
+  </script>
+</body>
+</html>

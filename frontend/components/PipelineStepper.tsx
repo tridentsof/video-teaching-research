@@ -2,13 +2,15 @@
 
 import React from 'react';
 import { useTranslation } from '@/lib/i18n';
-import { Check, Loader2, AlertCircle } from 'lucide-react';
+import { Check, Loader2, AlertCircle, Minus, XCircle } from 'lucide-react';
+import { PipelineJob } from '@/lib/api';
 
 interface PipelineStepperProps {
   status: string;
   failedStep?: string;
   isChunked?: boolean;
   uploadPercentage?: number;
+  jobs?: PipelineJob[];
 }
 
 const chunkedSteps = [
@@ -29,6 +31,7 @@ const fullVideoSteps = [
 ];
 
 const chunkedStatusOrder: Record<string, number> = {
+  uploading: 0,
   uploaded: 0,
   chunking: 1,
   chunked: 1,
@@ -40,12 +43,15 @@ const chunkedStatusOrder: Record<string, number> = {
   mapping: 4,
   mapped: 4,
   statistics: 5,
+  generating_report: 5,
   report_generated: 5,
+  completed: 5,
 };
 
 const fullVideoStatusOrder: Record<string, number> = {
+  uploading: 0,
   uploaded: 0,
-  chunking: 1, // in case transitioned quickly
+  chunking: 1,
   chunked: 1,
   extracting: 1,
   extracted: 1,
@@ -55,7 +61,9 @@ const fullVideoStatusOrder: Record<string, number> = {
   mapping: 3,
   mapped: 3,
   statistics: 4,
+  generating_report: 4,
   report_generated: 4,
+  completed: 4,
 };
 
 const chunkedStepNameToIndex: Record<string, number> = {
@@ -90,9 +98,11 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
   failedStep,
   isChunked = false,
   uploadPercentage,
+  jobs = [],
 }) => {
   const { t } = useTranslation();
-  const isError = status === 'error';
+  const isError = status === 'error' || status === 'failed';
+  const isCancelled = status === 'cancelled';
   const isUploading = uploadPercentage !== undefined && uploadPercentage < 100;
   const steps = isChunked ? chunkedSteps : fullVideoSteps;
   const statusOrder = isChunked ? chunkedStatusOrder : fullVideoStatusOrder;
@@ -102,6 +112,12 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
   let errorStepIndex = isChunked ? 1 : 1;
   if (failedStep && stepNameToIndex[failedStep] !== undefined) {
     errorStepIndex = stepNameToIndex[failedStep];
+  } else {
+    // Check if any job is failed
+    const failedJob = jobs.find((j) => j.status === 'failed' || j.status === 'error');
+    if (failedJob && stepNameToIndex[failedJob.step] !== undefined) {
+      errorStepIndex = stepNameToIndex[failedJob.step];
+    }
   }
 
   const maxIndex = steps.length - 1;
@@ -112,7 +128,8 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
     : (statusOrder[status] ?? 0);
   const isRunning =
     !isError &&
-    (isUploading || ['chunking', 'extracting', 'merging', 'mapping', 'statistics'].includes(status));
+    !isCancelled &&
+    (isUploading || ['uploading', 'chunking', 'extracting', 'merging', 'mapping', 'statistics', 'generating_report'].includes(status));
 
   return (
     <div style={{
@@ -144,7 +161,7 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
             ? `${(uploadPercentage / 100) * (1 / maxIndex) * 100 * 0.88}%`
             : `${(Math.min(currentStepIndex, maxIndex) / maxIndex) * 100 * 0.88}%`,
           height: '3px',
-          backgroundColor: isError ? '#F87171' : isUploading ? 'var(--accent)' : 'var(--accent-green)',
+          backgroundColor: isError ? '#F87171' : isCancelled ? '#FBBF24' : isUploading ? 'var(--accent)' : 'var(--accent-green)',
           zIndex: 0,
           transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
           overflow: 'hidden',
@@ -161,12 +178,14 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
       )}
 
       {steps.map((step, idx) => {
-        // Steps before the current step (or final step when finished) are SUCCESSFUL / DONE
+        const jobForStep = jobs.find((j) => j.step === step.stepName);
+        const isStepSkipped = jobForStep?.status === 'skipped';
         const isDone =
-          (!isUploading && currentStepIndex > idx) ||
-          (!isError && !isUploading && currentStepIndex === idx && !isRunning && idx === maxIndex);
-        const isActive = !isError && currentStepIndex === idx;
+          (!isUploading && currentStepIndex > idx && !isStepSkipped) ||
+          (!isError && !isCancelled && !isUploading && currentStepIndex === idx && !isRunning && idx === maxIndex);
+        const isActive = !isError && !isCancelled && currentStepIndex === idx;
         const isFailedNode = isError && currentStepIndex === idx;
+        const isCancelledNode = isCancelled && currentStepIndex === idx;
 
         let badgeBg = '#F4EFE6';
         let badgeColor = 'var(--text-muted)';
@@ -180,6 +199,14 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
           badgeBg = '#DC2626';
           badgeColor = '#FFFFFF';
           badgeBorder = '#DC2626';
+        } else if (isCancelledNode) {
+          badgeBg = '#D97706';
+          badgeColor = '#FFFFFF';
+          badgeBorder = '#D97706';
+        } else if (isStepSkipped) {
+          badgeBg = '#E5E7EB';
+          badgeColor = '#6B7280';
+          badgeBorder = '#D1D5DB';
         } else if (isActive) {
           badgeBg = 'var(--accent)';
           badgeColor = '#FFFFFF';
@@ -217,6 +244,8 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
                   ? '0 0 0 3px var(--accent-green-soft)'
                   : isFailedNode
                   ? '0 0 0 4px #FEE2E2'
+                  : isCancelledNode
+                  ? '0 0 0 4px #FEF3C7'
                   : isUploading && idx === 0
                   ? '0 0 0 4px var(--accent-soft)'
                   : isActive && !isRunning
@@ -229,6 +258,10 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
                 <Check size={18} strokeWidth={3} />
               ) : isFailedNode ? (
                 <AlertCircle size={20} strokeWidth={2.5} />
+              ) : isCancelledNode ? (
+                <XCircle size={18} strokeWidth={2.5} />
+              ) : isStepSkipped ? (
+                <Minus size={18} strokeWidth={2.5} />
               ) : isUploading && idx === 0 ? (
                 `${uploadPercentage}%`
               ) : isActive && isRunning ? (
@@ -240,11 +273,15 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
 
             <span style={{
               fontSize: '12px',
-              fontWeight: isDone || isFailedNode || isActive ? 700 : 500,
+              fontWeight: isDone || isFailedNode || isCancelledNode || isActive ? 700 : 500,
               color: isDone
                 ? 'var(--accent-green)'
                 : isFailedNode
                 ? '#DC2626'
+                : isCancelledNode
+                ? '#D97706'
+                : isStepSkipped
+                ? '#9CA3AF'
                 : isUploading && idx === 0
                 ? 'var(--accent)'
                 : isActive
@@ -264,6 +301,16 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
                   ✕ Failed
                 </span>
               )}
+              {isCancelledNode && (
+                <span style={{ display: 'block', fontSize: '10px', color: '#D97706', fontWeight: 700 }}>
+                  ⊘ Cancelled
+                </span>
+              )}
+              {isStepSkipped && (
+                <span style={{ display: 'block', fontSize: '10px', color: '#6B7280', fontWeight: 600 }}>
+                  - Skipped
+                </span>
+              )}
               {isUploading && idx === 0 && (
                 <span style={{ display: 'block', fontSize: '10px', color: 'var(--accent)', fontWeight: 600 }}>
                   {uploadPercentage}%
@@ -281,3 +328,4 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
     </div>
   );
 };
+

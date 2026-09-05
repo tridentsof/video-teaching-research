@@ -53,6 +53,8 @@ type RawEventJSONItem struct {
 	TimestampSec float64 `json:"timestamp_sec"`
 	EventType    string  `json:"event_type"`
 	EventKey     string  `json:"event_key"`
+	Code         string  `json:"code"`
+	Quote        string  `json:"quote"`
 	Description  string  `json:"description"`
 	Confidence   float64 `json:"confidence"`
 	DurationSec  float64 `json:"duration_sec"`
@@ -98,8 +100,9 @@ func (s *ExtractionService) ExtractEventsForVideo(ctx context.Context, videoID u
 		events, err := s.processRawVideo(ctx, video)
 		if err != nil {
 			errMsg := fmt.Sprintf("direct raw video extraction failed: %v", err)
-			_ = s.chunkRepo.UpdateJob(ctx, jobID, "error", &errMsg)
-			_ = s.videoRepo.UpdateStatus(ctx, videoID, "error", nil)
+			failedStep := "event_extraction"
+			_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+			_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
 			return nil, fmt.Errorf("%s", errMsg)
 		}
 		allEvents = events
@@ -133,8 +136,9 @@ func (s *ExtractionService) ExtractEventsForVideo(ctx context.Context, videoID u
 
 		if len(extractionErrors) > 0 {
 			errMsg := fmt.Sprintf("%d chunks failed during extraction: %v", len(extractionErrors), extractionErrors[0])
-			_ = s.chunkRepo.UpdateJob(ctx, jobID, "error", &errMsg)
-			_ = s.videoRepo.UpdateStatus(ctx, videoID, "error", nil)
+			failedStep := "event_extraction"
+			_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+			_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
 			return nil, fmt.Errorf("%s", errMsg)
 		}
 	}
@@ -194,6 +198,16 @@ func (s *ExtractionService) processRawVideo(ctx context.Context, video *model.Vi
 	for _, item := range items {
 		confidence := item.Confidence
 		duration := item.DurationSec
+		var codePtr *string
+		if item.Code != "" {
+			c := item.Code
+			codePtr = &c
+		}
+		var quotePtr *string
+		if item.Quote != "" {
+			q := item.Quote
+			quotePtr = &q
+		}
 
 		events = append(events, model.RawEvent{
 			ID:           uuid.New(),
@@ -203,6 +217,8 @@ func (s *ExtractionService) processRawVideo(ctx context.Context, video *model.Vi
 			TimestampSec: item.TimestampSec,
 			EventType:    item.EventType,
 			EventKey:     item.EventKey,
+			Code:         codePtr,
+			Quote:        quotePtr,
 			Description:  item.Description,
 			Confidence:   &confidence,
 			DurationSec:  &duration,
@@ -272,6 +288,16 @@ func (s *ExtractionService) processChunk(ctx context.Context, video *model.Video
 		globalTimestamp := float64(chunk.ChunkStartSec) + item.TimestampSec
 		confidence := item.Confidence
 		duration := item.DurationSec
+		var codePtr *string
+		if item.Code != "" {
+			c := item.Code
+			codePtr = &c
+		}
+		var quotePtr *string
+		if item.Quote != "" {
+			q := item.Quote
+			quotePtr = &q
+		}
 
 		events = append(events, model.RawEvent{
 			ID:           uuid.New(),
@@ -281,6 +307,8 @@ func (s *ExtractionService) processChunk(ctx context.Context, video *model.Video
 			TimestampSec: globalTimestamp,
 			EventType:    item.EventType,
 			EventKey:     item.EventKey,
+			Code:         codePtr,
+			Quote:        quotePtr,
 			Description:  item.Description,
 			Confidence:   &confidence,
 			DurationSec:  &duration,

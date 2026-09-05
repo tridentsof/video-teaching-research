@@ -127,7 +127,7 @@ export default function VideoDetailPage() {
 
   const isRunning =
     retrying ||
-    ['chunking', 'extracting', 'merging', 'mapping', 'statistics'].includes(video?.status || '');
+    ['uploading', 'chunking', 'extracting', 'merging', 'mapping', 'statistics', 'generating_report'].includes(video?.status || '');
 
   // Find the earliest job started_at or current run time
   const earliestJobStartedAt = jobs
@@ -162,7 +162,7 @@ export default function VideoDetailPage() {
   }
 
   // Determine if this analysis used 10-min chunking or direct full video
-  const isChunkedMode = jobs.some((j) => j.step === 'chunking') || (jobs.length === 0 && rerunChunking);
+  const isChunkedMode = jobs.some((j) => j.step === 'chunking' && j.status !== 'skipped') || (jobs.length === 0 && rerunChunking);
   const currentStepOrder = isChunkedMode ? chunkedStepOrder : fullVideoStepOrder;
 
   // Poll every 1.5s when active, 6s when idle
@@ -182,12 +182,12 @@ export default function VideoDetailPage() {
       toast.info(`Analysis started for "${video?.title || id}" (${rerunChunking ? '10-min segments' : 'Full video'}).`, {
         title: 'Analysis Started',
       });
-      // Force instant data reload
       await loadData(true);
     } catch (err: any) {
       toast.error(`Failed to restart analysis: ${err.message}`, {
         title: 'Analysis Error',
       });
+    } finally {
       setRetrying(false);
     }
   };
@@ -214,6 +214,8 @@ export default function VideoDetailPage() {
   const getStatusLabel = (status: string | undefined) => {
     if (!status) return t('statusPreparing');
     switch (status) {
+      case 'uploading':
+        return t('liveUploadingBadge');
       case 'uploaded':
         return t('statusPreparing');
       case 'chunking':
@@ -227,19 +229,28 @@ export default function VideoDetailPage() {
       case 'mapping':
         return t('statusMapping');
       case 'statistics':
+      case 'generating_report':
       case 'report_generation':
         return t('statusStatistics');
       case 'report_generated':
+      case 'completed':
         return t('statusCompleted');
+      case 'failed':
+      case 'error':
+        return t('commonFailed');
+      case 'cancelled':
+        return 'Cancelled';
       default:
         return status.replace('_', ' ');
     }
   };
 
   // State checks
-  const isVideoFailed = video?.status === 'error' && !retrying;
-  const failedJob = isVideoFailed ? jobs.find((j) => j.status === 'error') || null : null;
-  const failedStepName = failedJob?.step || (isVideoFailed ? (isChunkedMode ? 'chunking' : 'event_extraction') : undefined);
+  const isVideoFailed =
+    (video?.status === 'error' || video?.status === 'failed' || jobs.some((j) => j.status === 'failed' || j.status === 'error')) &&
+    !retrying;
+  const failedJob = isVideoFailed ? jobs.find((j) => j.status === 'failed' || j.status === 'error') || null : null;
+  const failedStepName = video?.failed_step || failedJob?.step || (isVideoFailed ? (isChunkedMode ? 'chunking' : 'event_extraction') : undefined);
 
   if (!video && loading) {
     return (
@@ -944,6 +955,7 @@ export default function VideoDetailPage() {
         <PipelineStepper
           status={video?.status || 'uploaded'}
           failedStep={failedStepName}
+          jobs={jobs}
           isChunked={isChunkedMode}
         />
       </div>

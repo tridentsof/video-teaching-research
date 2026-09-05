@@ -95,15 +95,17 @@ func (s *MappingService) MapEventsForVideo(ctx context.Context, videoID uuid.UUI
 	events, err := s.rawEventRepo.ListByVideoID(ctx, videoID, true)
 	if err != nil {
 		errMsg := err.Error()
-		_ = s.chunkRepo.UpdateJob(ctx, jobID, "error", &errMsg)
-		_ = s.videoRepo.UpdateStatus(ctx, videoID, "error", nil)
+		failedStep := "mapping"
+		_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+		_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
 		return nil, fmt.Errorf("failed to list raw events: %w", err)
 	}
 
 	if len(events) == 0 {
 		errMsg := "no raw events found to map"
-		_ = s.chunkRepo.UpdateJob(ctx, jobID, "error", &errMsg)
-		_ = s.videoRepo.UpdateStatus(ctx, videoID, "error", nil)
+		failedStep := "mapping"
+		_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+		_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
 		return nil, fmt.Errorf("%s", errMsg)
 	}
 
@@ -157,8 +159,9 @@ func (s *MappingService) MapEventsForVideo(ctx context.Context, videoID uuid.UUI
 
 	if err := s.mappingRepo.CreateBatch(ctx, allMappings); err != nil {
 		errMsg := fmt.Sprintf("failed to save mappings: %v", err)
-		_ = s.chunkRepo.UpdateJob(ctx, jobID, "error", &errMsg)
-		_ = s.videoRepo.UpdateStatus(ctx, videoID, "error", nil)
+		failedStep := "mapping"
+		_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+		_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
 		return nil, fmt.Errorf("%s", errMsg)
 	}
 

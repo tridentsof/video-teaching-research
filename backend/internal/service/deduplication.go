@@ -109,8 +109,9 @@ func (s *DeduplicationService) MergeAndDeduplicate(ctx context.Context, videoID 
 	events, err := s.rawEventRepo.ListByVideoID(ctx, videoID, false)
 	if err != nil {
 		errMsg := err.Error()
-		_ = s.chunkRepo.UpdateJob(ctx, jobID, "error", &errMsg)
-		_ = s.videoRepo.UpdateStatus(ctx, videoID, "error", nil)
+		failedStep := "event_merge"
+		_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+		_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
 		return 0, fmt.Errorf("failed to fetch raw events: %w", err)
 	}
 

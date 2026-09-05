@@ -56,6 +56,8 @@ type EventMappingDetail struct {
 	TimestampSec     float64   `json:"timestamp_sec"`
 	EventType        string    `json:"event_type"`
 	EventKey         string    `json:"event_key"`
+	Code             *string   `json:"code,omitempty"`
+	Quote            *string   `json:"quote,omitempty"`
 	EventDescription string    `json:"event_description"`
 	Confidence       *float64  `json:"confidence"`
 	DurationSec      *float64  `json:"duration_sec"`
@@ -71,7 +73,7 @@ type EventMappingDetail struct {
 func (r *MappingRepository) ListDetailsByVideoID(ctx context.Context, videoID uuid.UUID) ([]EventMappingDetail, error) {
 	query := `
 		SELECT
-			em.id, em.raw_event_id, re.timestamp_sec, re.event_type, re.event_key, re.description,
+			em.id, em.raw_event_id, re.timestamp_sec, re.event_type, re.event_key, re.code, re.quote, re.description,
 			re.confidence, re.duration_sec, em.checklist_item_id, ci.section, ci.text,
 			em.match_score, em.match_method, em.matched_by_model
 		FROM event_mappings em
@@ -90,7 +92,7 @@ func (r *MappingRepository) ListDetailsByVideoID(ctx context.Context, videoID uu
 	for rows.Next() {
 		var d EventMappingDetail
 		if err := rows.Scan(
-			&d.MappingID, &d.RawEventID, &d.TimestampSec, &d.EventType, &d.EventKey, &d.EventDescription,
+			&d.MappingID, &d.RawEventID, &d.TimestampSec, &d.EventType, &d.EventKey, &d.Code, &d.Quote, &d.EventDescription,
 			&d.Confidence, &d.DurationSec, &d.ChecklistItemID, &d.ChecklistSection, &d.ChecklistText,
 			&d.MatchScore, &d.MatchMethod, &d.MatchedByModel,
 		); err != nil {

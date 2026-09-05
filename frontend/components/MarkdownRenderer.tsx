@@ -151,18 +151,27 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
               </p>
             ),
             table: ({ children }) => (
-              <table style={{
+              <div style={{
                 width: '100%',
-                borderCollapse: 'collapse',
-                margin: '16px 0 24px 0',
-                fontSize: '13px',
+                overflowX: 'auto',
+                margin: '18px 0 26px 0',
+                border: '1px solid var(--card-border)',
+                borderRadius: 'var(--radius-sm, 6px)',
               }}>
-                {children}
-              </table>
+                <table style={{
+                  width: '100%',
+                  minWidth: '700px',
+                  borderCollapse: 'collapse',
+                  fontSize: '13px',
+                  lineHeight: '1.5',
+                }}>
+                  {children}
+                </table>
+              </div>
             ),
             thead: ({ children }) => (
               <thead style={{
-                backgroundColor: '#F4EFE6',
+                backgroundColor: 'rgba(0, 0, 0, 0.03)',
                 borderBottom: '2px solid var(--card-border)',
               }}>
                 {children}
@@ -174,18 +183,21 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
                 textAlign: 'left',
                 fontWeight: 700,
                 color: 'var(--text-main)',
-                fontFamily: 'var(--font-mono)',
                 fontSize: '12px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                whiteSpace: 'nowrap',
               }}>
                 {children}
               </th>
             ),
             td: ({ children }) => (
               <td style={{
-                padding: '10px 14px',
+                padding: '12px 14px',
                 borderBottom: '1px solid var(--card-border)',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '12px',
+                fontSize: '13px',
+                color: 'var(--text-main)',
+                verticalAlign: 'middle',
               }}>
                 {children}
               </td>
