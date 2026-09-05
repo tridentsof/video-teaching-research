@@ -90,26 +90,31 @@ func (s *VideoService) Upload(ctx context.Context, req UploadVideoRequest) (*mod
 	if err != nil {
 		errMsg := err.Error()
 		failedStep := "upload"
-		_ = s.repo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
+		dbCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		_ = s.repo.UpdateStatusWithError(dbCtx, videoID, "failed", &failedStep, &errMsg, nil)
 		if s.chunkRepo != nil {
-			_ = s.chunkRepo.UpdateJob(ctx, uploadJobID, "failed", &errMsg)
+			_ = s.chunkRepo.UpdateJob(dbCtx, uploadJobID, "failed", &errMsg)
 		}
 		return nil, fmt.Errorf("failed to store video file: %w", err)
 	}
 
 	// 4. Update video and job records on successful upload
-	if err := s.repo.UpdateBlobDetails(ctx, videoID, blobURL, req.DurationSec, "uploaded"); err != nil {
+	dbCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	if err := s.repo.UpdateBlobDetails(dbCtx, videoID, blobURL, req.DurationSec, "uploaded"); err != nil {
 		errMsg := err.Error()
 		failedStep := "upload"
-		_ = s.repo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
+		_ = s.repo.UpdateStatusWithError(dbCtx, videoID, "failed", &failedStep, &errMsg, nil)
 		if s.chunkRepo != nil {
-			_ = s.chunkRepo.UpdateJob(ctx, uploadJobID, "failed", &errMsg)
+			_ = s.chunkRepo.UpdateJob(dbCtx, uploadJobID, "failed", &errMsg)
 		}
 		return nil, fmt.Errorf("failed to finalize video record: %w", err)
 	}
 
 	if s.chunkRepo != nil {
-		_ = s.chunkRepo.UpdateJob(ctx, uploadJobID, "completed", nil)
+		_ = s.chunkRepo.UpdateJob(dbCtx, uploadJobID, "completed", nil)
 	}
 
 	video.BlobURL = &blobURL
@@ -119,6 +124,7 @@ func (s *VideoService) Upload(ctx context.Context, req UploadVideoRequest) (*mod
 
 // List returns all videos.
 func (s *VideoService) List(ctx context.Context) ([]model.Video, error) {
+	_ = s.repo.CleanStuckUploadingVideos(ctx)
 	return s.repo.List(ctx)
 }
 

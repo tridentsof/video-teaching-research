@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 )
@@ -50,41 +51,50 @@ func NewAzureBlobStorage(accountName, accountKey, containerName string) (*AzureB
 	}, nil
 }
 
-// Upload uploads a stream to Azure Blob Storage with automatic local caching and fallback.
+// Upload uploads a stream to local disk immediately and syncs to Azure Blob Storage in the background.
 func (a *AzureBlobStorage) Upload(ctx context.Context, blobPath string, reader io.Reader) (string, error) {
 	// 1. Buffer file to local storage first for resilience and fast local FFmpeg access
 	localPath := filepath.Join("./storage", blobPath)
-	if err := os.MkdirAll(filepath.Dir(localPath), 0755); err == nil {
-		if out, err := os.Create(localPath); err == nil {
-			if _, err := io.Copy(out, reader); err == nil {
-				_ = out.Close()
-
-				// 2. Upload from local file to Azure Blob using UploadFile (supports seeking & robust chunking)
-				if f, err := os.Open(localPath); err == nil {
-					defer f.Close()
-					_, uploadErr := a.client.UploadFile(ctx, a.containerName, blobPath, f, &azblob.UploadFileOptions{
-						BlockSize:   8 * 1024 * 1024,
-						Concurrency: 3,
-					})
-					if uploadErr == nil {
-						return a.GetURL(blobPath), nil
-					}
-					// If Azure fails (e.g. network timeout / invalid key), log and use local storage fallback safely
-					log.Printf("WARNING: Azure Blob Upload failed for %s (%v) — using local storage fallback", blobPath, uploadErr)
-					return fmt.Sprintf("/storage/%s", blobPath), nil
-				}
-			} else {
-				_ = out.Close()
-			}
-		}
+	if err := os.MkdirAll(filepath.Dir(localPath), 0755); err != nil {
+		return "", fmt.Errorf("failed to create local storage directory: %w", err)
 	}
 
-	// 3. Fallback direct stream upload if local disk buffer failed
-	_, err := a.client.UploadStream(ctx, a.containerName, blobPath, reader, nil)
+	out, err := os.Create(localPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to upload blob %s: %w", blobPath, err)
+		return "", fmt.Errorf("failed to create local file: %w", err)
 	}
-	return a.GetURL(blobPath), nil
+
+	if _, err := io.Copy(out, reader); err != nil {
+		_ = out.Close()
+		_ = os.Remove(localPath)
+		return "", fmt.Errorf("failed to write uploaded file to disk: %w", err)
+	}
+	_ = out.Close()
+
+	// 2. Asynchronously upload to Azure Blob Storage in background so HTTP response is instant
+	go func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		defer cancel()
+
+		f, err := os.Open(localPath)
+		if err != nil {
+			log.Printf("[AzureBlobStorage] Failed to open local file %s for Azure background upload: %v", localPath, err)
+			return
+		}
+		defer f.Close()
+
+		_, uploadErr := a.client.UploadFile(bgCtx, a.containerName, blobPath, f, &azblob.UploadFileOptions{
+			BlockSize:   8 * 1024 * 1024,
+			Concurrency: 3,
+		})
+		if uploadErr != nil {
+			log.Printf("WARNING: Azure Blob background sync failed for %s (%v) — local storage copy retained", blobPath, uploadErr)
+		} else {
+			log.Printf("[AzureBlobStorage] Successfully synced %s to Azure Blob Storage", blobPath)
+		}
+	}()
+
+	return fmt.Sprintf("/storage/%s", blobPath), nil
 }
 
 // Download downloads a blob from Azure Blob Storage or reads directly from local cache if present.
@@ -170,5 +180,5 @@ func (l *LocalBlobStorage) GetURL(blobPath string) string {
 	if l.baseURL != "" {
 		return fmt.Sprintf("%s/storage/%s", l.baseURL, blobPath)
 	}
-	return filepath.Join(l.baseDir, blobPath)
+	return fmt.Sprintf("/storage/%s", blobPath)
 }

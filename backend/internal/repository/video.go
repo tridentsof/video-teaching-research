@@ -117,3 +117,24 @@ func (r *VideoRepository) UpdateBlobDetails(ctx context.Context, id uuid.UUID, b
 	}
 	return nil
 }
+
+// CleanStuckUploadingVideos marks stale 'uploading' videos older than 5 minutes as failed.
+func (r *VideoRepository) CleanStuckUploadingVideos(ctx context.Context) error {
+	queryVideos := `
+		UPDATE videos
+		SET status = 'failed', failed_step = 'upload', error_msg = 'Upload timed out or was interrupted'
+		WHERE status = 'uploading' AND uploaded_at < NOW() - INTERVAL '5 minutes'
+	`
+	if _, err := r.db.Pool.Exec(ctx, queryVideos); err != nil {
+		return err
+	}
+
+	queryJobs := `
+		UPDATE pipeline_jobs
+		SET status = 'failed', finished_at = NOW(), error_msg = 'Upload timed out or was interrupted'
+		WHERE step = 'upload' AND status = 'running' AND created_at < NOW() - INTERVAL '5 minutes'
+	`
+	_, _ = r.db.Pool.Exec(ctx, queryJobs)
+	return nil
+}
+
