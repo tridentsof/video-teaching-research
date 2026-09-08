@@ -53,6 +53,7 @@ func main() {
 	var reportHandler *handler.ReportHandler
 	var analysisHandler *handler.AnalysisHandler
 	var codebookHandler *handler.CodebookHandler
+	var settingsHandler *handler.SettingsHandler
 
 	// Initialize Blob Storage (Azure if credentials set, else Local fallback)
 	var blobStorage service.BlobStorage
@@ -87,6 +88,13 @@ func main() {
 		authService = service.NewAuthService(userRepo, cfg.JWTSecret, cfg.JWTExpiryHours)
 		authHandler = handler.NewAuthHandler(authService)
 
+		settingsRepo := repository.NewSettingsRepository(db)
+		if err := settingsRepo.EnsureTablesAndSeed(context.Background()); err != nil {
+			log.Printf("Warning: Failed to ensure AI settings tables: %v", err)
+		}
+		aiRouterSvc := service.NewAIRouterService(settingsRepo, cfg.GeminiAPIKey, cfg.GeminiModel, cfg.OpenRouterAPIKey, cfg.OpenRouterModel)
+		settingsHandler = handler.NewSettingsHandler(aiRouterSvc)
+
 		checklistRepo := repository.NewChecklistRepository(db)
 		checklistService := service.NewChecklistService(checklistRepo)
 		checklistHandler = handler.NewChecklistHandler(checklistService)
@@ -104,13 +112,19 @@ func main() {
 
 		chunkingSvc := service.NewChunkingService(chunkRepo, videoRepo, blobStorage, cfg.FFmpegPath, cfg.ChunkDurationSec, cfg.ChunkOverlapSec)
 		extractionSvc := service.NewExtractionService(rawEventRepo, chunkRepo, videoRepo, blobStorage, geminiProvider, cfg.MaxConcurrentChunks)
+		extractionSvc.SetAIRouter(aiRouterSvc)
+		
 		dedupSvc := service.NewDeduplicationService(rawEventRepo, chunkRepo, videoRepo, 5.0)
 		mappingSvc := service.NewMappingService(mappingRepo, rawEventRepo, checklistRepo, chunkRepo, videoRepo, textProvider, textModel)
+		mappingSvc.SetAIRouter(aiRouterSvc)
+
 		reportSvc := service.NewReportService(reportRepo, mappingRepo, checklistRepo, videoRepo, chunkRepo)
 		analysisSvc := service.NewAnalysisService(analysisRepo, reportRepo, rawEventRepo, checklistRepo, videoRepo, textProvider, textModel)
+		analysisSvc.SetAIRouter(aiRouterSvc)
 
 		codebookRepo := repository.NewCodebookRepository(db)
-		codebookSvc := service.NewCodebookService(codebookRepo, reportRepo, mappingRepo, checklistRepo, videoRepo, textProvider, textModel)
+		codebookSvc := service.NewCodebookService(codebookRepo, rawEventRepo, videoRepo, geminiProvider, cfg.CodebookModel)
+		codebookSvc.SetAIRouter(aiRouterSvc)
 		codebookHandler = handler.NewCodebookHandler(codebookSvc, videoService)
 
 		orchestrator := service.NewPipelineOrchestrator(chunkingSvc, extractionSvc, dedupSvc, mappingSvc, reportSvc, codebookSvc, videoRepo, chunkRepo, checklistRepo)
@@ -222,6 +236,24 @@ func main() {
 						codebook.PUT("/video/:video_id", codebookHandler.SaveByVideoID)
 						codebook.POST("/video/:video_id/generate", codebookHandler.GenerateByVideoID)
 						codebook.GET("/export.xlsx", codebookHandler.ExportExcel)
+					}
+				}
+
+				// AI Settings & Key Router routes
+				if settingsHandler != nil {
+					settings := protected.Group("/settings")
+					{
+						settings.GET("/ai-flows", settingsHandler.GetAIFlows)
+						settings.PUT("/ai-flows", settingsHandler.UpdateAIFlows)
+						settings.GET("/api-keys", settingsHandler.ListAPIKeys)
+						settings.POST("/api-keys", settingsHandler.CreateAPIKey)
+						settings.PUT("/api-keys/:id", settingsHandler.UpdateAPIKey)
+						settings.DELETE("/api-keys/:id", settingsHandler.DeleteAPIKey)
+						settings.POST("/test-ping", settingsHandler.TestPing)
+						settings.GET("/models", settingsHandler.ListModels)
+						settings.POST("/models", settingsHandler.CreateModel)
+						settings.PUT("/models/*id", settingsHandler.UpdateModel)
+						settings.DELETE("/models/*id", settingsHandler.DeleteModel)
 					}
 				}
 			}

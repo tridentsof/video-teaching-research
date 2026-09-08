@@ -16,6 +16,7 @@ services:
       AZURE_CONTAINER_NAME: ${AZURE_CONTAINER_NAME:-videos}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.7-flash}
+      CODEBOOK_MODEL: ${CODEBOOK_MODEL:-gemini-3.7-flash}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-anthropic/claude-3.7-sonnet}
       JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_key_video_teaching_research_2026}

@@ -22,6 +22,7 @@ type AnalysisService struct {
 	videoRepo     *repository.VideoRepository
 	aiText        ai.TextCompletionProvider
 	modelName     string
+	aiRouter      *AIRouterService
 }
 
 // NewAnalysisService creates a new AnalysisService.
@@ -46,6 +47,11 @@ func NewAnalysisService(
 		aiText:        aiText,
 		modelName:     modelName,
 	}
+}
+
+// SetAIRouter attaches the dynamic AI router.
+func (s *AnalysisService) SetAIRouter(router *AIRouterService) {
+	s.aiRouter = router
 }
 
 // TeacherStatsSummary holds aggregated statistics for one teacher.
@@ -205,7 +211,16 @@ func (s *AnalysisService) generateCategoriesAndThemes(
 	runID uuid.UUID,
 	patterns []model.Pattern,
 ) ([]model.Category, []model.Theme, error) {
-	if s.aiText == nil {
+	aiText := s.aiText
+	modelName := s.modelName
+	if s.aiRouter != nil {
+		if rProvider, rModel, err := s.aiRouter.GetTextProviderForFlow(ctx, "thematic_analysis"); err == nil && rProvider != nil {
+			aiText = rProvider
+			modelName = rModel
+		}
+	}
+
+	if aiText == nil {
 		return nil, nil, fmt.Errorf("AI text provider not configured")
 	}
 
@@ -249,7 +264,7 @@ Return ONLY a JSON object:
 		Themes     []aiThemeItem    `json:"themes"`
 	}
 
-	err := s.aiText.CompleteJSON(ctx, s.modelName, systemPrompt, userPrompt, &aiResp)
+	err := aiText.CompleteJSON(ctx, modelName, systemPrompt, userPrompt, &aiResp)
 	if err != nil {
 		return nil, nil, err
 	}

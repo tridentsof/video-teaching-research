@@ -144,6 +144,52 @@ export interface CodebookEntry {
   updated_at?: string;
 }
 
+export interface APIKeyItem {
+  id: string;
+  provider: string;
+  label: string;
+  masked_key: string;
+  is_default: boolean;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AIModelItem {
+  id: string;
+  provider: string;
+  display_name: string;
+  context_tokens: number;
+  supports_multimodal: boolean;
+  supports_reasoning: boolean;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface FlowConfigItem {
+  flow_key: string;
+  model_id: string;
+  model_info?: AIModelItem;
+  api_key_id?: string;
+  api_key_info?: APIKeyItem;
+  temperature: number;
+  fallback_model_id?: string;
+  updated_at: string;
+}
+
+export interface AIFlowsSettingsData {
+  flows: FlowConfigItem[];
+  models: AIModelItem[];
+  api_keys: APIKeyItem[];
+}
+
+export interface TestPingResult {
+  success: boolean;
+  latency_ms: number;
+  message: string;
+}
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 function getAuthHeader(): Record<string, string> {
@@ -395,6 +441,98 @@ export const api = {
       localStorage.removeItem('vtr_user');
       window.location.href = '/login';
     }
+  },
+
+  // AI Studio & Model Router Settings
+  async getAIFlowsSettings(): Promise<AIFlowsSettingsData> {
+    return request<AIFlowsSettingsData>('/settings/ai-flows');
+  },
+
+  async updateAIFlowsSettings(flows: Array<{ flow_key: string; model_id: string; api_key_id?: string; temperature: number; fallback_model_id?: string }>): Promise<AIFlowsSettingsData> {
+    return request<AIFlowsSettingsData>('/settings/ai-flows', {
+      method: 'PUT',
+      body: JSON.stringify({ flows }),
+    });
+  },
+
+  async getAPIKeys(): Promise<APIKeyItem[]> {
+    const data = await request<{ api_keys: APIKeyItem[] }>('/settings/api-keys');
+    return data.api_keys || [];
+  },
+
+  async createAPIKey(provider: string, label: string, key_secret: string, is_default = false): Promise<APIKeyItem> {
+    return request<APIKeyItem>('/settings/api-keys', {
+      method: 'POST',
+      body: JSON.stringify({ provider, label, key_secret, is_default }),
+    });
+  },
+
+  async updateAPIKey(
+    id: string,
+    keyData: { label: string; key_secret?: string; is_default?: boolean; status?: string }
+  ): Promise<APIKeyItem> {
+    return request<APIKeyItem>(`/settings/api-keys/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(keyData),
+    });
+  },
+
+  async deleteAPIKey(id: string): Promise<void> {
+    return request(`/settings/api-keys/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async testAIPing(provider: string, model_id: string, api_key_id?: string, key_secret?: string): Promise<TestPingResult> {
+    return request<TestPingResult>('/settings/test-ping', {
+      method: 'POST',
+      body: JSON.stringify({ provider, model_id, api_key_id, key_secret }),
+    });
+  },
+
+  // AI Model Catalog CRUD
+  async getAIModels(): Promise<AIModelItem[]> {
+    const data = await request<{ models: AIModelItem[] }>('/settings/models');
+    return data.models || [];
+  },
+
+  async createAIModel(modelData: {
+    id: string;
+    provider: string;
+    display_name: string;
+    context_tokens?: number;
+    supports_multimodal?: boolean;
+    supports_reasoning?: boolean;
+    is_active?: boolean;
+    sort_order?: number;
+  }): Promise<AIModelItem> {
+    return request<AIModelItem>('/settings/models', {
+      method: 'POST',
+      body: JSON.stringify(modelData),
+    });
+  },
+
+  async updateAIModel(
+    id: string,
+    modelData: {
+      display_name: string;
+      context_tokens?: number;
+      supports_multimodal?: boolean;
+      supports_reasoning?: boolean;
+      is_active?: boolean;
+      sort_order?: number;
+    }
+  ): Promise<AIModelItem> {
+    return request<AIModelItem>(`/settings/models/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(modelData),
+    });
+  },
+
+  async deleteAIModel(id: string): Promise<void> {
+    return request(`/settings/models/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
   },
 
   getToken(): string | null {

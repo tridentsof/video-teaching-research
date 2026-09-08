@@ -20,6 +20,7 @@ import {
   LogOut,
   PanelLeftClose,
   PanelLeft,
+  Sliders,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -42,6 +43,7 @@ export const Sidebar: React.FC = () => {
     { href: '/codebook', label: t('navCodeBook'), icon: BookMarked },
     { href: '/themes', label: t('navThemes'), icon: Network },
     { href: '/interview', label: t('navInterview'), icon: Mic },
+    { href: '/settings', label: t('navSettings'), icon: Sliders },
     { href: '/docs', label: t('navApiDocs'), icon: Code2, target: '_blank' },
   ];
 

@@ -1,5 +1,6 @@
 -- ============================================================
--- Truncate All Data & Re-seed Default Observation Checklist
+-- Truncate All Data & Re-seed Default Observation Checklist & AI Settings
+-- Preserves: api_keys, ai_models, flow_configs (system configurations)
 -- ============================================================
 
 BEGIN;
@@ -72,5 +73,25 @@ INSERT INTO checklist_items (checklist_id, section, text, sort_order) VALUES
 ('00000000-0000-0000-0000-000000000001', 'E', 'Teacher shares screen', 4),
 ('00000000-0000-0000-0000-000000000001', 'E', 'Teacher uses a digital whiteboard', 5),
 ('00000000-0000-0000-0000-000000000001', 'E', 'Teacher uses polls or annotation tools', 6);
+
+-- Re-ensure AI Model Catalog & Default Flow Configurations
+INSERT INTO ai_models (id, provider, display_name, context_tokens, supports_multimodal, supports_reasoning, is_active, sort_order)
+VALUES
+    ('gemini-3.7-flash',  'gemini',     'Google: Gemini 3.7 Flash',                 1048576, TRUE,  TRUE,  TRUE, 1),
+    ('gemini-2.5-flash',  'gemini',     'Google: Gemini 2.5 Flash',                 1048576, TRUE,  FALSE, TRUE, 2),
+    ('gemini-2.5-pro',    'gemini',     'Google: Gemini 2.5 Pro',                   2097152, TRUE,  TRUE,  TRUE, 3),
+    ('claude-3.7-sonnet', 'openrouter', 'Anthropic: Claude 3.7 Sonnet (OpenRouter)', 200000,  FALSE, TRUE,  TRUE, 4),
+    ('gpt-4o',            'openrouter', 'OpenAI: GPT-4o (OpenRouter)',               128000,  FALSE, TRUE,  TRUE, 5),
+    ('deepseek-r1',       'openrouter', 'DeepSeek: R1 (OpenRouter)',                  64000,   FALSE, TRUE,  TRUE, 6)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO flow_configs (flow_key, model_id, temperature, fallback_model_id)
+VALUES
+    ('video_extraction',   'gemini-3.7-flash', 0.20, 'gemini-2.5-flash'),
+    ('checklist_mapping',  'gemini-3.7-flash', 0.10, 'gemini-2.5-flash'),
+    ('thematic_analysis',  'gemini-3.7-flash', 0.40, 'gemini-3.7-flash'),
+    ('interview_generator','gemini-3.7-flash', 0.50, 'gemini-3.7-flash'),
+    ('codebook_generation','gemini-3.7-flash', 0.30, 'gemini-2.5-flash')
+ON CONFLICT (flow_key) DO NOTHING;
 
 COMMIT;

@@ -24,6 +24,7 @@ type ExtractionService struct {
 	storage             BlobStorage
 	aiVideo             ai.VideoAnalysisProvider
 	maxConcurrentChunks int
+	aiRouter            *AIRouterService
 }
 
 // NewExtractionService creates a new ExtractionService.
@@ -46,6 +47,11 @@ func NewExtractionService(
 		aiVideo:             aiVideo,
 		maxConcurrentChunks: maxConcurrentChunks,
 	}
+}
+
+// SetAIRouter attaches the dynamic AI router.
+func (s *ExtractionService) SetAIRouter(router *AIRouterService) {
+	s.aiRouter = router
 }
 
 // RawEventJSONItem represents a single parsed item from Gemini output.
@@ -181,9 +187,15 @@ func (s *ExtractionService) processRawVideo(ctx context.Context, video *model.Vi
 	localFile.Close()
 
 	// Call Gemini Video Analysis on full video
-	rawOutput, err := s.aiVideo.AnalyzeVideoChunk(ctx, localVideoPath, VideoEventExtractionPrompt)
+	aiVideo := s.aiVideo
+	if s.aiRouter != nil {
+		if rProvider, _, err := s.aiRouter.GetVideoProviderForFlow(ctx, "video_extraction"); err == nil && rProvider != nil {
+			aiVideo = rProvider
+		}
+	}
+	rawOutput, err := aiVideo.AnalyzeVideoChunk(ctx, localVideoPath, VideoEventExtractionPrompt)
 	if err != nil {
-		return nil, fmt.Errorf("gemini analysis on raw video failed: %w", err)
+		return nil, fmt.Errorf("gemini analysis failed: %w", err)
 	}
 
 	// Parse JSON
@@ -196,6 +208,7 @@ func (s *ExtractionService) processRawVideo(ctx context.Context, video *model.Vi
 	now := time.Now()
 
 	for _, item := range items {
+		globalTimestamp := item.TimestampSec
 		confidence := item.Confidence
 		duration := item.DurationSec
 		var codePtr *string
@@ -213,8 +226,8 @@ func (s *ExtractionService) processRawVideo(ctx context.Context, video *model.Vi
 			ID:           uuid.New(),
 			VideoID:      video.ID,
 			TeacherID:    video.TeacherID,
-			ChunkID:      nil, // Direct raw video mode
-			TimestampSec: item.TimestampSec,
+			ChunkID:      nil,
+			TimestampSec: globalTimestamp,
 			EventType:    item.EventType,
 			EventKey:     item.EventKey,
 			Code:         codePtr,
@@ -226,20 +239,16 @@ func (s *ExtractionService) processRawVideo(ctx context.Context, video *model.Vi
 		})
 	}
 
-	if err := s.rawEventRepo.CreateBatch(ctx, events); err != nil {
-		return nil, fmt.Errorf("failed to store raw events in db: %w", err)
-	}
-
 	return events, nil
 }
 
 // processChunk downloads, sends to Gemini, parses and saves events for one chunk.
 func (s *ExtractionService) processChunk(ctx context.Context, video *model.Video, chunk model.VideoChunk) ([]model.RawEvent, error) {
-	if chunk.BlobPath == nil {
-		return nil, fmt.Errorf("chunk blob_path is nil")
+	if chunk.BlobPath == nil || *chunk.BlobPath == "" {
+		return nil, fmt.Errorf("chunk blob_path is missing for chunk %s", chunk.ID)
 	}
 
-	tempDir, err := os.MkdirTemp("", fmt.Sprintf("extract-chunk-%s-*", chunk.ID.String()))
+	tempDir, err := os.MkdirTemp("", fmt.Sprintf("chunk-%s-*", chunk.ID.String()))
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +273,13 @@ func (s *ExtractionService) processChunk(ctx context.Context, video *model.Video
 	localFile.Close()
 
 	// Call Gemini Video Analysis
-	rawOutput, err := s.aiVideo.AnalyzeVideoChunk(ctx, localChunkPath, VideoEventExtractionPrompt)
+	aiVideo := s.aiVideo
+	if s.aiRouter != nil {
+		if rProvider, _, err := s.aiRouter.GetVideoProviderForFlow(ctx, "video_extraction"); err == nil && rProvider != nil {
+			aiVideo = rProvider
+		}
+	}
+	rawOutput, err := aiVideo.AnalyzeVideoChunk(ctx, localChunkPath, VideoEventExtractionPrompt)
 	if err != nil {
 		_ = s.chunkRepo.UpdateChunkStatus(ctx, chunk.ID, "error", nil)
 		return nil, fmt.Errorf("gemini analysis failed: %w", err)

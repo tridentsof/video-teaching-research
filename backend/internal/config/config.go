@@ -23,8 +23,9 @@ type Config struct {
 	AzureContainerName  string
 
 	// AI — Gemini Direct
-	GeminiAPIKey string
-	GeminiModel  string
+	GeminiAPIKey  string
+	GeminiModel   string
+	CodebookModel string
 
 	// AI — OpenRouter
 	OpenRouterAPIKey string
@@ -58,6 +59,7 @@ func Load() (*Config, error) {
 		AzureContainerName:  getEnv("AZURE_CONTAINER_NAME", "videos"),
 		GeminiAPIKey:        getEnv("GEMINI_API_KEY", ""),
 		GeminiModel:         getEnv("GEMINI_MODEL", "gemini-3.7-flash"),
+		CodebookModel:       getEnv("CODEBOOK_MODEL", getEnv("GEMINI_MODEL", "gemini-3.7-flash")),
 		OpenRouterAPIKey:    getEnv("OPENROUTER_API_KEY", ""),
 		OpenRouterModel:     getEnv("OPENROUTER_MODEL", "anthropic/claude-3.7-sonnet"),
 		JWTSecret:           getEnv("JWT_SECRET", ""),

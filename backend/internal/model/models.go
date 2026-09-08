@@ -223,3 +223,136 @@ type CodebookEntry struct {
 	CreatedAt          time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at" db:"updated_at"`
 }
+
+// APIKey represents an AI provider credential stored in the database vault.
+type APIKey struct {
+	ID         uuid.UUID `json:"id" db:"id"`
+	Provider   string    `json:"provider" db:"provider"` // gemini | openrouter | anthropic | openai
+	Label      string    `json:"label" db:"label"`
+	KeySecret  string    `json:"key_secret" db:"key_secret"`
+	IsDefault  bool      `json:"is_default" db:"is_default"`
+	Status     string    `json:"status" db:"status"` // active | rate_limited | disabled
+	CreatedAt  time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// APIKeyResponse masks the secret key for client safety.
+type APIKeyResponse struct {
+	ID        uuid.UUID `json:"id"`
+	Provider  string    `json:"provider"`
+	Label     string    `json:"label"`
+	MaskedKey string    `json:"masked_key"`
+	IsDefault bool      `json:"is_default"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// AIModelInfo represents an AI model in the catalog.
+type AIModelInfo struct {
+	ID                 string    `json:"id" db:"id"`
+	Provider           string    `json:"provider" db:"provider"`
+	DisplayName        string    `json:"display_name" db:"display_name"`
+	ContextTokens      int       `json:"context_tokens" db:"context_tokens"`
+	SupportsMultimodal bool      `json:"supports_multimodal" db:"supports_multimodal"`
+	SupportsReasoning  bool      `json:"supports_reasoning" db:"supports_reasoning"`
+	IsActive           bool      `json:"is_active" db:"is_active"`
+	SortOrder          int       `json:"sort_order" db:"sort_order"`
+	CreatedAt          time.Time `json:"created_at" db:"created_at"`
+}
+
+// FlowConfig represents routing rules for a pipeline flow.
+type FlowConfig struct {
+	FlowKey         string     `json:"flow_key" db:"flow_key"`
+	ModelID         string     `json:"model_id" db:"model_id"`
+	APIKeyID        *uuid.UUID `json:"api_key_id,omitempty" db:"api_key_id"`
+	Temperature     float64    `json:"temperature" db:"temperature"`
+	FallbackModelID *string    `json:"fallback_model_id,omitempty" db:"fallback_model_id"`
+	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
+}
+
+// FlowConfigResponse includes nested model & key details for UI presentation.
+type FlowConfigResponse struct {
+	FlowKey         string           `json:"flow_key"`
+	ModelID         string           `json:"model_id"`
+	ModelInfo       *AIModelInfo     `json:"model_info,omitempty"`
+	APIKeyID        *uuid.UUID       `json:"api_key_id,omitempty"`
+	APIKeyInfo      *APIKeyResponse  `json:"api_key_info,omitempty"`
+	Temperature     float64          `json:"temperature"`
+	FallbackModelID *string          `json:"fallback_model_id,omitempty"`
+	UpdatedAt       time.Time        `json:"updated_at"`
+}
+
+// AIFlowsSettingsResponse returns the complete state for the AI Studio page.
+type AIFlowsSettingsResponse struct {
+	Flows     []FlowConfigResponse `json:"flows"`
+	Models    []AIModelInfo        `json:"models"`
+	APIKeys   []APIKeyResponse     `json:"api_keys"`
+}
+
+// UpdateFlowConfigRequestItem is one item in a bulk update request.
+type UpdateFlowConfigRequestItem struct {
+	FlowKey         string     `json:"flow_key" binding:"required"`
+	ModelID         string     `json:"model_id" binding:"required"`
+	APIKeyID        *uuid.UUID `json:"api_key_id"`
+	Temperature     float64    `json:"temperature"`
+	FallbackModelID *string    `json:"fallback_model_id"`
+}
+
+// UpdateFlowConfigsRequest is the payload for PUT /settings/ai-flows.
+type UpdateFlowConfigsRequest struct {
+	Flows []UpdateFlowConfigRequestItem `json:"flows" binding:"required"`
+}
+
+// CreateAPIKeyRequest is the payload for POST /settings/api-keys.
+type CreateAPIKeyRequest struct {
+	Provider  string `json:"provider" binding:"required"`
+	Label     string `json:"label" binding:"required"`
+	KeySecret string `json:"key_secret" binding:"required"`
+	IsDefault bool   `json:"is_default"`
+}
+
+// UpdateAPIKeyRequest is the payload for PUT /settings/api-keys/:id.
+type UpdateAPIKeyRequest struct {
+	Label     string  `json:"label" binding:"required"`
+	KeySecret *string `json:"key_secret"` // Optional: only overwrites if provided and non-empty
+	IsDefault bool    `json:"is_default"`
+	Status    string  `json:"status"`
+}
+
+// TestPingRequest is the payload for POST /settings/test-ping.
+type TestPingRequest struct {
+	Provider  string     `json:"provider" binding:"required"`
+	ModelID   string     `json:"model_id" binding:"required"`
+	APIKeyID  *uuid.UUID `json:"api_key_id"`
+	KeySecret *string    `json:"key_secret"`
+}
+
+// TestPingResponse is the result of testing connection latency.
+type TestPingResponse struct {
+	Success   bool   `json:"success"`
+	LatencyMs int64  `json:"latency_ms"`
+	Message   string `json:"message"`
+}
+
+// CreateAIModelRequest is the payload for POST /settings/models.
+type CreateAIModelRequest struct {
+	ID                 string `json:"id" binding:"required"`
+	Provider           string `json:"provider" binding:"required"`
+	DisplayName        string `json:"display_name" binding:"required"`
+	ContextTokens      int    `json:"context_tokens"`
+	SupportsMultimodal bool   `json:"supports_multimodal"`
+	SupportsReasoning  bool   `json:"supports_reasoning"`
+	IsActive           bool   `json:"is_active"`
+	SortOrder          int    `json:"sort_order"`
+}
+
+// UpdateAIModelRequest is the payload for PUT /settings/models/:id.
+type UpdateAIModelRequest struct {
+	DisplayName        string `json:"display_name" binding:"required"`
+	ContextTokens      int    `json:"context_tokens"`
+	SupportsMultimodal bool   `json:"supports_multimodal"`
+	SupportsReasoning  bool   `json:"supports_reasoning"`
+	IsActive           bool   `json:"is_active"`
+	SortOrder          int    `json:"sort_order"`
+}

@@ -1,6 +1,6 @@
 -- ============================================================
 -- Truncate Operational / Business Data
--- Preserves: users, checklists, checklist_items
+-- Preserves: users, checklists, checklist_items, api_keys, ai_models, flow_configs
 -- ============================================================
 
 BEGIN;

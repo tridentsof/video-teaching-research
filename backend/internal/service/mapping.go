@@ -22,6 +22,7 @@ type MappingService struct {
 	videoRepo     *repository.VideoRepository
 	aiText        ai.TextCompletionProvider
 	modelName     string
+	aiRouter      *AIRouterService
 }
 
 // NewMappingService creates a new MappingService.
@@ -46,6 +47,11 @@ func NewMappingService(
 		aiText:        aiText,
 		modelName:     modelName,
 	}
+}
+
+// SetAIRouter attaches the dynamic AI router.
+func (s *MappingService) SetAIRouter(router *AIRouterService) {
+	s.aiRouter = router
 }
 
 type singleMatchOutput struct {
@@ -137,6 +143,13 @@ func (s *MappingService) MapEventsForVideo(ctx context.Context, videoID uuid.UUI
 			matches = s.fallbackRuleBasedMapping(batch, checklist.Items)
 		}
 
+		activeModelName := s.modelName
+		if s.aiRouter != nil {
+			if _, rModel, err := s.aiRouter.GetTextProviderForFlow(ctx, "checklist_mapping"); err == nil && rModel != "" {
+				activeModelName = rModel
+			}
+		}
+
 		for _, m := range matches {
 			rawEvtUUID, err1 := uuid.Parse(m.EventID)
 			itemUUID, err2 := uuid.Parse(m.ChecklistItemID)
@@ -144,7 +157,7 @@ func (s *MappingService) MapEventsForVideo(ctx context.Context, videoID uuid.UUI
 				continue
 			}
 
-			modelNameCopy := s.modelName
+			modelNameCopy := activeModelName
 			allMappings = append(allMappings, model.EventMapping{
 				ID:              uuid.New(),
 				RawEventID:      rawEvtUUID,
@@ -173,7 +186,16 @@ func (s *MappingService) MapEventsForVideo(ctx context.Context, videoID uuid.UUI
 }
 
 func (s *MappingService) processEventBatch(ctx context.Context, batch []model.RawEvent, checklistFormatted string) ([]singleMatchOutput, error) {
-	if s.aiText == nil {
+	aiText := s.aiText
+	modelName := s.modelName
+	if s.aiRouter != nil {
+		if rProvider, rModel, err := s.aiRouter.GetTextProviderForFlow(ctx, "checklist_mapping"); err == nil && rProvider != nil {
+			aiText = rProvider
+			modelName = rModel
+		}
+	}
+
+	if aiText == nil {
 		return nil, fmt.Errorf("AI text provider not configured")
 	}
 
@@ -209,7 +231,7 @@ Return ONLY a JSON object with this exact structure:
 	userPrompt := fmt.Sprintf("CHECKLIST ITEMS:\n%s\n\nEVENTS TO MAP:\n%s", checklistFormatted, eventsSB.String())
 
 	var resp batchMatchResponse
-	err := s.aiText.CompleteJSON(ctx, s.modelName, systemPrompt, userPrompt, &resp)
+	err := aiText.CompleteJSON(ctx, modelName, systemPrompt, userPrompt, &resp)
 	if err != nil {
 		return nil, err
 	}
