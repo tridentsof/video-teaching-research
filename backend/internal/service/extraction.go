@@ -239,6 +239,10 @@ func (s *ExtractionService) processRawVideo(ctx context.Context, video *model.Vi
 		})
 	}
 
+	if err := s.rawEventRepo.CreateBatch(ctx, events); err != nil {
+		return nil, fmt.Errorf("failed to store raw events in db: %w", err)
+	}
+
 	return events, nil
 }
 
