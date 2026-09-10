@@ -24,6 +24,9 @@ type PipelineOrchestrator struct {
 	videoRepo     *repository.VideoRepository
 	chunkRepo     *repository.ChunkRepository
 	checklistRepo *repository.ChecklistRepository
+	rawEventRepo  *repository.RawEventRepository
+	mappingRepo   *repository.MappingRepository
+	reportRepo    *repository.ReportRepository
 	cancelFuncs   map[uuid.UUID]context.CancelFunc
 	mu            sync.Mutex
 }
@@ -39,6 +42,9 @@ func NewPipelineOrchestrator(
 	videoRepo *repository.VideoRepository,
 	chunkRepo *repository.ChunkRepository,
 	checklistRepo *repository.ChecklistRepository,
+	rawEventRepo *repository.RawEventRepository,
+	mappingRepo *repository.MappingRepository,
+	reportRepo *repository.ReportRepository,
 ) *PipelineOrchestrator {
 	return &PipelineOrchestrator{
 		chunkingSvc:   chunkingSvc,
@@ -50,6 +56,9 @@ func NewPipelineOrchestrator(
 		videoRepo:     videoRepo,
 		chunkRepo:     chunkRepo,
 		checklistRepo: checklistRepo,
+		rawEventRepo:  rawEventRepo,
+		mappingRepo:   mappingRepo,
+		reportRepo:    reportRepo,
 		cancelFuncs:   make(map[uuid.UUID]context.CancelFunc),
 	}
 }
@@ -64,7 +73,8 @@ type PipelineStatusSummary struct {
 }
 
 // TriggerPipeline starts the video analysis pipeline in a background goroutine.
-func (p *PipelineOrchestrator) TriggerPipeline(videoID uuid.UUID, checklistID *uuid.UUID, enableChunking bool) error {
+// mode can be "resume" (skip completed steps) or "restart" (re-run all steps).
+func (p *PipelineOrchestrator) TriggerPipeline(videoID uuid.UUID, checklistID *uuid.UUID, enableChunking bool, mode string) error {
 	ctx := context.Background()
 
 	// Verify video exists
@@ -74,6 +84,15 @@ func (p *PipelineOrchestrator) TriggerPipeline(videoID uuid.UUID, checklistID *u
 	}
 	if video == nil {
 		return fmt.Errorf("video not found: %s", videoID)
+	}
+
+	// Normalize mode
+	if mode == "" {
+		if video.Status == "failed" {
+			mode = "resume"
+		} else {
+			mode = "restart"
+		}
 	}
 
 	// Resolve checklist
@@ -106,7 +125,7 @@ func (p *PipelineOrchestrator) TriggerPipeline(videoID uuid.UUID, checklistID *u
 			p.mu.Unlock()
 		}()
 
-		if err := p.runPipeline(pipelineCtx, videoID, targetChecklistID, enableChunking); err != nil {
+		if err := p.runPipeline(pipelineCtx, videoID, targetChecklistID, enableChunking, mode); err != nil {
 			if errors.Is(err, context.Canceled) || pipelineCtx.Err() != nil {
 				log.Printf("Pipeline canceled for video %s", videoID)
 				_ = p.videoRepo.UpdateStatus(context.Background(), videoID, "cancelled", nil)
@@ -142,93 +161,184 @@ func (p *PipelineOrchestrator) CancelPipeline(videoID uuid.UUID) error {
 	return nil
 }
 
-// runPipeline executes all steps sequentially with context cancellation checks.
-func (p *PipelineOrchestrator) runPipeline(ctx context.Context, videoID uuid.UUID, checklistID uuid.UUID, enableChunking bool) error {
-	log.Printf("Starting pipeline for video %s (checklist %s, enableChunking: %v)", videoID, checklistID, enableChunking)
+// getCompletedJobSteps builds a set of steps that have successfully completed previously.
+func (p *PipelineOrchestrator) getCompletedJobSteps(ctx context.Context, videoID uuid.UUID) map[string]bool {
+	completed := make(map[string]bool)
+	jobs, err := p.chunkRepo.GetLatestJobsByVideoID(ctx, videoID)
+	if err != nil {
+		return completed
+	}
+	for _, j := range jobs {
+		if j.Status == "completed" || j.Status == "skipped" {
+			completed[j.Step] = true
+		}
+	}
+	return completed
+}
+
+// runPipeline executes pipeline steps sequentially, with smart checkpoint resumption when mode == "resume".
+func (p *PipelineOrchestrator) runPipeline(ctx context.Context, videoID uuid.UUID, checklistID uuid.UUID, enableChunking bool, mode string) error {
+	log.Printf("Starting pipeline for video %s (mode: %s, checklist %s, enableChunking: %v)", videoID, mode, checklistID, enableChunking)
 
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
 
+	completedSteps := p.getCompletedJobSteps(ctx, videoID)
+	isResume := mode == "resume"
+
+	// -------------------------------------------------------------
+	// Step 1: Chunking / Segment Preparation
+	// -------------------------------------------------------------
 	if enableChunking {
-		// Step 1: Chunking / Segment Preparation (only when chunking is requested)
-		log.Printf("[Video %s] Step 1: Video Preparation (chunking: %v)...", videoID, enableChunking)
-		chunks, err := p.chunkingSvc.ProcessVideoChunks(ctx, videoID, enableChunking)
-		if err != nil {
-			return fmt.Errorf("step 1 chunking failed: %w", err)
+		step1Done := false
+		if isResume && completedSteps["chunking"] {
+			existingChunks, err := p.chunkRepo.ListByVideoID(ctx, videoID)
+			if err == nil && len(existingChunks) > 0 {
+				log.Printf("[Video %s] Step 1 Checkpoint Hit: %d chunks exist and completed — resuming", videoID, len(existingChunks))
+				step1Done = true
+			}
 		}
-		log.Printf("[Video %s] Step 1 finished (%d chunks)", videoID, len(chunks))
+
+		if !step1Done {
+			log.Printf("[Video %s] Step 1: Video Preparation (chunking: %v)...", videoID, enableChunking)
+			chunks, err := p.chunkingSvc.ProcessVideoChunks(ctx, videoID, enableChunking)
+			if err != nil {
+				return fmt.Errorf("step 1 chunking failed: %w", err)
+			}
+			log.Printf("[Video %s] Step 1 finished (%d chunks)", videoID, len(chunks))
+		}
 	} else {
 		log.Printf("[Video %s] Direct Full Video mode — skipping chunking step and using raw video directly", videoID)
-		// Clean up any previously created chunks for re-runs
-		_ = p.chunkRepo.DeleteByVideoID(ctx, videoID)
-		now := time.Now()
-		_ = p.chunkRepo.CreateJob(ctx, &model.PipelineJob{
-			ID:         uuid.New(),
-			VideoID:    videoID,
-			Step:       "chunking",
-			Status:     "skipped",
-			StartedAt:  &now,
-			FinishedAt: &now,
-			CreatedAt:  now,
-		})
+		if !isResume || !completedSteps["chunking"] {
+			_ = p.chunkRepo.DeleteByVideoID(ctx, videoID)
+			now := time.Now()
+			_ = p.chunkRepo.CreateJob(ctx, &model.PipelineJob{
+				ID:         uuid.New(),
+				VideoID:    videoID,
+				Step:       "chunking",
+				Status:     "skipped",
+				StartedAt:  &now,
+				FinishedAt: &now,
+				CreatedAt:  now,
+			})
+		}
 	}
 
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
 
-	// Step 2: Event Extraction (Gemini Multimodal on chunks or raw video directly)
-	log.Printf("[Video %s] Step 2: Video Understanding & Event Extraction...", videoID)
-	events, err := p.extractionSvc.ExtractEventsForVideo(ctx, videoID)
-	if err != nil {
-		return fmt.Errorf("step 2 extraction failed: %w", err)
+	// -------------------------------------------------------------
+	// Step 2: Event Extraction (Gemini Multimodal)
+	// -------------------------------------------------------------
+	step2Done := false
+	if isResume && completedSteps["event_extraction"] {
+		existingEvents, err := p.rawEventRepo.ListByVideoID(ctx, videoID, false)
+		if err == nil && len(existingEvents) > 0 {
+			log.Printf("[Video %s] Step 2 Checkpoint Hit: %d raw events already extracted — skipping Gemini API call", videoID, len(existingEvents))
+			step2Done = true
+		}
 	}
-	log.Printf("[Video %s] Step 2 finished (%d raw events)", videoID, len(events))
+
+	if !step2Done {
+		log.Printf("[Video %s] Step 2: Video Understanding & Event Extraction...", videoID)
+		events, err := p.extractionSvc.ExtractEventsForVideo(ctx, videoID)
+		if err != nil {
+			return fmt.Errorf("step 2 extraction failed: %w", err)
+		}
+		log.Printf("[Video %s] Step 2 finished (%d raw events)", videoID, len(events))
+	}
 
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
 
+	// -------------------------------------------------------------
 	// Step 3: Event Merge & Deduplication
-	log.Printf("[Video %s] Step 3: Event Merge & Boundary Deduplication...", videoID)
-	dupsCount, err := p.dedupSvc.MergeAndDeduplicate(ctx, videoID)
-	if err != nil {
-		return fmt.Errorf("step 3 deduplication failed: %w", err)
+	// -------------------------------------------------------------
+	step3Done := false
+	if isResume && step2Done && completedSteps["deduplication"] {
+		log.Printf("[Video %s] Step 3 Checkpoint Hit: Deduplication already completed — skipping", videoID)
+		step3Done = true
 	}
-	log.Printf("[Video %s] Step 3 finished (flagged %d duplicates)", videoID, dupsCount)
+
+	if !step3Done {
+		log.Printf("[Video %s] Step 3: Event Merge & Boundary Deduplication...", videoID)
+		dupsCount, err := p.dedupSvc.MergeAndDeduplicate(ctx, videoID)
+		if err != nil {
+			return fmt.Errorf("step 3 deduplication failed: %w", err)
+		}
+		log.Printf("[Video %s] Step 3 finished (flagged %d duplicates)", videoID, dupsCount)
+	}
 
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
 
+	// -------------------------------------------------------------
 	// Step 4: Checklist Mapping (Claude 3.5 Sonnet / Semantic)
-	log.Printf("[Video %s] Step 4: Semantic Checklist Mapping...", videoID)
-	mappings, err := p.mappingSvc.MapEventsForVideo(ctx, videoID, checklistID)
-	if err != nil {
-		return fmt.Errorf("step 4 mapping failed: %w", err)
+	// -------------------------------------------------------------
+	step4Done := false
+	if isResume && step2Done && step3Done && completedSteps["mapping"] {
+		existingMappings, err := p.mappingRepo.ListDetailsByVideoID(ctx, videoID)
+		if err == nil && len(existingMappings) > 0 {
+			log.Printf("[Video %s] Step 4 Checkpoint Hit: %d mappings already exist — skipping mapping", videoID, len(existingMappings))
+			step4Done = true
+		}
 	}
-	log.Printf("[Video %s] Step 4 finished (%d mappings)", videoID, len(mappings))
+
+	if !step4Done {
+		log.Printf("[Video %s] Step 4: Semantic Checklist Mapping...", videoID)
+		mappings, err := p.mappingSvc.MapEventsForVideo(ctx, videoID, checklistID)
+		if err != nil {
+			return fmt.Errorf("step 4 mapping failed: %w", err)
+		}
+		log.Printf("[Video %s] Step 4 finished (%d mappings)", videoID, len(mappings))
+	}
 
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
 
+	// -------------------------------------------------------------
 	// Step 5: Statistics & Report Generation
-	log.Printf("[Video %s] Step 5: Statistics & Markdown Report Generation...", videoID)
-	report, err := p.reportSvc.GenerateReportForVideo(ctx, videoID, checklistID)
-	if err != nil {
-		return fmt.Errorf("step 5 report generation failed: %w", err)
+	// -------------------------------------------------------------
+	step5Done := false
+	if isResume && step4Done && completedSteps["report"] {
+		existingReport, err := p.reportRepo.GetByVideoID(ctx, videoID)
+		if err == nil && existingReport != nil {
+			log.Printf("[Video %s] Step 5 Checkpoint Hit: Report already exists (Report ID: %s) — skipping", videoID, existingReport.ID)
+			step5Done = true
+		}
 	}
-	log.Printf("[Video %s] Report Generated! Report ID: %s", videoID, report.ID)
 
+	if !step5Done {
+		log.Printf("[Video %s] Step 5: Statistics & Markdown Report Generation...", videoID)
+		report, err := p.reportSvc.GenerateReportForVideo(ctx, videoID, checklistID)
+		if err != nil {
+			return fmt.Errorf("step 5 report generation failed: %w", err)
+		}
+		log.Printf("[Video %s] Report Generated! Report ID: %s", videoID, report.ID)
+	}
+
+	// -------------------------------------------------------------
 	// Step 6: Automated AI Code Book Generation
+	// -------------------------------------------------------------
 	if p.codebookSvc != nil {
-		log.Printf("[Video %s] Step 6: Synthesizing AI Code Book from observed video behaviors...", videoID)
-		if _, cbErr := p.codebookSvc.GenerateCodebookForVideo(ctx, videoID); cbErr != nil {
-			log.Printf("[Video %s] Warning: Codebook generation encountered an issue: %v (continuing pipeline)", videoID, cbErr)
-		} else {
-			log.Printf("[Video %s] Step 6: Code Book generated successfully!", videoID)
+		step6Done := false
+		if isResume && completedSteps["codebook"] {
+			log.Printf("[Video %s] Step 6 Checkpoint Hit: Code Book already generated — skipping", videoID)
+			step6Done = true
+		}
+
+		if !step6Done {
+			log.Printf("[Video %s] Step 6: Synthesizing AI Code Book from observed video behaviors...", videoID)
+			if _, cbErr := p.codebookSvc.GenerateCodebookForVideo(ctx, videoID); cbErr != nil {
+				log.Printf("[Video %s] Warning: Codebook generation encountered an issue: %v (continuing pipeline)", videoID, cbErr)
+			} else {
+				log.Printf("[Video %s] Step 6: Code Book generated successfully!", videoID)
+			}
 		}
 	}
 

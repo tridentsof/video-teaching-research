@@ -542,7 +542,7 @@ func (s *AIRouterService) DeleteAIModel(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to check model usage: %w", err)
 	}
 	if inUse {
-		return fmt.Errorf("cannot delete model '%s': currently in use by pipeline flows (%s). Please reassign those flows first", id, strings.Join(flows, ", "))
+		return fmt.Errorf("cannot delete model '%s': currently configured as the primary model for pipeline flow(s): %s. Please reassign those flows first", id, strings.Join(flows, ", "))
 	}
 
 	return s.repo.DeleteAIModel(ctx, id)

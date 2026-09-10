@@ -113,3 +113,42 @@ func (h *VideoHandler) GetByID(c *gin.Context) {
 
 	RespondSuccess(c, video)
 }
+
+// UpdateVideoRequest contains metadata to update a video.
+type UpdateVideoRequest struct {
+	TeacherID string `json:"teacher_id" binding:"required"`
+	Title     string `json:"title"`
+}
+
+// Update handles updating a video's teacher_id and title.
+// PATCH /api/videos/:id
+func (h *VideoHandler) Update(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		RespondError(c, http.StatusBadRequest, "invalid video ID")
+		return
+	}
+
+	var req UpdateVideoRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		RespondError(c, http.StatusBadRequest, "teacher_id is required: "+err.Error())
+		return
+	}
+
+	video, err := h.svc.UpdateMetadata(c.Request.Context(), id, req.TeacherID, req.Title)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			RespondError(c, http.StatusNotFound, "video not found")
+			return
+		}
+		if strings.Contains(err.Error(), "actively processing") || strings.Contains(err.Error(), "required") {
+			RespondError(c, http.StatusBadRequest, err.Error())
+			return
+		}
+		RespondError(c, http.StatusInternalServerError, "failed to update video: "+err.Error())
+		return
+	}
+
+	RespondSuccess(c, video)
+}
+

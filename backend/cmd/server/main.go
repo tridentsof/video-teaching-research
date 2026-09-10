@@ -127,7 +127,7 @@ func main() {
 		codebookSvc.SetAIRouter(aiRouterSvc)
 		codebookHandler = handler.NewCodebookHandler(codebookSvc, videoService)
 
-		orchestrator := service.NewPipelineOrchestrator(chunkingSvc, extractionSvc, dedupSvc, mappingSvc, reportSvc, codebookSvc, videoRepo, chunkRepo, checklistRepo)
+		orchestrator := service.NewPipelineOrchestrator(chunkingSvc, extractionSvc, dedupSvc, mappingSvc, reportSvc, codebookSvc, videoRepo, chunkRepo, checklistRepo, rawEventRepo, mappingRepo, reportRepo)
 		pipelineHandler = handler.NewPipelineHandler(orchestrator, rawEventRepo)
 		reportHandler = handler.NewReportHandler(reportSvc)
 		analysisHandler = handler.NewAnalysisHandler(analysisSvc)
@@ -193,6 +193,8 @@ func main() {
 						videos.POST("/upload", videoHandler.Upload)
 						videos.GET("", videoHandler.List)
 						videos.GET("/:id", videoHandler.GetByID)
+						videos.PATCH("/:id", videoHandler.Update)
+						videos.PUT("/:id", videoHandler.Update)
 
 						if pipelineHandler != nil {
 							videos.POST("/:id/process", pipelineHandler.ProcessVideo)

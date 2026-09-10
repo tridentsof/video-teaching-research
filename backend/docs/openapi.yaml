@@ -206,6 +206,15 @@ components:
           type: string
           format: uuid
           description: Optional specific checklist ID to map against. If omitted, latest is used.
+        enable_chunking:
+          type: boolean
+          default: true
+          description: Whether to enable chunking or analyze full raw video directly.
+        mode:
+          type: string
+          enum: [resume, restart]
+          default: resume
+          description: Execution mode. 'resume' skips previously completed checkpoint steps; 'restart' re-runs from step 1.
 
     PipelineStatus:
       type: object
@@ -791,6 +800,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Video'
+        '404':
+          description: Video not found
+    patch:
+      tags:
+        - Videos
+      summary: Update video metadata (reassign teacher_id, update title)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - teacher_id
+              properties:
+                teacher_id:
+                  type: string
+                  example: T02
+                title:
+                  type: string
+                  example: Updated Lesson Title
+      responses:
+        '200':
+          description: Updated video details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Video'
+        '400':
+          description: Validation error or video pipeline is currently running
         '404':
           description: Video not found
 

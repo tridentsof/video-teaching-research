@@ -138,3 +138,44 @@ func (r *VideoRepository) CleanStuckUploadingVideos(ctx context.Context) error {
 	return nil
 }
 
+// UpdateMetadata updates the teacher_id and title of a video and cascades teacher_id to raw_events and reports.
+func (r *VideoRepository) UpdateMetadata(ctx context.Context, id uuid.UUID, teacherID string, title string) error {
+	tx, err := r.db.Pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Update video record
+	queryVideo := `
+		UPDATE videos
+		SET teacher_id = $1, title = CASE WHEN $2 <> '' THEN $2 ELSE title END
+		WHERE id = $3
+	`
+	tag, err := tx.Exec(ctx, queryVideo, teacherID, title, id)
+	if err != nil {
+		return fmt.Errorf("failed to update video metadata: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+
+	// 2. Cascade update to raw_events
+	queryEvents := `UPDATE raw_events SET teacher_id = $1 WHERE video_id = $2`
+	if _, err := tx.Exec(ctx, queryEvents, teacherID, id); err != nil {
+		return fmt.Errorf("failed to update raw_events teacher_id: %w", err)
+	}
+
+	// 3. Cascade update to reports
+	queryReports := `UPDATE reports SET teacher_id = $1 WHERE video_id = $2`
+	if _, err := tx.Exec(ctx, queryReports, teacherID, id); err != nil {
+		return fmt.Errorf("failed to update reports teacher_id: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+	return nil
+}
+
+

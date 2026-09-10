@@ -334,22 +334,32 @@ func (r *SettingsRepository) UpdateAIModel(ctx context.Context, id string, req m
 	return nil
 }
 
-// DeleteAIModel deletes an AI model from the catalog.
+// DeleteAIModel deletes an AI model from the catalog and clears any fallback references.
 func (r *SettingsRepository) DeleteAIModel(ctx context.Context, id string) error {
-	query := `DELETE FROM ai_models WHERE id = $1`
-	_, err := r.db.Pool.Exec(ctx, query, id)
+	tx, err := r.db.Pool.Begin(ctx)
 	if err != nil {
+		return fmt.Errorf("failed to begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Clean up any fallback references so foreign key / dangling references don't linger
+	if _, err := tx.Exec(ctx, `UPDATE flow_configs SET fallback_model_id = NULL WHERE fallback_model_id = $1`, id); err != nil {
+		return fmt.Errorf("failed to clear fallback references: %w", err)
+	}
+
+	query := `DELETE FROM ai_models WHERE id = $1`
+	if _, err := tx.Exec(ctx, query, id); err != nil {
 		return fmt.Errorf("failed to delete ai model: %w", err)
 	}
-	return nil
+	return tx.Commit(ctx)
 }
 
-// IsModelInUse checks if a model ID is currently bound to any flow config or fallback.
+// IsModelInUse checks if a model ID is currently bound as the primary model to any flow config.
 func (r *SettingsRepository) IsModelInUse(ctx context.Context, modelID string) (bool, []string, error) {
 	query := `
 		SELECT flow_key 
 		FROM flow_configs 
-		WHERE model_id = $1 OR fallback_model_id = $1
+		WHERE model_id = $1
 	`
 	rows, err := r.db.Pool.Query(ctx, query, modelID)
 	if err != nil {

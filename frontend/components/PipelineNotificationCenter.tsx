@@ -111,14 +111,20 @@ export const PipelineNotificationCenter: React.FC = () => {
 
   const totalBadges = failedVideos.length + runningVideos.length;
 
-  const handleRetry = async (e: React.MouseEvent, videoId: string, title: string) => {
+  const handleRetry = async (e: React.MouseEvent, videoId: string, title: string, mode: 'resume' | 'restart' = 'resume') => {
     e.stopPropagation();
     try {
       setRetryingId(videoId);
-      await api.triggerPipeline(videoId);
-      toast.info(`Analysis restarted for "${title}".`, {
-        title: 'Analysis Restarted',
-      });
+      await api.triggerPipeline(videoId, undefined, true, mode);
+      const isResume = mode === 'resume';
+      toast.info(
+        isResume
+          ? `Analysis resumed from checkpoint for "${title}".`
+          : `Full analysis restarted for "${title}".`,
+        {
+          title: isResume ? 'Analysis Resumed' : 'Analysis Restarted',
+        }
+      );
       await fetchVideosAndCheckTransitions();
     } catch (err: any) {
       toast.error(err.message || 'Failed to restart analysis', { title: 'Restart Error' });

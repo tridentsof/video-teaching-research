@@ -120,12 +120,12 @@ export default function VideoUploadingPage() {
     }
     setRetrying(true);
     try {
-      await api.triggerPipeline(targetVideoId, undefined, activeUpload?.enableChunking ?? true);
-      toast.success('Pipeline analysis restarted successfully!', {
-        title: 'Restarted Analysis',
+      await api.triggerPipeline(targetVideoId, undefined, activeUpload?.enableChunking ?? true, 'resume');
+      toast.success('Pipeline analysis resumed from checkpoint!', {
+        title: 'Resumed Analysis',
       });
     } catch (err: any) {
-      toast.error(err.message || 'Failed to restart pipeline');
+      toast.error(err.message || 'Failed to resume pipeline');
     } finally {
       setRetrying(false);
     }

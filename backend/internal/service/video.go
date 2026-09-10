@@ -144,3 +144,40 @@ func (s *VideoService) GetByID(ctx context.Context, id uuid.UUID) (*model.Video,
 func (s *VideoService) GetStorage() BlobStorage {
 	return s.storage
 }
+
+// UpdateMetadata updates the teacher_id and title of an existing video.
+func (s *VideoService) UpdateMetadata(ctx context.Context, id uuid.UUID, teacherID, title string) (*model.Video, error) {
+	teacherID = strings.TrimSpace(teacherID)
+	title = strings.TrimSpace(title)
+	if teacherID == "" {
+		return nil, fmt.Errorf("teacher_id is required")
+	}
+
+	video, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if video == nil {
+		return nil, fmt.Errorf("video not found")
+	}
+
+	runningStatuses := map[string]bool{
+		"uploading":         true,
+		"chunking":          true,
+		"extracting":        true,
+		"merging":           true,
+		"mapping":           true,
+		"statistics":        true,
+		"report_generating": true,
+	}
+	if runningStatuses[video.Status] {
+		return nil, fmt.Errorf("cannot update video metadata while pipeline is actively processing (current status: %s)", video.Status)
+	}
+
+	if err := s.repo.UpdateMetadata(ctx, id, teacherID, title); err != nil {
+		return nil, fmt.Errorf("failed to update video: %w", err)
+	}
+
+	return s.repo.GetByID(ctx, id)
+}
+

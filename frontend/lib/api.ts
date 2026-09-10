@@ -245,6 +245,14 @@ export const api = {
     return request<Video>(`/videos/${id}`);
   },
 
+  async updateVideo(id: string, data: { teacher_id: string; title?: string }): Promise<Video> {
+    return request<Video>(`/videos/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+
   async uploadVideo(teacherId: string, title: string, file: File, durationSec?: number): Promise<Video> {
     const formData = new FormData();
     formData.append('teacher_id', teacherId);
@@ -268,12 +276,18 @@ export const api = {
     return res.json();
   },
 
-  async triggerPipeline(videoId: string, checklistId?: string, enableChunking: boolean = true): Promise<{ message: string; enable_chunking?: boolean }> {
+  async triggerPipeline(
+    videoId: string,
+    checklistId?: string,
+    enableChunking: boolean = true,
+    mode: 'resume' | 'restart' = 'resume'
+  ): Promise<{ message: string; enable_chunking?: boolean; mode?: string }> {
     return request(`/videos/${videoId}/process`, {
       method: 'POST',
       body: JSON.stringify({
         checklist_id: checklistId,
         enable_chunking: enableChunking,
+        mode,
       }),
     });
   },

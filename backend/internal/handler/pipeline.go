@@ -26,6 +26,7 @@ func NewPipelineHandler(orchestrator *service.PipelineOrchestrator, rawEventRepo
 type triggerPipelineRequest struct {
 	ChecklistID    *uuid.UUID `json:"checklist_id,omitempty"`
 	EnableChunking *bool      `json:"enable_chunking,omitempty"`
+	Mode           string     `json:"mode,omitempty"` // "resume" or "restart"
 }
 
 // ProcessVideo triggers the full 5-phase analysis pipeline.
@@ -45,15 +46,21 @@ func (h *PipelineHandler) ProcessVideo(c *gin.Context) {
 		enableChunking = *req.EnableChunking
 	}
 
-	if err := h.orchestrator.TriggerPipeline(videoID, req.ChecklistID, enableChunking); err != nil {
+	if err := h.orchestrator.TriggerPipeline(videoID, req.ChecklistID, enableChunking, req.Mode); err != nil {
 		RespondError(c, http.StatusInternalServerError, "failed to trigger pipeline: "+err.Error())
 		return
+	}
+
+	mode := req.Mode
+	if mode == "" {
+		mode = "auto"
 	}
 
 	RespondSuccess(c, gin.H{
 		"message":         "pipeline started successfully",
 		"video_id":        videoID,
 		"enable_chunking": enableChunking,
+		"mode":            mode,
 		"status":          "running",
 	})
 }

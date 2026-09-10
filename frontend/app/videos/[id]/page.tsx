@@ -14,6 +14,7 @@ import {
   FileText,
   Play,
   RefreshCw,
+  RotateCcw,
   AlertTriangle,
   ChevronDown,
   ChevronUp,
@@ -29,6 +30,9 @@ import {
   Timer,
   HardDrive,
   Zap,
+  Pencil,
+  X,
+  AlertCircle,
 } from 'lucide-react';
 
 const chunkedStepOrder = [
@@ -64,8 +68,16 @@ export default function VideoDetailPage() {
   const [modeDropdownOpen, setModeDropdownOpen] = useState(false);
   const [showTechnicalLog, setShowTechnicalLog] = useState(false);
 
+  // Edit / Reassign Teacher modal state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTeacherId, setEditTeacherId] = useState('');
+  const [editTitle, setEditTitle] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
   const [elapsedSec, setElapsedSec] = useState<number>(0);
   const [nowTimestamp, setNowTimestamp] = useState<number>(Date.now());
+
 
   const modeDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -173,15 +185,21 @@ export default function VideoDetailPage() {
     return () => clearInterval(interval);
   }, [id, isRunning]);
 
-  const handleRerun = async () => {
+  const handleRerun = async (mode: 'resume' | 'restart' = 'resume') => {
     if (!id) return;
     try {
       setRetrying(true);
       setElapsedSec(0);
-      await api.triggerPipeline(id, undefined, rerunChunking);
-      toast.info(`Analysis started for "${video?.title || id}" (${rerunChunking ? '10-min segments' : 'Full video'}).`, {
-        title: 'Analysis Started',
-      });
+      await api.triggerPipeline(id, undefined, rerunChunking, mode);
+      const isResuming = mode === 'resume';
+      toast.info(
+        isResuming
+          ? `Resuming analysis from checkpoint for "${video?.title || id}".`
+          : `Restarting full analysis for "${video?.title || id}" (${rerunChunking ? '10-min segments' : 'Full video'}).`,
+        {
+          title: isResuming ? 'Analysis Resumed' : 'Analysis Started',
+        }
+      );
       await loadData(true);
     } catch (err: any) {
       toast.error(`Failed to restart analysis: ${err.message}`, {
@@ -211,7 +229,41 @@ export default function VideoDetailPage() {
     }
   };
 
+  const handleOpenEdit = () => {
+    if (!video) return;
+    setEditTeacherId(video.teacher_id);
+    setEditTitle(video.title);
+    setEditError(null);
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!video || !id) return;
+    if (!editTeacherId.trim()) {
+      setEditError(t('newTeacher'));
+      return;
+    }
+
+    try {
+      setSavingEdit(true);
+      setEditError(null);
+      const updated = await api.updateVideo(id, {
+        teacher_id: editTeacherId.trim(),
+        title: editTitle.trim() || undefined,
+      });
+      setVideo(updated);
+      setIsEditing(false);
+      toast.success(t('videoUpdateSuccess'), { title: t('editVideoModalTitle') });
+    } catch (err: any) {
+      setEditError(err.message || 'Failed to update video');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   const getStatusLabel = (status: string | undefined) => {
+
     if (!status) return t('statusPreparing');
     switch (status) {
       case 'uploading':
@@ -341,6 +393,13 @@ export default function VideoDetailPage() {
             <RefreshCw size={14} className={loading || isRunning ? 'animate-spin' : ''} />
             <span>{t('commonRefresh')}</span>
           </button>
+
+          {!isRunning && (
+            <button onClick={handleOpenEdit} className="btn btn-secondary btn-sm" title={t('editVideo')}>
+              <Pencil size={14} />
+              <span>{t('editVideo')}</span>
+            </button>
+          )}
 
           {video?.status === 'report_generated' && (
             <Link href={`/reports/${video.id}`} className="btn btn-primary btn-sm">
@@ -530,9 +589,9 @@ export default function VideoDetailPage() {
             </div>
           )}
 
-          <button onClick={handleRerun} disabled={retrying || isRunning} className="btn btn-primary btn-sm">
+          <button onClick={() => handleRerun(isVideoFailed ? 'resume' : 'restart')} disabled={retrying || isRunning} className="btn btn-primary btn-sm">
             {retrying || isRunning ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-            <span>{retrying || isRunning ? t('commonInProgress') : t('rerunPipeline')}</span>
+            <span>{retrying || isRunning ? t('commonInProgress') : (isVideoFailed ? 'Resume Analysis' : t('rerunPipeline'))}</span>
           </button>
         </div>
       </div>
@@ -860,23 +919,46 @@ export default function VideoDetailPage() {
                 <p style={{ fontSize: '13px', color: '#7F1D1D', marginTop: '4px' }}>
                   {t('interruptedDesc')}
                 </p>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '6px', padding: '3px 8px', borderRadius: '4px', backgroundColor: 'rgba(220, 38, 38, 0.08)', color: '#991B1B', fontSize: '11px', fontWeight: 600 }}>
+                  <Sparkles size={12} color="#DC2626" />
+                  <span>Smart Resume saves video tokens by reusing completed checkpoints.</span>
+                </div>
               </div>
             </div>
 
-            <button
-              onClick={handleRerun}
-              disabled={retrying}
-              className="btn btn-primary btn-sm"
-              style={{
-                backgroundColor: '#DC2626',
-                borderColor: '#B91C1C',
-                color: '#FFFFFF',
-                padding: '8px 16px',
-              }}
-            >
-              {retrying ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-              <span>{t('btnRetryNow')}</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => handleRerun('resume')}
+                disabled={retrying}
+                className="btn btn-primary btn-sm"
+                title="Resume pipeline from failed step and reuse existing extractions"
+                style={{
+                  backgroundColor: '#DC2626',
+                  borderColor: '#B91C1C',
+                  color: '#FFFFFF',
+                  padding: '8px 16px',
+                }}
+              >
+                {retrying ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                <span>Resume from {failedStepName || 'Failed Step'}</span>
+              </button>
+
+              <button
+                onClick={() => handleRerun('restart')}
+                disabled={retrying}
+                className="btn btn-secondary btn-sm"
+                title="Purge all cached checkpoints and restart entire pipeline from Step 1"
+                style={{
+                  padding: '8px 14px',
+                  color: '#7F1D1D',
+                  borderColor: '#FCA5A5',
+                  backgroundColor: '#FFFFFF',
+                }}
+              >
+                <RotateCcw size={14} />
+                <span>Restart All</span>
+              </button>
+            </div>
           </div>
 
           {/* Error Message Snippet */}
@@ -1001,6 +1083,180 @@ export default function VideoDetailPage() {
           <EventTimeline events={events} />
         )}
       </div>
+
+      {/* Edit Video & Reassign Teacher Modal */}
+      {isEditing && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(28, 25, 23, 0.55)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !savingEdit) setIsEditing(false);
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--card-border)',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.08)',
+              width: '100%',
+              maxWidth: '520px',
+              padding: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '18px',
+              animation: 'fadeIn 0.15s ease-out',
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+              <div>
+                <h3 style={{
+                  fontSize: '18px',
+                  fontWeight: 700,
+                  color: 'var(--text-main)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}>
+                  <Pencil size={18} color="var(--accent)" />
+                  <span>{t('editVideoModalTitle')}</span>
+                </h3>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.4 }}>
+                  {t('editVideoModalDesc')}
+                </p>
+              </div>
+              <button
+                onClick={() => !savingEdit && setIsEditing(false)}
+                disabled={savingEdit}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  padding: '4px',
+                  borderRadius: '4px',
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Error Message */}
+            {editError && (
+              <div style={{
+                backgroundColor: '#FEE2E2',
+                border: '1px solid #FECACA',
+                color: '#DC2626',
+                padding: '10px 12px',
+                borderRadius: '6px',
+                fontSize: '13px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}>
+                <AlertCircle size={15} />
+                <span>{editError}</span>
+              </div>
+            )}
+
+            {/* Form */}
+            <form onSubmit={handleSaveEdit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Teacher ID Field */}
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
+                  {t('newTeacher')}
+                </label>
+                <input
+                  type="text"
+                  value={editTeacherId}
+                  onChange={(e) => setEditTeacherId(e.target.value.toUpperCase().trim())}
+                  placeholder={t('selectTeacherPlaceholder')}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    fontFamily: 'var(--font-mono)',
+                    color: 'var(--accent)',
+                    backgroundColor: '#FAF8F4',
+                    border: '1px solid var(--card-border)',
+                    borderRadius: '6px',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              {/* Lesson Title Field */}
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
+                  {t('videoTitleLabel')}
+                </label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  placeholder={t('videoTitlePlaceholder')}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    fontSize: '13px',
+                    backgroundColor: '#FAF8F4',
+                    border: '1px solid var(--card-border)',
+                    borderRadius: '6px',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              {/* Info Notice */}
+              <div style={{
+                backgroundColor: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                borderRadius: '6px',
+                padding: '10px 12px',
+                fontSize: '12px',
+                color: '#475569',
+                lineHeight: 1.4,
+              }}>
+                <strong>💡 {t('commonNote') || 'Lưu ý'}:</strong> {t('editVideoModalDesc')}
+              </div>
+
+              {/* Modal Actions */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  disabled={savingEdit}
+                  className="btn btn-secondary"
+                  style={{ fontSize: '13px' }}
+                >
+                  <span>{t('commonCancel')}</span>
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit || !editTeacherId.trim()}
+                  className="btn btn-primary"
+                  style={{ fontSize: '13px' }}
+                >
+                  {savingEdit ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                  <span>{savingEdit ? t('btnSaving') : t('btnSaveVideo')}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
