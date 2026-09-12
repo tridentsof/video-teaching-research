@@ -121,3 +121,14 @@ func (r *CodebookRepository) ReplaceByVideoID(ctx context.Context, videoID uuid.
 	}
 	return result, nil
 }
+
+// DeleteByVideoID removes all codebook entries for a given video.
+func (r *CodebookRepository) DeleteByVideoID(ctx context.Context, videoID uuid.UUID) error {
+	query := `DELETE FROM codebook_entries WHERE video_id = $1`
+	_, err := r.db.Pool.Exec(ctx, query, videoID)
+	if err != nil {
+		return fmt.Errorf("failed to delete codebook entries: %w", err)
+	}
+	return nil
+}
+

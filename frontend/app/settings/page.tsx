@@ -199,7 +199,7 @@ export default function SettingsPage() {
       ...prev,
       [selectedFlowKey]: {
         ...prev[selectedFlowKey],
-        api_key_id: keyId === 'default' ? undefined : keyId,
+        api_key_id: keyId ? keyId : undefined,
       },
     }));
     setActivePreset('custom');
@@ -250,6 +250,21 @@ export default function SettingsPage() {
 
   // Save All
   const handleSaveAll = async () => {
+    // Validate that every flow has an assigned API key (NO fallback permitted)
+    for (const k of FLOW_ORDER) {
+      if (!flowState[k]?.api_key_id) {
+        const meta = FLOW_METAS[k];
+        const flowTitle = language === 'vi' ? meta?.titleVi : meta?.titleEn;
+        toast.error(
+          language === 'vi'
+            ? `Lỗi: Luồng "${flowTitle}" chưa được gán API Key! Hệ thống không dùng fallback, vui lòng gán key từ Vault.`
+            : `Error: Flow "${flowTitle}" has no API Key assigned! No fallback permitted, please assign a key.`
+        );
+        setSelectedFlowKey(k);
+        return;
+      }
+    }
+
     try {
       setSaving(true);
       const payload = FLOW_ORDER.map((k) => ({
@@ -272,11 +287,20 @@ export default function SettingsPage() {
 
   // Test Ping
   const handleTestPing = async () => {
+    const keyId = currentFlow.api_key_id;
+    if (!keyId) {
+      toast.error(
+        language === 'vi'
+          ? 'Luồng này chưa được gán API Key! Vui lòng chọn một API Key từ Vault trước khi kiểm tra ping.'
+          : 'This flow has no API Key assigned! Please assign a key from vault before testing ping.'
+      );
+      return;
+    }
+
     try {
       setTesting(true);
       const provider = currentModelInfo?.provider || 'gemini';
       const modelId = currentFlow.model_id;
-      const keyId = currentFlow.api_key_id;
 
       const res = await api.testAIPing(provider, modelId, keyId);
       if (res.success) {
@@ -701,9 +725,13 @@ export default function SettingsPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
                         <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{cfg.model_id}</span>
                         <span>•</span>
-                        <span style={{ color: 'var(--accent)' }}>
-                          {cfg.api_key_id ? 'Custom Key' : 'Default Key'}
-                        </span>
+                        {(() => {
+                          const kObj = (settingsData?.api_keys || []).find((k) => k.id === cfg.api_key_id);
+                          if (kObj) {
+                            return <span style={{ color: 'var(--accent-green, #16a34a)', fontWeight: 600 }}>🔑 {kObj.label}</span>;
+                          }
+                          return <span style={{ color: 'var(--accent-red, #dc2626)', fontWeight: 700 }}>⚠️ {language === 'vi' ? 'Chưa gán Key' : 'No Key Assigned'}</span>;
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -783,31 +811,49 @@ export default function SettingsPage() {
 
           {/* Form: Key Selector */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
-              {t('aiStudioAssignedKey')}
-            </label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
+                {t('aiStudioAssignedKey')} <span style={{ color: 'var(--accent-red, #dc2626)' }}>*</span>
+              </label>
+              {currentModelInfo && (
+                <span style={{ fontSize: '10.5px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                  Provider: <b>{currentModelInfo.provider.toUpperCase()}</b>
+                </span>
+              )}
+            </div>
             <select
-              value={currentFlow.api_key_id || 'default'}
+              value={currentFlow.api_key_id || ''}
               onChange={(e) => handleKeyChange(e.target.value)}
               className="select-control"
               style={{
                 width: '100%',
                 padding: '10px 12px',
                 borderRadius: '6px',
-                border: '1.5px solid var(--card-border)',
+                border: !currentFlow.api_key_id ? '1.5px solid var(--accent-red, #dc2626)' : '1.5px solid var(--card-border)',
                 backgroundColor: 'var(--bg)',
                 fontSize: '13.5px',
                 fontWeight: 500,
                 outline: 'none',
               }}
             >
-              <option value="default">Default Provider Vault Key (.env)</option>
-              {(settingsData?.api_keys || []).map((k) => (
-                <option key={k.id} value={k.id}>
-                  {k.label} ({k.masked_key})
-                </option>
-              ))}
+              <option value="" disabled>
+                {language === 'vi' ? '-- Chọn API Key bắt buộc từ Vault --' : '-- Select Required API Key from Vault --'}
+              </option>
+              {(settingsData?.api_keys || [])
+                .filter((k) => !currentModelInfo || k.provider === currentModelInfo.provider)
+                .map((k) => (
+                  <option key={k.id} value={k.id}>
+                    {k.label} ({k.masked_key}) {k.status !== 'active' ? `[${k.status.toUpperCase()}]` : ''}
+                  </option>
+                ))}
             </select>
+            {(!settingsData?.api_keys || settingsData.api_keys.filter((k) => !currentModelInfo || k.provider === currentModelInfo.provider).length === 0) && (
+              <div style={{ fontSize: '11.5px', color: 'var(--accent-red, #dc2626)', marginTop: '2px', lineHeight: 1.4 }}>
+                ⚠️ {language === 'vi'
+                  ? `Chưa có API Key nào cho ${currentModelInfo?.provider?.toUpperCase() || 'provider này'}. Vui lòng tạo key mới ở Key Vault phía dưới.`
+                  : `No API key available for ${currentModelInfo?.provider?.toUpperCase() || 'this provider'}. Please add a key in the Vault below.`}
+              </div>
+            )}
           </div>
 
           {/* Form: Temperature Slider */}

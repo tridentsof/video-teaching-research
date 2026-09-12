@@ -41,7 +41,25 @@ func (h *CodebookHandler) GetByVideoID(c *gin.Context) {
 	RespondSuccess(c, gin.H{"entries": entries})
 }
 
+// DeleteByVideoID removes all codebook entries for a video.
+// DELETE /api/codebook/video/:video_id
+func (h *CodebookHandler) DeleteByVideoID(c *gin.Context) {
+	videoID, err := uuid.Parse(c.Param("video_id"))
+	if err != nil {
+		RespondError(c, http.StatusBadRequest, "invalid video ID")
+		return
+	}
+
+	if err := h.svc.DeleteByVideoID(c.Request.Context(), videoID); err != nil {
+		RespondError(c, http.StatusInternalServerError, "failed to delete codebook: "+err.Error())
+		return
+	}
+
+	RespondSuccess(c, gin.H{"message": "codebook entries deleted successfully"})
+}
+
 // SaveByVideoID replaces all codebook entries for a video.
+
 // PUT /api/codebook/video/:video_id
 func (h *CodebookHandler) SaveByVideoID(c *gin.Context) {
 	videoID, err := uuid.Parse(c.Param("video_id"))

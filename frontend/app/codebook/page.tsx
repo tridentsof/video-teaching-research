@@ -17,7 +17,11 @@ import {
   Loader2,
   Tag,
   Layers,
+  Trash2,
+  AlertCircle,
+  X,
 } from 'lucide-react';
+
 
 // ─── Column definitions for Research Table ──────────────────────────────────
 const COLUMNS: Array<{ key: keyof CodebookEntry; labelKey: string; width: string }> = [
@@ -148,6 +152,30 @@ export default function CodeBookPage() {
       setExporting(false);
     }
   };
+
+  const [deletingVideoId, setDeletingVideoId] = useState<string | null>(null);
+  const [isDeletingCodebook, setIsDeletingCodebook] = useState(false);
+
+  const handleDeleteCodebook = async (videoId: string) => {
+    try {
+      setIsDeletingCodebook(true);
+      await api.deleteCodebook(videoId);
+      toast.success(t('deleteCodebookSuccess') || 'Đã xóa sổ mã hóa thành công!');
+      setCodebooks((prev) =>
+        prev.map((item) =>
+          item.video.id === videoId ? { ...item, entries: [] } : item
+        )
+      );
+      setDeletingVideoId(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to clear codebook');
+    } finally {
+      setIsDeletingCodebook(false);
+    }
+  };
+
+  const deletingTarget = codebooks.find((c) => c.video.id === deletingVideoId);
+
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -299,8 +327,129 @@ export default function CodeBookPage() {
           searchQuery={searchQuery}
           onToggle={() => toggleExpand(cb.video.id)}
           onGenerate={() => handleGenerate(cb.video.id)}
+          onDelete={() => setDeletingVideoId(cb.video.id)}
         />
       ))}
+
+      {/* Delete Codebook Modal */}
+      {deletingTarget && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.45)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px',
+        }}>
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '460px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              padding: '20px 24px',
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              borderBottom: '1px solid var(--card-border)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '10px',
+                  backgroundColor: '#FEE2E2',
+                  color: '#DC2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  <Trash2 size={20} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '17px', fontWeight: 700, color: '#DC2626' }}>
+                    {t('deleteCodebookTitle') || 'Xóa Toàn Bộ Mục Sổ Mã Hóa'}
+                  </h3>
+                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    {t('deleteVideoWarning') || 'Hành động này không thể khôi phục.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDeletingVideoId(null)}
+                disabled={isDeletingCodebook}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', borderRadius: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{
+                backgroundColor: '#FEF2F2',
+                border: '1px solid #FECACA',
+                borderRadius: '6px',
+                padding: '12px 14px',
+                fontSize: '13px',
+                color: '#7F1D1D',
+                lineHeight: 1.5,
+              }}>
+                <strong>{deletingTarget.video.teacher_id}</strong> — {deletingTarget.video.title} ({deletingTarget.entries.length} {t('codebookEntriesCount')})
+                <br />
+                <span style={{ fontSize: '12px', color: '#991B1B', marginTop: '6px', display: 'block' }}>
+                  {t('deleteCodebookWarning') || 'Hành động này sẽ xóa toàn bộ mục mã hóa của video này. Bạn có thể dùng AI tạo lại bất cứ lúc nào.'}
+                </span>
+              </div>
+            </div>
+
+            <div style={{
+              padding: '16px 24px',
+              backgroundColor: '#F9FAFB',
+              borderTop: '1px solid var(--card-border)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '10px',
+            }}>
+              <button
+                type="button"
+                onClick={() => setDeletingVideoId(null)}
+                disabled={isDeletingCodebook}
+                className="btn btn-secondary"
+              >
+                {t('commonCancel') || 'Hủy'}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteCodebook(deletingTarget.video.id)}
+                disabled={isDeletingCodebook}
+                style={{
+                  backgroundColor: '#DC2626',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: isDeletingCodebook ? 'not-allowed' : 'pointer',
+                  opacity: isDeletingCodebook ? 0.7 : 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <Trash2 size={15} />
+                <span>{isDeletingCodebook ? (t('btnDeleting') || 'Đang xóa...') : (t('btnConfirmDeleteCodebook') || 'Xóa Sổ Mã Hóa')}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -312,9 +461,11 @@ interface CardProps {
   searchQuery: string;
   onToggle: () => void;
   onGenerate: () => void;
+  onDelete: () => void;
 }
 
-function VideoCodebookCard({ cb, t, searchQuery, onToggle, onGenerate }: CardProps) {
+function VideoCodebookCard({ cb, t, searchQuery, onToggle, onGenerate, onDelete }: CardProps) {
+
   // Filter entries based on search query
   const filteredEntries = useMemo(() => {
     if (!searchQuery.trim()) return cb.entries;
@@ -419,8 +570,32 @@ function VideoCodebookCard({ cb, t, searchQuery, onToggle, onGenerate }: CardPro
             )}
             <span>{cb.generating ? t('codebookRegenerating') : t('codebookRegenerate')}</span>
           </button>
+
+          {cb.entries.length > 0 && (
+            <button
+              onClick={onDelete}
+              disabled={cb.generating || cb.loading}
+              className="btn btn-sm"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontSize: '12.5px',
+                padding: '6px 10px',
+                backgroundColor: '#FEE2E2',
+                color: '#DC2626',
+                border: '1px solid #FECACA',
+                cursor: 'pointer',
+              }}
+              title={t('deleteCodebook') || 'Clear Codebook'}
+            >
+              <Trash2 size={13} />
+              <span>{t('deleteCodebook') || 'Clear'}</span>
+            </button>
+          )}
         </div>
       </div>
+
 
       {/* Card Content Table Body */}
       {cb.expanded && (

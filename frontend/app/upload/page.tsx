@@ -19,7 +19,7 @@ export default function UploadPage() {
   const [teacherId, setTeacherId] = useState('T01');
   const [title, setTitle] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [enableChunking, setEnableChunking] = useState(false);
+  const [enableChunking, setEnableChunking] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -231,59 +231,7 @@ export default function UploadPage() {
             gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
             gap: '12px',
           }}>
-            {/* Option 1: Single Full Video (Default) */}
-            <div
-              onClick={() => setEnableChunking(false)}
-              style={{
-                border: `1.5px solid ${!enableChunking ? 'var(--accent)' : 'var(--card-border)'}`,
-                borderRadius: 'var(--radius-md)',
-                padding: '16px',
-                backgroundColor: !enableChunking ? '#FFFDF9' : '#FFFFFF',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                boxShadow: !enableChunking ? '0 0 0 1px var(--accent)' : 'none',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '6px',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{
-                    width: '18px',
-                    height: '18px',
-                    borderRadius: '50%',
-                    border: `2px solid ${!enableChunking ? 'var(--accent)' : '#D1D5DB'}`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}>
-                    {!enableChunking && (
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--accent)' }} />
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>
-                    <Film size={14} color="var(--accent)" />
-                    <span>{t('uploadModeFull')}</span>
-                  </div>
-                </div>
-                <span style={{
-                  fontSize: '10px',
-                  fontWeight: 700,
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  backgroundColor: '#DCFCE7',
-                  color: '#166534',
-                }}>
-                  {t('uploadRecommended')}
-                </span>
-              </div>
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.4', margin: '2px 0 0 26px' }}>
-                {t('uploadModeFullDesc')}
-              </p>
-            </div>
-
-            {/* Option 2: Segmented Slicing (Preview Feature) */}
+            {/* Option 1: Segmented Slicing (Chunking - Recommended) */}
             <div
               onClick={() => setEnableChunking(true)}
               style={{
@@ -315,7 +263,7 @@ export default function UploadPage() {
                     )}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>
-                    <Scissors size={14} color="#736B63" />
+                    <Scissors size={14} color={enableChunking ? 'var(--accent)' : '#736B63'} />
                     <span>{t('uploadModeSplit')}</span>
                   </div>
                 </div>
@@ -324,15 +272,56 @@ export default function UploadPage() {
                   fontWeight: 700,
                   padding: '2px 6px',
                   borderRadius: '4px',
-                  backgroundColor: '#FEF3C7',
-                  color: '#92400E',
-                  border: '1px solid #FDE68A',
+                  backgroundColor: '#DCFCE7',
+                  color: '#166534',
                 }}>
-                  {t('uploadPreview')}
+                  {t('uploadRecommended')}
                 </span>
               </div>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.4', margin: '2px 0 0 26px' }}>
                 {t('uploadModeSplitDesc')}
+              </p>
+            </div>
+
+            {/* Option 2: Single Full Video */}
+            <div
+              onClick={() => setEnableChunking(false)}
+              style={{
+                border: `1.5px solid ${!enableChunking ? 'var(--accent)' : 'var(--card-border)'}`,
+                borderRadius: 'var(--radius-md)',
+                padding: '16px',
+                backgroundColor: !enableChunking ? '#FFFDF9' : '#FFFFFF',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                boxShadow: !enableChunking ? '0 0 0 1px var(--accent)' : 'none',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{
+                    width: '18px',
+                    height: '18px',
+                    borderRadius: '50%',
+                    border: `2px solid ${!enableChunking ? 'var(--accent)' : '#D1D5DB'}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    {!enableChunking && (
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--accent)' }} />
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>
+                    <Film size={14} color={!enableChunking ? 'var(--accent)' : '#736B63'} />
+                    <span>{t('uploadModeFull')}</span>
+                  </div>
+                </div>
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.4', margin: '2px 0 0 26px' }}>
+                {t('uploadModeFullDesc')}
               </p>
             </div>
           </div>

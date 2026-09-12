@@ -42,6 +42,12 @@ type Config struct {
 	MaxConcurrentChunks int
 	ChunkDurationSec    int
 	ChunkOverlapSec     int
+
+	// Telegram Notification
+	TelegramWebhookURL string
+	TelegramBotToken    string
+	TelegramChatID      string
+	AppBaseURL          string
 }
 
 // Load reads configuration from .env file and environment variables.
@@ -68,6 +74,10 @@ func Load() (*Config, error) {
 		MaxConcurrentChunks: getEnvInt("MAX_CONCURRENT_CHUNKS", 3),
 		ChunkDurationSec:    getEnvInt("CHUNK_DURATION_SEC", 600),
 		ChunkOverlapSec:     getEnvInt("CHUNK_OVERLAP_SEC", 30),
+		TelegramWebhookURL: getEnv("TELEGRAM_WEBHOOK_URL", ""),
+		TelegramBotToken:    getEnv("TELEGRAM_BOT_TOKEN", ""),
+		TelegramChatID:      getEnv("TELEGRAM_CHAT_ID", ""),
+		AppBaseURL:          getEnv("APP_BASE_URL", "http://localhost:3000"),
 	}
 
 	if err := cfg.validate(); err != nil {

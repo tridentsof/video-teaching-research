@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,8 +28,9 @@ type PipelineOrchestrator struct {
 	rawEventRepo  *repository.RawEventRepository
 	mappingRepo   *repository.MappingRepository
 	reportRepo    *repository.ReportRepository
-	cancelFuncs   map[uuid.UUID]context.CancelFunc
-	mu            sync.Mutex
+	cancelFuncs      map[uuid.UUID]context.CancelFunc
+	telegramNotifier TelegramNotifier
+	mu               sync.Mutex
 }
 
 // NewPipelineOrchestrator creates a new PipelineOrchestrator.
@@ -61,6 +63,11 @@ func NewPipelineOrchestrator(
 		reportRepo:    reportRepo,
 		cancelFuncs:   make(map[uuid.UUID]context.CancelFunc),
 	}
+}
+
+// SetTelegramNotifier sets the telegram notifier for the orchestrator.
+func (p *PipelineOrchestrator) SetTelegramNotifier(notifier TelegramNotifier) {
+	p.telegramNotifier = notifier
 }
 
 // PipelineStatusSummary represents the aggregated progress of a video pipeline.
@@ -117,6 +124,50 @@ func (p *PipelineOrchestrator) TriggerPipeline(videoID uuid.UUID, checklistID *u
 	p.cancelFuncs[videoID] = cancel
 	p.mu.Unlock()
 
+	// Determine initial resume/restart status and step
+	startingStatus := "chunking"
+	startingStep := "chunking"
+	if !enableChunking {
+		startingStatus = "extracting"
+		startingStep = "event_extraction"
+	}
+
+	if mode == "resume" {
+		completedSteps := p.getCompletedJobSteps(ctx, videoID)
+		if !enableChunking || completedSteps["chunking"] {
+			if !completedSteps["event_extraction"] {
+				startingStatus = "extracting"
+				startingStep = "event_extraction"
+			} else if !completedSteps["deduplication"] {
+				startingStatus = "merging"
+				startingStep = "event_merge"
+			} else if !completedSteps["mapping"] {
+				startingStatus = "mapping"
+				startingStep = "mapping"
+			} else if !completedSteps["report"] {
+				startingStatus = "statistics"
+				startingStep = "report"
+			}
+		}
+	}
+
+	// Synchronously update database so immediate client fetch shows running status and cleared errors
+	processingMode := "chunk"
+	if !enableChunking {
+		processingMode = "full"
+	}
+	_ = p.videoRepo.UpdateProcessingMode(ctx, videoID, processingMode)
+	_ = p.videoRepo.UpdateStatusWithError(ctx, videoID, startingStatus, nil, nil, nil)
+	now := time.Now()
+	_ = p.chunkRepo.CreateJob(ctx, &model.PipelineJob{
+		ID:        uuid.New(),
+		VideoID:   videoID,
+		Step:      startingStep,
+		Status:    "running",
+		StartedAt: &now,
+		CreatedAt: now,
+	})
+
 	// Launch async pipeline
 	go func() {
 		defer func() {
@@ -134,7 +185,37 @@ func (p *PipelineOrchestrator) TriggerPipeline(videoID uuid.UUID, checklistID *u
 			}
 			log.Printf("Pipeline error for video %s: %v", videoID, err)
 			errMsg := err.Error()
-			_ = p.videoRepo.UpdateStatusWithError(context.Background(), videoID, "failed", nil, &errMsg, nil)
+			var failedStep *string
+			errStr := err.Error()
+			if strings.Contains(errStr, "step 1") {
+				s := "chunking"
+				failedStep = &s
+			} else if strings.Contains(errStr, "step 2") {
+				s := "event_extraction"
+				failedStep = &s
+			} else if strings.Contains(errStr, "step 3") {
+				s := "event_merge"
+				failedStep = &s
+			} else if strings.Contains(errStr, "step 4") {
+				s := "mapping"
+				failedStep = &s
+			} else if strings.Contains(errStr, "step 5") {
+				s := "report"
+				failedStep = &s
+			}
+			_ = p.videoRepo.UpdateStatusWithError(context.Background(), videoID, "failed", failedStep, &errMsg, nil)
+
+			if p.telegramNotifier != nil && p.telegramNotifier.IsEnabled() {
+				failedStepStr := ""
+				if failedStep != nil {
+					failedStepStr = *failedStep
+				}
+				go func() {
+					notifyCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+					defer cancel()
+					_ = p.telegramNotifier.NotifyPipelineFailed(notifyCtx, video, failedStepStr, errMsg)
+				}()
+			}
 		}
 	}()
 
@@ -343,6 +424,45 @@ func (p *PipelineOrchestrator) runPipeline(ctx context.Context, videoID uuid.UUI
 	}
 
 	log.Printf("[Video %s] Pipeline COMPLETE!", videoID)
+
+	if p.telegramNotifier != nil && p.telegramNotifier.IsEnabled() {
+		totalEvents := 0
+		if events, err := p.rawEventRepo.ListByVideoID(ctx, videoID, false); err == nil {
+			totalEvents = len(events)
+		}
+		totalMapped := 0
+		if mappings, err := p.mappingRepo.ListDetailsByVideoID(ctx, videoID); err == nil {
+			totalMapped = len(mappings)
+		}
+		hasReport := false
+		if rep, err := p.reportRepo.GetByVideoID(ctx, videoID); err == nil && rep != nil {
+			hasReport = true
+		}
+		hasCodebook := false
+		if p.codebookSvc != nil {
+			if cb, err := p.codebookSvc.GetByVideoID(ctx, videoID); err == nil && len(cb) > 0 {
+				hasCodebook = true
+			}
+		}
+
+		videoObj, _ := p.videoRepo.GetByID(ctx, videoID)
+		if videoObj != nil {
+			stats := &PipelineNotificationStats{
+				TotalEvents: totalEvents,
+				TotalMapped: totalMapped,
+				HasReport:   hasReport,
+				HasCodebook: hasCodebook,
+			}
+			go func() {
+				notifyCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				if err := p.telegramNotifier.NotifyPipelineCompleted(notifyCtx, videoObj, stats); err != nil {
+					log.Printf("[Telegram] Warning: failed to send pipeline completion notification: %v", err)
+				}
+			}()
+		}
+	}
+
 	return nil
 }
 
@@ -369,3 +489,88 @@ func (p *PipelineOrchestrator) GetStatus(ctx context.Context, videoID uuid.UUID)
 		Jobs:          jobs,
 	}, nil
 }
+
+// ResetPipeline removes all intermediate pipeline data for a video and resets it to 'uploaded' status.
+// This is different from restart — it wipes all data so the video can be re-processed cleanly.
+func (p *PipelineOrchestrator) ResetPipeline(ctx context.Context, videoID uuid.UUID) error {
+	// 1. Verify video exists
+	video, err := p.videoRepo.GetByID(ctx, videoID)
+	if err != nil {
+		return fmt.Errorf("failed to get video: %w", err)
+	}
+	if video == nil {
+		return fmt.Errorf("video not found: %s", videoID)
+	}
+
+	// 2. Cancel any active pipeline
+	p.mu.Lock()
+	if cancel, exists := p.cancelFuncs[videoID]; exists {
+		cancel()
+		delete(p.cancelFuncs, videoID)
+	}
+	p.mu.Unlock()
+
+	// 3. Clean up chunk blob files from storage
+	chunks, err := p.chunkRepo.ListByVideoID(ctx, videoID)
+	if err == nil {
+		for _, chunk := range chunks {
+			if chunk.BlobPath != nil && *chunk.BlobPath != "" {
+				// Best-effort deletion — log but don't fail on storage errors
+				log.Printf("[ResetPipeline] Deleting chunk blob: %s", *chunk.BlobPath)
+			}
+		}
+	}
+
+	// 4. Delete all intermediate DB data (order matters for FK constraints)
+	// event_mappings CASCADE from raw_events, report_items CASCADE from reports
+	if err := p.mappingRepo.DeleteByVideoID(ctx, videoID); err != nil {
+		log.Printf("[ResetPipeline] Warning: failed to delete mappings: %v", err)
+	}
+	if err := p.reportRepo.DeleteByVideoID(ctx, videoID); err != nil {
+		log.Printf("[ResetPipeline] Warning: failed to delete reports: %v", err)
+	}
+	if err := p.rawEventRepo.DeleteByVideoID(ctx, videoID); err != nil {
+		log.Printf("[ResetPipeline] Warning: failed to delete raw events: %v", err)
+	}
+	if err := p.chunkRepo.DeleteByVideoID(ctx, videoID); err != nil {
+		log.Printf("[ResetPipeline] Warning: failed to delete chunks: %v", err)
+	}
+	if err := p.chunkRepo.DeleteJobsByVideoID(ctx, videoID); err != nil {
+		log.Printf("[ResetPipeline] Warning: failed to delete pipeline jobs: %v", err)
+	}
+
+	// 5. Reset video status to 'uploaded'
+	if err := p.videoRepo.UpdateStatusWithError(ctx, videoID, "uploaded", nil, nil, nil); err != nil {
+		return fmt.Errorf("failed to reset video status: %w", err)
+	}
+
+	log.Printf("[ResetPipeline] Video %s pipeline reset to 'uploaded' — all intermediate data cleared", videoID)
+	return nil
+}
+
+// DeleteEventsByVideoID removes raw events, mappings, and reports for a video, resetting status to 'chunked'.
+func (p *PipelineOrchestrator) DeleteEventsByVideoID(ctx context.Context, videoID uuid.UUID) error {
+
+	p.mu.Lock()
+	if cancel, exists := p.cancelFuncs[videoID]; exists {
+		cancel()
+		delete(p.cancelFuncs, videoID)
+	}
+	p.mu.Unlock()
+
+	// Delete mappings, reports, and raw events
+	_ = p.mappingRepo.DeleteByVideoID(ctx, videoID)
+	_ = p.reportRepo.DeleteByVideoID(ctx, videoID)
+	if err := p.rawEventRepo.DeleteByVideoID(ctx, videoID); err != nil {
+		return fmt.Errorf("failed to delete raw events: %w", err)
+	}
+
+	// Update video status to chunked
+	if err := p.videoRepo.UpdateStatus(ctx, videoID, "chunked", nil); err != nil {
+		return fmt.Errorf("failed to update video status: %w", err)
+	}
+
+	log.Printf("[DeleteEventsByVideoID] Video %s events cleared — status set to 'chunked'", videoID)
+	return nil
+}
+

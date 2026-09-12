@@ -42,7 +42,7 @@ export const PipelineNotificationCenter: React.FC = () => {
         data.forEach((v) => {
           const oldStatus = prevStatusesRef.current[v.id];
           if (oldStatus && oldStatus !== v.status) {
-            if (v.status === 'error') {
+            if (v.status === 'error' || v.status === 'failed') {
               toast.error(
                 `Analysis for lesson "${v.title || v.teacher_id}" was interrupted.`,
                 {
@@ -54,7 +54,7 @@ export const PipelineNotificationCenter: React.FC = () => {
                   },
                 }
               );
-            } else if (v.status === 'report_generated') {
+            } else if (v.status === 'report_generated' || v.status === 'completed') {
               toast.success(
                 `Classroom analysis report for "${v.title || v.teacher_id}" is ready.`,
                 {
@@ -63,6 +63,18 @@ export const PipelineNotificationCenter: React.FC = () => {
                   action: {
                     label: 'View Report →',
                     onClick: () => router.push(`/reports/${v.id}`),
+                  },
+                }
+              );
+            } else if (v.status === 'cancelled') {
+              toast.warning(
+                `Analysis for lesson "${v.title || v.teacher_id}" was cancelled.`,
+                {
+                  title: `Analysis Cancelled (${v.teacher_id})`,
+                  duration: 6000,
+                  action: {
+                    label: 'Details →',
+                    onClick: () => router.push(`/videos/${v.id}`),
                   },
                 }
               );
@@ -104,17 +116,26 @@ export const PipelineNotificationCenter: React.FC = () => {
     };
   }, [isOpen]);
 
-  const failedVideos = videos.filter((v) => v.status === 'error');
+  const failedVideos = videos.filter((v) => v.status === 'error' || v.status === 'failed');
   const runningVideos = videos.filter((v) =>
-    ['chunking', 'extracting', 'merging', 'mapping', 'statistics'].includes(v.status)
+    ['uploading', 'running', 'processing', 'chunking', 'chunked', 'extracting', 'extracted', 'merging', 'review_pending', 'mapping', 'mapped', 'statistics'].includes(v.status)
   );
+  const cancelledVideos = videos.filter((v) => v.status === 'cancelled');
 
-  const totalBadges = failedVideos.length + runningVideos.length;
+  const totalBadges = failedVideos.length + runningVideos.length + cancelledVideos.length;
 
   const handleRetry = async (e: React.MouseEvent, videoId: string, title: string, mode: 'resume' | 'restart' = 'resume') => {
     e.stopPropagation();
     try {
       setRetryingId(videoId);
+      // Optimistically update video status in local state so badge and list update immediately
+      setVideos((prev) =>
+        prev.map((v) =>
+          v.id === videoId
+            ? { ...v, status: 'chunking', failed_step: undefined, error_msg: undefined }
+            : v
+        )
+      );
       await api.triggerPipeline(videoId, undefined, true, mode);
       const isResume = mode === 'resume';
       toast.info(
@@ -128,6 +149,7 @@ export const PipelineNotificationCenter: React.FC = () => {
       await fetchVideosAndCheckTransitions();
     } catch (err: any) {
       toast.error(err.message || 'Failed to restart analysis', { title: 'Restart Error' });
+      await fetchVideosAndCheckTransitions();
     } finally {
       setRetryingId(null);
     }
@@ -167,7 +189,7 @@ export const PipelineNotificationCenter: React.FC = () => {
           borderRadius: 'var(--radius-sm)',
           cursor: 'pointer',
           boxShadow: 'var(--shadow-sm)',
-          color: failedVideos.length > 0 ? '#DC2626' : 'var(--text-main)',
+          color: (failedVideos.length > 0 || cancelledVideos.length > 0) ? (failedVideos.length > 0 ? '#DC2626' : '#D97706') : 'var(--text-main)',
           fontWeight: 600,
           fontSize: '13px',
           transition: 'all 0.15s ease',
@@ -176,7 +198,7 @@ export const PipelineNotificationCenter: React.FC = () => {
       >
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
           <Bell size={16} />
-          {failedVideos.length > 0 && (
+          {(failedVideos.length > 0 || cancelledVideos.length > 0) && (
             <span
               style={{
                 position: 'absolute',
@@ -184,7 +206,7 @@ export const PipelineNotificationCenter: React.FC = () => {
                 right: '-5px',
                 width: '8px',
                 height: '8px',
-                backgroundColor: '#DC2626',
+                backgroundColor: failedVideos.length > 0 ? '#DC2626' : '#D97706',
                 borderRadius: '50%',
                 border: '2px solid #FFFFFF',
               }}
@@ -224,6 +246,20 @@ export const PipelineNotificationCenter: React.FC = () => {
           >
             <Loader2 size={10} className="animate-spin" />
             {runningVideos.length} {t('commonActive')}
+          </span>
+        ) : cancelledVideos.length > 0 ? (
+          <span
+            style={{
+              backgroundColor: '#FFFBEB',
+              color: '#D97706',
+              border: '1px solid #FDE68A',
+              padding: '1px 6px',
+              borderRadius: '10px',
+              fontSize: '11px',
+              fontWeight: 700,
+            }}
+          >
+            {cancelledVideos.length} {t('filterCancelled')}
           </span>
         ) : null}
       </button>
@@ -268,8 +304,8 @@ export const PipelineNotificationCenter: React.FC = () => {
                     fontWeight: 700,
                     padding: '2px 6px',
                     borderRadius: '4px',
-                    backgroundColor: failedVideos.length > 0 ? '#FEE2E2' : '#E0E7FF',
-                    color: failedVideos.length > 0 ? '#991B1B' : '#3730A3',
+                    backgroundColor: failedVideos.length > 0 ? '#FEE2E2' : runningVideos.length > 0 ? '#E0E7FF' : '#FEF3C7',
+                    color: failedVideos.length > 0 ? '#991B1B' : runningVideos.length > 0 ? '#3730A3' : '#92400E',
                   }}
                 >
                   {totalBadges}
@@ -387,8 +423,20 @@ export const PipelineNotificationCenter: React.FC = () => {
                     {video.title || 'Untitled Lesson'}
                   </p>
 
-                  <p style={{ fontSize: '12px', color: '#B91C1C', marginTop: '2px' }}>
-                    {t('interruptedDesc')}
+                  <p
+                    style={{
+                      fontSize: '12px',
+                      color: '#B91C1C',
+                      marginTop: '2px',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      lineHeight: '1.4',
+                    }}
+                    title={video.error_msg || t('interruptedDesc')}
+                  >
+                    {video.error_msg || t('interruptedDesc')}
                   </p>
 
                   <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
@@ -534,8 +582,117 @@ export const PipelineNotificationCenter: React.FC = () => {
               </div>
             ))}
 
+            {/* Cancelled Items */}
+            {cancelledVideos.map((video) => (
+              <div
+                key={video.id}
+                onClick={() => {
+                  setIsOpen(false);
+                  router.push(`/videos/${video.id}`);
+                }}
+                style={{
+                  padding: '14px 18px',
+                  borderBottom: '1px solid var(--card-border)',
+                  backgroundColor: '#FFFDF9',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  gap: '12px',
+                  alignItems: 'flex-start',
+                  transition: 'background 0.15s ease',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#FFFBEB')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#FFFDF9')}
+              >
+                <div
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    backgroundColor: '#FEF3C7',
+                    color: '#D97706',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    marginTop: '2px',
+                  }}
+                >
+                  <Clock size={15} />
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px' }}>
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        backgroundColor: '#FEF3C7',
+                        color: '#92400E',
+                        padding: '1px 6px',
+                        borderRadius: '3px',
+                      }}
+                    >
+                      {video.teacher_id}
+                    </span>
+                    <span style={{ fontSize: '11px', color: '#D97706', fontWeight: 700 }}>
+                      {t('filterCancelled')}
+                    </span>
+                  </div>
+
+                  <p
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: 'var(--text-main)',
+                      marginTop: '4px',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {video.title || 'Untitled Lesson'}
+                  </p>
+
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                    <button
+                      onClick={(e) => handleRetry(e, video.id, video.title, 'resume')}
+                      disabled={retryingId === video.id}
+                      className="btn btn-primary btn-sm"
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '11px',
+                        backgroundColor: 'var(--accent)',
+                        height: 'auto',
+                      }}
+                    >
+                      {retryingId === video.id ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        <Play size={12} />
+                      )}
+                      <span>{retryingId === video.id ? t('commonRestarting') : t('retryAnalysis')}</span>
+                    </button>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsOpen(false);
+                        router.push(`/videos/${video.id}`);
+                      }}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '4px 10px', fontSize: '11px', height: 'auto' }}
+                    >
+                      <span>{t('commonDetails')}</span>
+                      <ArrowRight size={12} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+
             {/* Empty State */}
-            {failedVideos.length === 0 && runningVideos.length === 0 && (
+            {failedVideos.length === 0 && runningVideos.length === 0 && cancelledVideos.length === 0 && (
               <div
                 style={{
                   padding: '36px 20px',

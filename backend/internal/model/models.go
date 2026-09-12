@@ -24,8 +24,10 @@ type Video struct {
 	Status      string     `json:"status" db:"status"`
 	ErrorMsg    *string    `json:"error_msg,omitempty" db:"error_msg"`
 	FailedStep  *string    `json:"failed_step,omitempty" db:"failed_step"`
-	UploadedAt  time.Time  `json:"uploaded_at" db:"uploaded_at"`
-	UserID      *uuid.UUID `json:"user_id,omitempty" db:"user_id"`
+	UploadedAt     time.Time  `json:"uploaded_at" db:"uploaded_at"`
+	UpdatedAt      time.Time  `json:"updated_at" db:"updated_at"`
+	UserID         *uuid.UUID `json:"user_id,omitempty" db:"user_id"`
+	ProcessingMode *string    `json:"processing_mode,omitempty" db:"processing_mode"`
 }
 
 // VideoChunk represents a chunk of a video after FFmpeg processing.
@@ -355,4 +357,16 @@ type UpdateAIModelRequest struct {
 	SupportsReasoning  bool   `json:"supports_reasoning"`
 	IsActive           bool   `json:"is_active"`
 	SortOrder          int    `json:"sort_order"`
+}
+
+// TelegramSubscriber represents an active recipient of pipeline notifications.
+type TelegramSubscriber struct {
+	ID        uuid.UUID `json:"id" db:"id"`
+	ChatID    int64     `json:"chat_id" db:"chat_id"`
+	ChatType  string    `json:"chat_type" db:"chat_type"` // 'private', 'group', 'supergroup'
+	Username  string    `json:"username" db:"username"`
+	FirstName string    `json:"first_name" db:"first_name"`
+	IsActive  bool      `json:"is_active" db:"is_active"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }

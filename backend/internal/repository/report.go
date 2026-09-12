@@ -140,3 +140,12 @@ func (r *ReportRepository) ListAllReportItems(ctx context.Context) ([]model.Repo
 	}
 	return items, nil
 }
+
+// DeleteByVideoID removes the report and its items for a video.
+func (r *ReportRepository) DeleteByVideoID(ctx context.Context, videoID uuid.UUID) error {
+	_, err := r.db.Pool.Exec(ctx, `DELETE FROM reports WHERE video_id = $1`, videoID)
+	if err != nil {
+		return fmt.Errorf("failed to delete reports for video: %w", err)
+	}
+	return nil
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUpload } from '@/lib/uploadContext';
 import { useTranslation } from '@/lib/i18n';
@@ -67,6 +67,20 @@ export default function VideoUploadingPage() {
     return () => clearInterval(timer);
   }, [activeUpload]);
 
+  const pollVideoData = useCallback(async () => {
+    if (!activeUpload?.videoId) return;
+    try {
+      const vid = await api.getVideo(activeUpload.videoId);
+      setVideo(vid);
+      const evts = await api.getVideoEvents(activeUpload.videoId);
+      setEvents(evts);
+      const status = await api.getPipelineStatus(activeUpload.videoId);
+      if (status?.jobs) setJobs(status.jobs);
+    } catch {
+      // Continue polling
+    }
+  }, [activeUpload?.videoId]);
+
   // Seamless URL sync & pipeline polling once backend creates video ID
   useEffect(() => {
     if (!activeUpload?.videoId) return;
@@ -76,23 +90,10 @@ export default function VideoUploadingPage() {
       window.history.replaceState(null, '', `/videos/${activeUpload.videoId}`);
     }
 
-    const pollVideoData = async () => {
-      try {
-        const vid = await api.getVideo(activeUpload.videoId!);
-        setVideo(vid);
-        const evts = await api.getVideoEvents(activeUpload.videoId!);
-        setEvents(evts);
-        const status = await api.getPipelineStatus(activeUpload.videoId!);
-        if (status?.jobs) setJobs(status.jobs);
-      } catch {
-        // Continue polling
-      }
-    };
-
     pollVideoData();
     const interval = setInterval(pollVideoData, 1500);
     return () => clearInterval(interval);
-  }, [activeUpload?.videoId]);
+  }, [activeUpload?.videoId, pollVideoData]);
 
   const handleCancel = async () => {
     setCancelling(true);
@@ -120,12 +121,33 @@ export default function VideoUploadingPage() {
     }
     setRetrying(true);
     try {
+      // Optimistic state update so UI switches to running and clears error state immediately
+      setVideo((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: activeUpload?.enableChunking ? 'chunking' : 'extracting',
+              failed_step: undefined,
+              error_msg: undefined,
+            }
+          : null
+      );
+      setJobs((prev) =>
+        prev.map((j) =>
+          j.status === 'failed' || j.status === 'error'
+            ? { ...j, status: 'running' as const, error_msg: undefined }
+            : j
+        )
+      );
+
       await api.triggerPipeline(targetVideoId, undefined, activeUpload?.enableChunking ?? true, 'resume');
       toast.success('Pipeline analysis resumed from checkpoint!', {
         title: 'Resumed Analysis',
       });
+      await pollVideoData();
     } catch (err: any) {
       toast.error(err.message || 'Failed to resume pipeline');
+      await pollVideoData();
     } finally {
       setRetrying(false);
     }
@@ -216,11 +238,12 @@ export default function VideoUploadingPage() {
 
   const isCancelled = activeUpload.status === 'cancelled' || video?.status === 'cancelled';
   const isError =
-    activeUpload.status === 'error' ||
-    activeUpload.status === 'failed' ||
-    video?.status === 'error' ||
-    video?.status === 'failed' ||
-    jobs.some((j) => j.status === 'failed' || j.status === 'error');
+    !retrying &&
+    (activeUpload.status === 'error' ||
+      activeUpload.status === 'failed' ||
+      video?.status === 'error' ||
+      video?.status === 'failed' ||
+      jobs.some((j) => j.status === 'failed' || j.status === 'error'));
   const isCompleted = video?.status === 'report_generated' || video?.status === 'completed';
   const isRunning = !isCompleted && !isError && !isCancelled;
   const isUploading = isRunning && activeUpload.status === 'uploading' && !video?.id;

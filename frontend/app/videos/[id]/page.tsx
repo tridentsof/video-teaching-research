@@ -26,6 +26,7 @@ import {
   Sparkles,
   Film,
   Scissors,
+  Layers,
   Check,
   Timer,
   HardDrive,
@@ -64,7 +65,7 @@ export default function VideoDetailPage() {
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const [rerunChunking, setRerunChunking] = useState(false);
+  const [rerunChunking, setRerunChunking] = useState(true);
   const [modeDropdownOpen, setModeDropdownOpen] = useState(false);
   const [showTechnicalLog, setShowTechnicalLog] = useState(false);
 
@@ -139,7 +140,7 @@ export default function VideoDetailPage() {
 
   const isRunning =
     retrying ||
-    ['uploading', 'chunking', 'extracting', 'merging', 'mapping', 'statistics', 'generating_report'].includes(video?.status || '');
+    ['uploading', 'chunking', 'extracting', 'merging', 'mapping', 'statistics', 'generating_report', 'review_pending', 'mapped'].includes(video?.status || '');
 
   // Find the earliest job started_at or current run time
   const earliestJobStartedAt = jobs
@@ -173,8 +174,17 @@ export default function VideoDetailPage() {
     }
   }
 
+  // Sync rerunChunking setting from video.processing_mode when loaded
+  useEffect(() => {
+    if (video?.processing_mode) {
+      setRerunChunking(video.processing_mode === 'chunk');
+    }
+  }, [video?.processing_mode]);
+
   // Determine if this analysis used 10-min chunking or direct full video
-  const isChunkedMode = jobs.some((j) => j.step === 'chunking' && j.status !== 'skipped') || (jobs.length === 0 && rerunChunking);
+  const isChunkedMode = video?.processing_mode
+    ? video.processing_mode === 'chunk'
+    : jobs.some((j) => j.step === 'chunking' && j.status !== 'skipped') || (jobs.length === 0 && rerunChunking);
   const currentStepOrder = isChunkedMode ? chunkedStepOrder : fullVideoStepOrder;
 
   // Poll every 1.5s when active, 6s when idle
@@ -190,8 +200,68 @@ export default function VideoDetailPage() {
     try {
       setRetrying(true);
       setElapsedSec(0);
-      await api.triggerPipeline(id, undefined, rerunChunking, mode);
+
       const isResuming = mode === 'resume';
+      let startingStatus = rerunChunking ? 'chunking' : 'extracting';
+      let startingStep = rerunChunking ? 'chunking' : 'event_extraction';
+
+      if (isResuming) {
+        if (failedStepName === 'chunking') {
+          startingStatus = 'chunking';
+          startingStep = 'chunking';
+        } else if (failedStepName === 'event_extraction') {
+          startingStatus = 'extracting';
+          startingStep = 'event_extraction';
+        } else if (failedStepName === 'event_merge' || failedStepName === 'merging') {
+          startingStatus = 'merging';
+          startingStep = 'event_merge';
+        } else if (failedStepName === 'mapping') {
+          startingStatus = 'mapping';
+          startingStep = 'mapping';
+        } else if (failedStepName === 'report' || failedStepName === 'statistics') {
+          startingStatus = 'statistics';
+          startingStep = 'report';
+        }
+      }
+
+      // Optimistic state update so UI switches to running and clears error alert card instantly
+      setVideo((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: startingStatus,
+              failed_step: undefined,
+              error_msg: undefined,
+            }
+          : null
+      );
+
+      setJobs((prev) => {
+        const hasStep = prev.some((j) => j.step === startingStep);
+        if (hasStep) {
+          return prev.map((j) =>
+            j.step === startingStep || j.status === 'failed' || j.status === 'error'
+              ? { ...j, status: 'running' as const, error_msg: undefined }
+              : j
+          );
+        }
+        return [
+          ...prev.map((j) =>
+            j.status === 'failed' || j.status === 'error'
+              ? { ...j, status: 'running' as const, error_msg: undefined }
+              : j
+          ),
+          {
+            id: 'temp-' + Date.now(),
+            video_id: id,
+            step: startingStep,
+            status: 'running' as const,
+            created_at: new Date().toISOString(),
+          },
+        ];
+      });
+
+      await api.triggerPipeline(id, undefined, rerunChunking, mode);
       toast.info(
         isResuming
           ? `Resuming analysis from checkpoint for "${video?.title || id}".`
@@ -205,6 +275,7 @@ export default function VideoDetailPage() {
       toast.error(`Failed to restart analysis: ${err.message}`, {
         title: 'Analysis Error',
       });
+      await loadData(true);
     } finally {
       setRetrying(false);
     }
@@ -297,10 +368,11 @@ export default function VideoDetailPage() {
     }
   };
 
-  // State checks
+  // State checks: Video is only failed when NOT running and NOT retrying
   const isVideoFailed =
-    (video?.status === 'error' || video?.status === 'failed' || jobs.some((j) => j.status === 'failed' || j.status === 'error')) &&
-    !retrying;
+    !isRunning &&
+    !retrying &&
+    (video?.status === 'error' || video?.status === 'failed' || jobs.some((j) => j.status === 'failed' || j.status === 'error'));
   const failedJob = isVideoFailed ? jobs.find((j) => j.status === 'failed' || j.status === 'error') || null : null;
   const failedStepName = video?.failed_step || failedJob?.step || (isVideoFailed ? (isChunkedMode ? 'chunking' : 'event_extraction') : undefined);
 
@@ -356,6 +428,47 @@ export default function VideoDetailPage() {
             >
               {isRunning ? t('commonInProgress') : video?.status.replace('_', ' ')}
             </span>
+
+            {/* Processing Mode Badge */}
+            {video?.processing_mode === 'chunk' ? (
+              <span
+                className="badge"
+                title={t('modeChunkTooltip')}
+                style={{
+                  backgroundColor: '#EEF2FF',
+                  color: '#4338CA',
+                  border: '1px solid #C7D2FE',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'help',
+                }}
+              >
+                <Layers size={11} />
+                <span>{t('modeChunk')}</span>
+              </span>
+            ) : video?.processing_mode === 'full' ? (
+              <span
+                className="badge"
+                title={t('modeFullTooltip')}
+                style={{
+                  backgroundColor: '#FAF5FF',
+                  color: '#6B21A8',
+                  border: '1px solid #E9D5FF',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'help',
+                }}
+              >
+                <Film size={11} />
+                <span>{t('modeFull')}</span>
+              </span>
+            ) : null}
 
             {/* Completed Total Duration Badge */}
             {!isRunning && video?.status === 'report_generated' && totalCompletedDuration > 0 && (
@@ -447,12 +560,12 @@ export default function VideoDetailPage() {
                   transition: 'all 0.15s ease',
                 }}
               >
-                {!rerunChunking ? (
-                  <Film size={14} color="var(--accent)" />
+                {rerunChunking ? (
+                  <Scissors size={14} color="var(--accent)" />
                 ) : (
-                  <Scissors size={14} color="#736B63" />
+                  <Film size={14} color="var(--accent)" />
                 )}
-                <span>{!rerunChunking ? t('modeOptFull') : t('modeOptSplit')}</span>
+                <span>{rerunChunking ? t('modeOptSplit') : t('modeOptFull')}</span>
                 <ChevronDown
                   size={13}
                   color="var(--text-muted)"
@@ -482,7 +595,61 @@ export default function VideoDetailPage() {
                     animation: 'fadeIn 0.15s ease-out',
                   }}
                 >
-                  {/* Option 1: Full Video */}
+                  {/* Option 1: 10-Minute Segments (Chunking - Recommended) */}
+                  <div
+                    onClick={() => {
+                      setRerunChunking(true);
+                      setModeDropdownOpen(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      backgroundColor: rerunChunking ? '#FAF5EE' : 'transparent',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!rerunChunking) e.currentTarget.style.backgroundColor = '#FAF8F4';
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!rerunChunking) e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div
+                        style={{
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '50%',
+                          backgroundColor: rerunChunking ? 'var(--accent-soft)' : '#F3F4F6',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Scissors size={13} color={rerunChunking ? 'var(--accent)' : '#6B7280'} />
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 600, color: rerunChunking ? 'var(--accent)' : 'var(--text-main)' }}>
+                            {t('modeOptSplit')}
+                          </span>
+                          <span style={{ fontSize: '9px', fontWeight: 700, padding: '1px 4px', borderRadius: '3px', backgroundColor: '#DCFCE7', color: '#166534' }}>
+                            {t('uploadRecommended')}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                          10m parts with overlap
+                        </span>
+                      </div>
+                    </div>
+                    {rerunChunking && <Check size={14} color="var(--accent)" strokeWidth={2.5} />}
+                  </div>
+
+                  {/* Option 2: Full Video */}
                   <div
                     onClick={() => {
                       setRerunChunking(false);
@@ -529,60 +696,6 @@ export default function VideoDetailPage() {
                       </div>
                     </div>
                     {!rerunChunking && <Check size={14} color="var(--accent)" strokeWidth={2.5} />}
-                  </div>
-
-                  {/* Option 2: 10-Minute Segments */}
-                  <div
-                    onClick={() => {
-                      setRerunChunking(true);
-                      setModeDropdownOpen(false);
-                    }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 10px',
-                      borderRadius: '6px',
-                      backgroundColor: rerunChunking ? '#FAF5EE' : 'transparent',
-                      cursor: 'pointer',
-                      transition: 'background-color 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!rerunChunking) e.currentTarget.style.backgroundColor = '#FAF8F4';
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!rerunChunking) e.currentTarget.style.backgroundColor = 'transparent';
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div
-                        style={{
-                          width: '24px',
-                          height: '24px',
-                          borderRadius: '50%',
-                          backgroundColor: rerunChunking ? 'var(--accent-soft)' : '#F3F4F6',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <Scissors size={13} color={rerunChunking ? 'var(--accent)' : '#6B7280'} />
-                      </div>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontSize: '12px', fontWeight: 600, color: rerunChunking ? 'var(--accent)' : 'var(--text-main)' }}>
-                            {t('modeOptSplit')}
-                          </span>
-                          <span style={{ fontSize: '9px', fontWeight: 700, padding: '1px 4px', borderRadius: '3px', backgroundColor: '#FEF3C7', color: '#92400E' }}>
-                            Preview
-                          </span>
-                        </div>
-                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                          10m parts with overlap
-                        </span>
-                      </div>
-                    </div>
-                    {rerunChunking && <Check size={14} color="var(--accent)" strokeWidth={2.5} />}
                   </div>
                 </div>
               )}

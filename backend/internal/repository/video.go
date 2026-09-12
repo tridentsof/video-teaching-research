@@ -21,12 +21,15 @@ func NewVideoRepository(db *DB) *VideoRepository {
 
 // Create inserts a new video record.
 func (r *VideoRepository) Create(ctx context.Context, v *model.Video) error {
+	if v.UpdatedAt.IsZero() {
+		v.UpdatedAt = v.UploadedAt
+	}
 	query := `
-		INSERT INTO videos (id, teacher_id, title, blob_url, duration_sec, status, error_msg, failed_step, uploaded_at, user_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO videos (id, teacher_id, title, blob_url, duration_sec, status, error_msg, failed_step, uploaded_at, updated_at, user_id, processing_mode)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`
 	_, err := r.db.Pool.Exec(ctx, query,
-		v.ID, v.TeacherID, v.Title, v.BlobURL, v.DurationSec, v.Status, v.ErrorMsg, v.FailedStep, v.UploadedAt, v.UserID,
+		v.ID, v.TeacherID, v.Title, v.BlobURL, v.DurationSec, v.Status, v.ErrorMsg, v.FailedStep, v.UploadedAt, v.UpdatedAt, v.UserID, v.ProcessingMode,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to insert video: %w", err)
@@ -34,12 +37,12 @@ func (r *VideoRepository) Create(ctx context.Context, v *model.Video) error {
 	return nil
 }
 
-// List returns all videos ordered by upload date descending.
+// List returns all videos ordered by updated_at descending, then uploaded_at descending.
 func (r *VideoRepository) List(ctx context.Context) ([]model.Video, error) {
 	query := `
-		SELECT id, teacher_id, title, blob_url, duration_sec, status, error_msg, failed_step, uploaded_at, user_id
+		SELECT id, teacher_id, title, blob_url, duration_sec, status, error_msg, failed_step, uploaded_at, updated_at, user_id, processing_mode
 		FROM videos
-		ORDER BY uploaded_at DESC
+		ORDER BY updated_at DESC, uploaded_at DESC
 	`
 	rows, err := r.db.Pool.Query(ctx, query)
 	if err != nil {
@@ -51,7 +54,7 @@ func (r *VideoRepository) List(ctx context.Context) ([]model.Video, error) {
 	for rows.Next() {
 		var v model.Video
 		if err := rows.Scan(
-			&v.ID, &v.TeacherID, &v.Title, &v.BlobURL, &v.DurationSec, &v.Status, &v.ErrorMsg, &v.FailedStep, &v.UploadedAt, &v.UserID,
+			&v.ID, &v.TeacherID, &v.Title, &v.BlobURL, &v.DurationSec, &v.Status, &v.ErrorMsg, &v.FailedStep, &v.UploadedAt, &v.UpdatedAt, &v.UserID, &v.ProcessingMode,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan video: %w", err)
 		}
@@ -63,13 +66,13 @@ func (r *VideoRepository) List(ctx context.Context) ([]model.Video, error) {
 // GetByID returns a single video by ID.
 func (r *VideoRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Video, error) {
 	query := `
-		SELECT id, teacher_id, title, blob_url, duration_sec, status, error_msg, failed_step, uploaded_at, user_id
+		SELECT id, teacher_id, title, blob_url, duration_sec, status, error_msg, failed_step, uploaded_at, updated_at, user_id, processing_mode
 		FROM videos
 		WHERE id = $1
 	`
 	var v model.Video
 	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
-		&v.ID, &v.TeacherID, &v.Title, &v.BlobURL, &v.DurationSec, &v.Status, &v.ErrorMsg, &v.FailedStep, &v.UploadedAt, &v.UserID,
+		&v.ID, &v.TeacherID, &v.Title, &v.BlobURL, &v.DurationSec, &v.Status, &v.ErrorMsg, &v.FailedStep, &v.UploadedAt, &v.UpdatedAt, &v.UserID, &v.ProcessingMode,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -80,9 +83,19 @@ func (r *VideoRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Vid
 	return &v, nil
 }
 
+// UpdateProcessingMode updates the processing_mode ('chunk' or 'full') for a video.
+func (r *VideoRepository) UpdateProcessingMode(ctx context.Context, id uuid.UUID, mode string) error {
+	query := `UPDATE videos SET processing_mode = $1, updated_at = NOW() WHERE id = $2`
+	_, err := r.db.Pool.Exec(ctx, query, mode, id)
+	if err != nil {
+		return fmt.Errorf("failed to update video processing mode: %w", err)
+	}
+	return nil
+}
+
 // UpdateStatus updates the status and optional duration of a video.
 func (r *VideoRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status string, durationSec *int) error {
-	query := `UPDATE videos SET status = $1, duration_sec = COALESCE($2, duration_sec) WHERE id = $3`
+	query := `UPDATE videos SET status = $1, duration_sec = COALESCE($2, duration_sec), updated_at = NOW() WHERE id = $3`
 	_, err := r.db.Pool.Exec(ctx, query, status, durationSec, id)
 	if err != nil {
 		return fmt.Errorf("failed to update video status: %w", err)
@@ -94,7 +107,7 @@ func (r *VideoRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status
 func (r *VideoRepository) UpdateStatusWithError(ctx context.Context, id uuid.UUID, status string, failedStep *string, errorMsg *string, durationSec *int) error {
 	query := `
 		UPDATE videos
-		SET status = $1, failed_step = $2, error_msg = $3, duration_sec = COALESCE($4, duration_sec)
+		SET status = $1, failed_step = $2, error_msg = $3, duration_sec = COALESCE($4, duration_sec), updated_at = NOW()
 		WHERE id = $5
 	`
 	_, err := r.db.Pool.Exec(ctx, query, status, failedStep, errorMsg, durationSec, id)
@@ -108,7 +121,7 @@ func (r *VideoRepository) UpdateStatusWithError(ctx context.Context, id uuid.UUI
 func (r *VideoRepository) UpdateBlobDetails(ctx context.Context, id uuid.UUID, blobURL string, durationSec *int, status string) error {
 	query := `
 		UPDATE videos
-		SET blob_url = $1, duration_sec = COALESCE($2, duration_sec), status = $3, error_msg = NULL, failed_step = NULL
+		SET blob_url = $1, duration_sec = COALESCE($2, duration_sec), status = $3, error_msg = NULL, failed_step = NULL, updated_at = NOW()
 		WHERE id = $4
 	`
 	_, err := r.db.Pool.Exec(ctx, query, blobURL, durationSec, status, id)
@@ -118,11 +131,21 @@ func (r *VideoRepository) UpdateBlobDetails(ctx context.Context, id uuid.UUID, b
 	return nil
 }
 
+// Touch updates the updated_at timestamp of a video to the current time.
+func (r *VideoRepository) Touch(ctx context.Context, id uuid.UUID) error {
+	query := `UPDATE videos SET updated_at = NOW() WHERE id = $1`
+	_, err := r.db.Pool.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to touch video updated_at: %w", err)
+	}
+	return nil
+}
+
 // CleanStuckUploadingVideos marks stale 'uploading' videos older than 5 minutes as failed.
 func (r *VideoRepository) CleanStuckUploadingVideos(ctx context.Context) error {
 	queryVideos := `
 		UPDATE videos
-		SET status = 'failed', failed_step = 'upload', error_msg = 'Upload timed out or was interrupted'
+		SET status = 'failed', failed_step = 'upload', error_msg = 'Upload timed out or was interrupted', updated_at = NOW()
 		WHERE status = 'uploading' AND uploaded_at < NOW() - INTERVAL '5 minutes'
 	`
 	if _, err := r.db.Pool.Exec(ctx, queryVideos); err != nil {
@@ -149,7 +172,7 @@ func (r *VideoRepository) UpdateMetadata(ctx context.Context, id uuid.UUID, teac
 	// 1. Update video record
 	queryVideo := `
 		UPDATE videos
-		SET teacher_id = $1, title = CASE WHEN $2 <> '' THEN $2 ELSE title END
+		SET teacher_id = $1, title = CASE WHEN $2 <> '' THEN $2 ELSE title END, updated_at = NOW()
 		WHERE id = $3
 	`
 	tag, err := tx.Exec(ctx, queryVideo, teacherID, title, id)
@@ -178,4 +201,15 @@ func (r *VideoRepository) UpdateMetadata(ctx context.Context, id uuid.UUID, teac
 	return nil
 }
 
-
+// Delete removes a video record by ID. Returns pgx.ErrNoRows if video does not exist.
+func (r *VideoRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	query := `DELETE FROM videos WHERE id = $1`
+	tag, err := r.db.Pool.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete video: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}

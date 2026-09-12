@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"path/filepath"
 	"strings"
 	"time"
@@ -65,6 +66,7 @@ func (s *VideoService) Upload(ctx context.Context, req UploadVideoRequest) (*mod
 		BlobURL:     nil,
 		Status:      "uploading",
 		UploadedAt:  startTime,
+		UpdatedAt:   startTime,
 		UserID:      req.UserID,
 	}
 
@@ -179,5 +181,61 @@ func (s *VideoService) UpdateMetadata(ctx context.Context, id uuid.UUID, teacher
 	}
 
 	return s.repo.GetByID(ctx, id)
+}
+
+// Delete removes a video and all associated data (chunks, events, mappings, reports, codebook).
+// Also cleans up blob storage files for the video and its chunks.
+func (s *VideoService) Delete(ctx context.Context, id uuid.UUID) error {
+	video, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if video == nil {
+		return fmt.Errorf("video not found")
+	}
+
+	// Block deletion while pipeline is actively processing
+	runningStatuses := map[string]bool{
+		"uploading":         true,
+		"chunking":          true,
+		"extracting":        true,
+		"merging":           true,
+		"mapping":           true,
+		"statistics":        true,
+		"report_generating": true,
+	}
+	if runningStatuses[video.Status] {
+		return fmt.Errorf("cannot delete video while pipeline is actively processing (current status: %s)", video.Status)
+	}
+
+	// 1. Clean up chunk blob files
+	if s.chunkRepo != nil {
+		chunks, err := s.chunkRepo.ListByVideoID(ctx, id)
+		if err == nil {
+			for _, chunk := range chunks {
+				if chunk.BlobPath != nil && *chunk.BlobPath != "" {
+					if delErr := s.storage.Delete(ctx, *chunk.BlobPath); delErr != nil {
+						log.Printf("[VideoService.Delete] Warning: failed to delete chunk blob %s: %v", *chunk.BlobPath, delErr)
+					}
+				}
+			}
+		}
+	}
+
+	// 2. Clean up raw video blob file
+	blobPath := extractBlobPath(video.BlobURL, video.TeacherID, video.ID)
+	if blobPath != "" {
+		if delErr := s.storage.Delete(ctx, blobPath); delErr != nil {
+			log.Printf("[VideoService.Delete] Warning: failed to delete video blob %s: %v", blobPath, delErr)
+		}
+	}
+
+	// 3. Delete video from DB (CASCADE handles child records)
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return fmt.Errorf("failed to delete video: %w", err)
+	}
+
+	log.Printf("[VideoService.Delete] Video %s and all associated data deleted successfully", id)
+	return nil
 }
 

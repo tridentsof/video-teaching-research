@@ -127,7 +127,28 @@ func main() {
 		codebookSvc.SetAIRouter(aiRouterSvc)
 		codebookHandler = handler.NewCodebookHandler(codebookSvc, videoService)
 
+		// Telegram Subscribers & Bot Polling Worker
+		telegramSubscriberRepo := repository.NewTelegramSubscriberRepository(db)
+		if err := telegramSubscriberRepo.EnsureTable(context.Background()); err != nil {
+			log.Printf("[Telegram] Warning: Failed to ensure telegram_subscribers table: %v", err)
+		}
+
 		orchestrator := service.NewPipelineOrchestrator(chunkingSvc, extractionSvc, dedupSvc, mappingSvc, reportSvc, codebookSvc, videoRepo, chunkRepo, checklistRepo, rawEventRepo, mappingRepo, reportRepo)
+		telegramNotifier := service.NewTelegramNotifier(cfg.TelegramWebhookURL, cfg.TelegramBotToken, cfg.TelegramChatID, cfg.AppBaseURL)
+		telegramNotifier.SetSubscriberRepository(telegramSubscriberRepo)
+		orchestrator.SetTelegramNotifier(telegramNotifier)
+		if telegramNotifier.IsEnabled() {
+			log.Printf("[Telegram] Notification enabled (webhook/bot active)")
+		} else {
+			log.Printf("[Telegram] Notification disabled (no webhook URL or bot credentials configured)")
+		}
+
+		// Start Telegram Bot Polling Worker for /subscribe, /unsubscribe, etc.
+		if cfg.TelegramBotToken != "" {
+			telegramBotSvc := service.NewTelegramBotService(cfg.TelegramBotToken, telegramSubscriberRepo, cfg.AppBaseURL)
+			go telegramBotSvc.Start(context.Background())
+		}
+
 		pipelineHandler = handler.NewPipelineHandler(orchestrator, rawEventRepo)
 		reportHandler = handler.NewReportHandler(reportSvc)
 		analysisHandler = handler.NewAnalysisHandler(analysisSvc)
@@ -192,16 +213,20 @@ func main() {
 					{
 						videos.POST("/upload", videoHandler.Upload)
 						videos.GET("", videoHandler.List)
+						videos.POST("/bulk-delete", videoHandler.BulkDelete)
 						videos.GET("/:id", videoHandler.GetByID)
 						videos.PATCH("/:id", videoHandler.Update)
 						videos.PUT("/:id", videoHandler.Update)
+						videos.DELETE("/:id", videoHandler.Delete)
 
 						if pipelineHandler != nil {
 							videos.POST("/:id/process", pipelineHandler.ProcessVideo)
 							videos.POST("/:id/cancel", pipelineHandler.CancelVideo)
 							videos.POST("/:id/stop", pipelineHandler.CancelVideo)
 							videos.GET("/:id/pipeline", pipelineHandler.GetStatus)
+							videos.DELETE("/:id/pipeline", pipelineHandler.ResetPipeline)
 							videos.GET("/:id/events", pipelineHandler.GetEvents)
+							videos.DELETE("/:id/events", pipelineHandler.DeleteEvents)
 						}
 					}
 				}
@@ -211,6 +236,7 @@ func main() {
 					reports := protected.Group("/reports")
 					{
 						reports.GET("/video/:video_id", reportHandler.GetByVideoID)
+						reports.DELETE("/video/:video_id", reportHandler.Delete)
 						reports.GET("/video/:video_id/export.md", reportHandler.ExportMarkdown)
 					}
 				}
@@ -220,7 +246,9 @@ func main() {
 					analysis := protected.Group("/analysis")
 					{
 						analysis.POST("/run", analysisHandler.RunAnalysis)
+						analysis.GET("/runs", analysisHandler.ListRuns)
 						analysis.GET("/latest", analysisHandler.GetLatestRun)
+						analysis.DELETE("/:run_id", analysisHandler.DeleteRun)
 						analysis.GET("/:run_id/themes", analysisHandler.GetThemes)
 						analysis.PUT("/themes/:id", analysisHandler.UpdateTheme)
 						analysis.POST("/themes/merge", analysisHandler.MergeThemes)
@@ -236,10 +264,12 @@ func main() {
 					{
 						codebook.GET("/video/:video_id", codebookHandler.GetByVideoID)
 						codebook.PUT("/video/:video_id", codebookHandler.SaveByVideoID)
+						codebook.DELETE("/video/:video_id", codebookHandler.DeleteByVideoID)
 						codebook.POST("/video/:video_id/generate", codebookHandler.GenerateByVideoID)
 						codebook.GET("/export.xlsx", codebookHandler.ExportExcel)
 					}
 				}
+
 
 				// AI Settings & Key Router routes
 				if settingsHandler != nil {

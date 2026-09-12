@@ -139,8 +139,11 @@ func (s *MappingService) MapEventsForVideo(ctx context.Context, videoID uuid.UUI
 
 		matches, err := s.processEventBatch(ctx, batch, checklistFormatted)
 		if err != nil {
-			log.Printf("Warning: batch mapping error (falling back to rule-based for batch): %v", err)
-			matches = s.fallbackRuleBasedMapping(batch, checklist.Items)
+			errMsg := fmt.Sprintf("checklist mapping failed: %v", err)
+			failedStep := "mapping"
+			_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+			_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
+			return nil, fmt.Errorf("%s", errMsg)
 		}
 
 		activeModelName := s.modelName
@@ -189,14 +192,16 @@ func (s *MappingService) processEventBatch(ctx context.Context, batch []model.Ra
 	aiText := s.aiText
 	modelName := s.modelName
 	if s.aiRouter != nil {
-		if rProvider, rModel, err := s.aiRouter.GetTextProviderForFlow(ctx, "checklist_mapping"); err == nil && rProvider != nil {
-			aiText = rProvider
-			modelName = rModel
+		rProvider, rModel, err := s.aiRouter.GetTextProviderForFlow(ctx, "checklist_mapping")
+		if err != nil {
+			return nil, fmt.Errorf("checklist_mapping configuration error: %w", err)
 		}
+		aiText = rProvider
+		modelName = rModel
 	}
 
 	if aiText == nil {
-		return nil, fmt.Errorf("AI text provider not configured")
+		return nil, fmt.Errorf("AI text provider not configured for flow 'checklist_mapping'")
 	}
 
 	var eventsSB strings.Builder

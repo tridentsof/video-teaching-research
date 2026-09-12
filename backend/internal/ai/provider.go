@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 )
@@ -65,11 +66,56 @@ func ExtractJSONFromMarkdown(content string) string {
 	return trimmed
 }
 
+// repairTruncatedJSONArray attempts to salvage a truncated JSON array by
+// removing the incomplete trailing element and closing the array bracket.
+// Returns the repaired JSON string and true if repair was applied, or the
+// original string and false if repair was not applicable.
+func repairTruncatedJSONArray(jsonStr string) (string, bool) {
+	trimmed := strings.TrimSpace(jsonStr)
+	if !strings.HasPrefix(trimmed, "[") {
+		return jsonStr, false
+	}
+
+	// Already a valid-looking array (ends with ']')
+	if strings.HasSuffix(trimmed, "]") {
+		return jsonStr, false
+	}
+
+	// Find the last complete JSON object boundary "},\n  {" or just "}"
+	lastCompleteObj := strings.LastIndex(trimmed, "}")
+	if lastCompleteObj <= 0 {
+		return jsonStr, false
+	}
+
+	// Take everything up to and including the last complete '}'
+	candidate := strings.TrimSpace(trimmed[:lastCompleteObj+1])
+
+	// Remove any trailing comma after the last complete object
+	candidate = strings.TrimRight(candidate, " \t\n\r,")
+
+	// Close the array
+	candidate += "\n]"
+
+	return candidate, true
+}
+
 // UnmarshalJSONFlexible unwraps markdown code fences before parsing into the target struct.
+// If the initial parse fails and the content looks like a truncated JSON array,
+// it attempts to auto-repair by removing the incomplete trailing element.
 func UnmarshalJSONFlexible(raw string, target interface{}) error {
 	cleanJSON := ExtractJSONFromMarkdown(raw)
-	if err := json.Unmarshal([]byte(cleanJSON), target); err != nil {
-		return fmt.Errorf("failed to unmarshal JSON: %w (content: %s)", err, raw)
+	err := json.Unmarshal([]byte(cleanJSON), target)
+	if err == nil {
+		return nil
 	}
-	return nil
+
+	// Attempt auto-repair for truncated JSON arrays
+	if repaired, ok := repairTruncatedJSONArray(cleanJSON); ok {
+		if repairErr := json.Unmarshal([]byte(repaired), target); repairErr == nil {
+			log.Printf("[AI JSON Repair] Successfully repaired truncated JSON array (original length: %d, repaired length: %d)", len(cleanJSON), len(repaired))
+			return nil
+		}
+	}
+
+	return fmt.Errorf("failed to unmarshal JSON: %w (content: %s)", err, raw)
 }

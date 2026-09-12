@@ -8,6 +8,8 @@ export interface Video {
   error_msg?: string;
   failed_step?: string;
   uploaded_at: string;
+  updated_at?: string;
+  processing_mode?: 'chunk' | 'full' | null;
 }
 
 export interface RawEvent {
@@ -252,6 +254,31 @@ export const api = {
     });
   },
 
+  async deleteVideo(id: string): Promise<void> {
+    return request(`/videos/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async bulkDeleteVideos(videoIds: string[]): Promise<{ deleted: string[]; failed: Array<{ id: string; error: string }>; total: number }> {
+    return request('/videos/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify({ video_ids: videoIds }),
+    });
+  },
+
+  async resetPipeline(videoId: string): Promise<{ message: string; video_id: string; status: string }> {
+    return request(`/videos/${videoId}/pipeline`, {
+      method: 'DELETE',
+    });
+  },
+
+  async deleteVideoEvents(videoId: string): Promise<{ message: string; video_id: string; status: string }> {
+    return request(`/videos/${videoId}/events`, {
+      method: 'DELETE',
+    });
+  },
+
 
   async uploadVideo(teacherId: string, title: string, file: File, durationSec?: number): Promise<Video> {
     const formData = new FormData();
@@ -329,9 +356,16 @@ export const api = {
     return request<Report>(`/reports/video/${videoId}`);
   },
 
+  async deleteReport(videoId: string): Promise<void> {
+    return request<void>(`/reports/video/${videoId}`, {
+      method: 'DELETE',
+    });
+  },
+
   getReportDownloadUrl(videoId: string): string {
     return `${API_BASE}/reports/video/${videoId}/export.md`;
   },
+
 
   // Codebook
   async getCodebook(videoId: string): Promise<CodebookEntry[]> {
@@ -346,6 +380,13 @@ export const api = {
     });
     return data.entries || [];
   },
+
+  async deleteCodebook(videoId: string): Promise<void> {
+    return request<void>(`/codebook/video/${videoId}`, {
+      method: 'DELETE',
+    });
+  },
+
 
   async generateCodebook(videoId: string): Promise<CodebookEntry[]> {
     const data = await request<{ entries: CodebookEntry[] }>(`/codebook/video/${videoId}/generate`, {
@@ -386,14 +427,30 @@ export const api = {
     return request(`/analysis/themes/${themeId}/confirm`, { method: 'PUT' });
   },
 
-  async getLatestAnalysisRun(): Promise<{ id: string; status: string; triggered_at: string; completed_at?: string } | null> {
+  async getLatestAnalysisRun(): Promise<{ id: string; status: string; triggered_at: string; completed_at?: string; error_msg?: string } | null> {
     try {
-      const data = await request<{ run: { id: string; status: string; triggered_at: string; completed_at?: string } | null }>('/analysis/latest');
+      const data = await request<{ run: { id: string; status: string; triggered_at: string; completed_at?: string; error_msg?: string } | null }>('/analysis/latest');
       return data.run || null;
     } catch {
       return null;
     }
   },
+
+  async listAnalysisRuns(): Promise<Array<{ id: string; status: string; triggered_at: string; completed_at?: string; error_msg?: string }>> {
+    try {
+      const data = await request<{ runs: Array<{ id: string; status: string; triggered_at: string; completed_at?: string; error_msg?: string }> }>('/analysis/runs');
+      return data.runs || [];
+    } catch {
+      return [];
+    }
+  },
+
+  async deleteAnalysisRun(runId: string): Promise<void> {
+    return request<void>(`/analysis/${runId}`, {
+      method: 'DELETE',
+    });
+  },
+
 
   async getTeacherAnalysis(runId: string, teacherId: string): Promise<{ run_id?: string; teacher_analysis: TeacherAnalysis; interview_questions: InterviewQuestion[] }> {
     return request(`/analysis/${runId}/teachers/${teacherId}`);

@@ -59,6 +59,12 @@ func (s *CodebookService) GetByVideoID(ctx context.Context, videoID uuid.UUID) (
 	return entries, nil
 }
 
+// DeleteByVideoID removes all codebook entries for a video.
+func (s *CodebookService) DeleteByVideoID(ctx context.Context, videoID uuid.UUID) error {
+	return s.repo.DeleteByVideoID(ctx, videoID)
+}
+
+
 // SaveByVideoID replaces all codebook entries for a video.
 func (s *CodebookService) SaveByVideoID(ctx context.Context, videoID uuid.UUID, entries []model.CodebookEntry) ([]model.CodebookEntry, error) {
 	result, err := s.repo.ReplaceByVideoID(ctx, videoID, entries)
@@ -173,14 +179,16 @@ Return ONLY a valid JSON array of objects with the exact keys:
 	aiText := s.aiText
 	modelName := s.modelName
 	if s.aiRouter != nil {
-		if rProvider, rModel, err := s.aiRouter.GetTextProviderForFlow(ctx, "codebook_generation"); err == nil && rProvider != nil {
-			aiText = rProvider
-			modelName = rModel
+		rProvider, rModel, err := s.aiRouter.GetTextProviderForFlow(ctx, "codebook_generation")
+		if err != nil {
+			return nil, fmt.Errorf("codebook_generation configuration error: %w", err)
 		}
+		aiText = rProvider
+		modelName = rModel
 	}
 
 	if aiText == nil {
-		return nil, fmt.Errorf("AI text completion provider is not configured")
+		return nil, fmt.Errorf("AI text completion provider is not configured for flow 'codebook_generation'")
 	}
 
 	log.Printf("[CodebookService] Calling AI (%s) to generate codebook for video %s (%d raw events)...", modelName, videoID, len(events))

@@ -40,7 +40,7 @@ func NewGeminiDirectProvider(apiKey string, model string) *GeminiDirectProvider 
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   30 * time.Second, // Increased from Go's 10s default to prevent TLS handshake timeout
 		ExpectContinueTimeout: 2 * time.Second,
-		ResponseHeaderTimeout: 120 * time.Second,
+		ResponseHeaderTimeout: 10 * time.Minute,
 	}
 
 	return &GeminiDirectProvider{
@@ -68,7 +68,9 @@ type fileUploadResponse struct {
 }
 
 type geminiConfig struct {
-	Temperature float64 `json:"temperature,omitempty"`
+	Temperature      float64 `json:"temperature,omitempty"`
+	MaxOutputTokens  int     `json:"maxOutputTokens,omitempty"`
+	ResponseMimeType string  `json:"responseMimeType,omitempty"`
 }
 
 type geminiGenerateContentRequest struct {
@@ -347,6 +349,10 @@ func (g *GeminiDirectProvider) AnalyzeVideoChunk(ctx context.Context, videoFileP
 					},
 				},
 			},
+		},
+		GenerationConfig: &geminiConfig{
+			MaxOutputTokens:  65536,
+			ResponseMimeType: "application/json",
 		},
 	}
 

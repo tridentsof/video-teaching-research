@@ -7,7 +7,7 @@ import { Report, Video, ReportItem, ReportItemOccurrence, api } from '@/lib/api'
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
 import { useTranslation } from '@/lib/i18n';
 import { generateWordReport, downloadBlob, SECTION_NAMES, DEFAULT_CHECKLIST_STRUCTURE } from '@/lib/wordExport';
-import { ArrowLeft, Download, FileText, CheckCircle2, Play, ExternalLink, Printer } from 'lucide-react';
+import { ArrowLeft, Download, FileText, CheckCircle2, Play, ExternalLink, Printer, Trash2, AlertCircle, X } from 'lucide-react';
 
 function parseOccurrences(raw: any): ReportItemOccurrence[] {
   if (!raw) return [];
@@ -43,6 +43,24 @@ export default function ReportDetailPage() {
   const [loading, setLoading] = useState(true);
   const [exportingWord, setExportingWord] = useState(false);
   const [activeTab, setActiveTab] = useState<'checklist' | 'markdown'>('checklist');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleDeleteReport = async () => {
+    if (!report) return;
+    try {
+      setIsDeleting(true);
+      setDeleteError(null);
+      await api.deleteReport(report.video_id);
+      router.push('/');
+    } catch (err: any) {
+      setDeleteError(err.message || 'Failed to delete report');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
 
   useEffect(() => {
     if (!id) return;
@@ -327,8 +345,33 @@ Teacher maintains warm, energetic classroom rapport with strong use of positive 
               <span>{t('reportsDownloadMd')}</span>
             </a>
           )}
+
+          {/* Delete Report button */}
+          {report && (
+            <button
+              onClick={() => {
+                setDeleteError(null);
+                setShowDeleteConfirm(true);
+              }}
+              className="btn"
+              style={{
+                backgroundColor: '#FEE2E2',
+                color: '#DC2626',
+                border: '1px solid #FECACA',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+              }}
+              title={t('deleteReport') || 'Delete Report'}
+            >
+              <Trash2 size={15} />
+              <span>{t('deleteReport') || 'Delete Report'}</span>
+            </button>
+          )}
         </div>
       </div>
+
 
       {/* Main Content Area */}
       {loading ? (
@@ -598,6 +641,144 @@ Teacher maintains warm, energetic classroom rapport with strong use of positive 
           filename={`report_${report.teacher_id}_${report.video_id.slice(0, 8)}.md`}
         />
       ) : null}
+
+      {/* Delete Report Confirmation Dialog */}
+      {showDeleteConfirm && report && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.45)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px',
+        }}>
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '460px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              padding: '20px 24px',
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              borderBottom: '1px solid var(--card-border)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '10px',
+                  backgroundColor: '#FEE2E2',
+                  color: '#DC2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  <Trash2 size={20} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '17px', fontWeight: 700, color: '#DC2626' }}>
+                    {t('deleteReportTitle') || 'Xóa Báo Cáo Quan Sát'}
+                  </h3>
+                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    {t('deleteVideoWarning') || 'Hành động này không thể khôi phục.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', borderRadius: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{
+                backgroundColor: '#FEF2F2',
+                border: '1px solid #FECACA',
+                borderRadius: '6px',
+                padding: '12px 14px',
+                fontSize: '13px',
+                color: '#7F1D1D',
+                lineHeight: 1.5,
+              }}>
+                <strong>{report.teacher_id}</strong> — Report ({report.video_id.slice(0, 8)})
+                <br />
+                <span style={{ fontSize: '12px', color: '#991B1B', marginTop: '6px', display: 'block' }}>
+                  {t('deleteReportWarning') || 'Hành động này sẽ xóa báo cáo và toàn bộ thống kê tiêu chí. Video sẽ quay lại trạng thái đã khớp (mapped).'}
+                </span>
+              </div>
+
+              {deleteError && (
+                <div style={{
+                  backgroundColor: '#FEE2E2',
+                  border: '1px solid #FECACA',
+                  color: '#DC2626',
+                  padding: '10px 12px',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}>
+                  <AlertCircle size={15} />
+                  <span>{deleteError}</span>
+                </div>
+              )}
+            </div>
+
+            <div style={{
+              padding: '16px 24px',
+              backgroundColor: '#F9FAFB',
+              borderTop: '1px solid var(--card-border)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '10px',
+            }}>
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="btn btn-secondary"
+              >
+                {t('commonCancel') || 'Hủy'}
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteReport}
+                disabled={isDeleting}
+                style={{
+                  backgroundColor: '#DC2626',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: isDeleting ? 'not-allowed' : 'pointer',
+                  opacity: isDeleting ? 0.7 : 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <Trash2 size={15} />
+                <span>{isDeleting ? (t('btnDeleting') || 'Đang xóa...') : (t('btnConfirmDeleteReport') || 'Xóa Báo Cáo')}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

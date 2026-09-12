@@ -165,3 +165,12 @@ func (r *ChunkRepository) GetLatestJobsByVideoID(ctx context.Context, videoID uu
 	}
 	return jobs, nil
 }
+
+// DeleteJobsByVideoID removes all pipeline_jobs records for a video.
+func (r *ChunkRepository) DeleteJobsByVideoID(ctx context.Context, videoID uuid.UUID) error {
+	_, err := r.db.Pool.Exec(ctx, `DELETE FROM pipeline_jobs WHERE video_id = $1`, videoID)
+	if err != nil {
+		return fmt.Errorf("failed to delete pipeline jobs: %w", err)
+	}
+	return nil
+}

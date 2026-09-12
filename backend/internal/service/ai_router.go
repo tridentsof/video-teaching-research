@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
@@ -101,99 +100,91 @@ func (s *AIRouterService) getOpenRouterProvider(apiKey string) *ai.OpenRouterPro
 }
 
 // ResolveFlowConfig retrieves the active model, provider, and API key for a given pipeline flow.
+// Enforces a strict SINGLE SOURCE OF TRUTH: Configuration MUST exist in DB/UI.
+// No fallbacks to environment variables or cross-provider substitutions are permitted.
 func (s *AIRouterService) ResolveFlowConfig(ctx context.Context, flowKey string) (providerType string, modelName string, apiKeySecret string, temperature float64, err error) {
-	// 1. Try DB flow_configs
-	if s.repo != nil {
-		cfg, err := s.repo.GetFlowConfig(ctx, flowKey)
-		if err == nil && cfg != nil && cfg.ModelID != "" {
-			modelName = cfg.ModelID
-			temperature = cfg.Temperature
-
-			// Lookup model provider from catalog
-			mInfo, mErr := s.repo.GetAIModelByID(ctx, modelName)
-			if mErr == nil && mInfo != nil {
-				providerType = mInfo.Provider
-			}
-
-			// Lookup API key secret if assigned
-			if cfg.APIKeyID != nil && *cfg.APIKeyID != uuid.Nil {
-				keyObj, kErr := s.repo.GetAPIKeyByID(ctx, *cfg.APIKeyID)
-				if kErr == nil && keyObj != nil {
-					apiKeySecret = keyObj.KeySecret
-				}
-			}
-
-			// If no specific key assigned, try default key for this provider from DB
-			if apiKeySecret == "" && providerType != "" {
-				defKey, _ := s.repo.GetDefaultAPIKeyByProvider(ctx, providerType)
-				if defKey != nil {
-					apiKeySecret = defKey.KeySecret
-				}
-			}
-		}
+	if s.repo == nil {
+		return "", "", "", 0, fmt.Errorf("settings repository is not configured")
 	}
 
-	// 2. Fallbacks to environment variables if still unassigned
-	if modelName == "" {
-		switch flowKey {
-		case "thematic_analysis", "interview_generator":
-			if s.defaultOpenRouterKey != "" {
-				providerType = "openrouter"
-				modelName = s.defaultOpenRouterModel
-			} else {
-				providerType = "gemini"
-				modelName = s.defaultGeminiModel
-			}
-		default:
-			providerType = "gemini"
-			modelName = s.defaultGeminiModel
-		}
+	// 1. Fetch flow configuration from database
+	cfg, err := s.repo.GetFlowConfig(ctx, flowKey)
+	if err != nil {
+		return "", "", "", 0, fmt.Errorf("failed to load flow config for '%s' from database: %w", flowKey, err)
+	}
+	if cfg == nil || strings.TrimSpace(cfg.ModelID) == "" {
+		return "", "", "", 0, fmt.Errorf("flow '%s' is not configured in database; please configure model and API key in Settings UI", flowKey)
 	}
 
-	if providerType == "" {
-		if strings.HasPrefix(modelName, "gemini") {
-			providerType = "gemini"
-		} else {
-			providerType = "openrouter"
-		}
+	modelName = strings.TrimSpace(cfg.ModelID)
+	temperature = cfg.Temperature
+
+	// 2. Validate model in model catalog
+	mInfo, err := s.repo.GetAIModelByID(ctx, modelName)
+	if err != nil || mInfo == nil {
+		return "", "", "", 0, fmt.Errorf("model '%s' configured for flow '%s' does not exist in model catalog", modelName, flowKey)
+	}
+	if !mInfo.IsActive {
+		return "", "", "", 0, fmt.Errorf("model '%s' configured for flow '%s' is deactivated", modelName, flowKey)
+	}
+	providerType = mInfo.Provider
+
+	// 3. Strictly validate assigned API key (NO fallback to default or environment)
+	if cfg.APIKeyID == nil || *cfg.APIKeyID == uuid.Nil {
+		return "", "", "", 0, fmt.Errorf("flow '%s' has no API key assigned; please assign a valid API key in Settings UI", flowKey)
 	}
 
+	keyObj, err := s.repo.GetAPIKeyByID(ctx, *cfg.APIKeyID)
+	if err != nil || keyObj == nil {
+		return "", "", "", 0, fmt.Errorf("API key configured for flow '%s' (ID: %s) was not found in key vault", flowKey, cfg.APIKeyID.String())
+	}
+
+	if keyObj.Status != "active" {
+		return "", "", "", 0, fmt.Errorf("API key '%s' assigned to flow '%s' is %s (must be active)", keyObj.Label, flowKey, keyObj.Status)
+	}
+
+	apiKeySecret = strings.TrimSpace(keyObj.KeySecret)
 	if apiKeySecret == "" {
-		if providerType == "gemini" {
-			apiKeySecret = s.defaultGeminiKey
-		} else {
-			apiKeySecret = s.defaultOpenRouterKey
-		}
+		return "", "", "", 0, fmt.Errorf("API key '%s' assigned to flow '%s' has an empty key secret", keyObj.Label, flowKey)
+	}
+
+	// 4. Ensure provider compatibility
+	if keyObj.Provider != providerType {
+		return "", "", "", 0, fmt.Errorf("provider mismatch for flow '%s': model '%s' requires '%s', but assigned key '%s' is for '%s'",
+			flowKey, modelName, providerType, keyObj.Label, keyObj.Provider)
 	}
 
 	return providerType, modelName, apiKeySecret, temperature, nil
 }
 
 // GetTextProviderForFlow dynamically resolves and returns the TextCompletionProvider for a given flow.
+// Fails immediately if configuration or key is missing or invalid.
 func (s *AIRouterService) GetTextProviderForFlow(ctx context.Context, flowKey string) (ai.TextCompletionProvider, string, error) {
 	providerType, modelName, apiKeySecret, _, err := s.ResolveFlowConfig(ctx, flowKey)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to resolve flow %s: %w", flowKey, err)
+		return nil, "", fmt.Errorf("flow '%s' configuration error: %w", flowKey, err)
 	}
 
-	if providerType == "openrouter" {
-		if apiKeySecret == "" {
-			// Fallback to Gemini if OpenRouter key not available
-			log.Printf("[AIRouter] Flow %s requested OpenRouter (%s) but no API key configured; falling back to Gemini (%s)", flowKey, modelName, s.defaultGeminiModel)
-			return s.getGeminiProvider(s.defaultGeminiKey, s.defaultGeminiModel), s.defaultGeminiModel, nil
-		}
+	switch providerType {
+	case "openrouter":
 		return s.getOpenRouterProvider(apiKeySecret), modelName, nil
+	case "gemini":
+		return s.getGeminiProvider(apiKeySecret, modelName), modelName, nil
+	default:
+		return nil, "", fmt.Errorf("unsupported AI provider '%s' for flow '%s'", providerType, flowKey)
 	}
-
-	// Default: Gemini
-	return s.getGeminiProvider(apiKeySecret, modelName), modelName, nil
 }
 
 // GetVideoProviderForFlow dynamically resolves and returns the VideoAnalysisProvider for video extraction.
+// Fails immediately if configuration or key is missing or invalid.
 func (s *AIRouterService) GetVideoProviderForFlow(ctx context.Context, flowKey string) (ai.VideoAnalysisProvider, string, error) {
-	_, modelName, apiKeySecret, _, err := s.ResolveFlowConfig(ctx, flowKey)
+	providerType, modelName, apiKeySecret, _, err := s.ResolveFlowConfig(ctx, flowKey)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to resolve video flow %s: %w", flowKey, err)
+		return nil, "", fmt.Errorf("flow '%s' configuration error: %w", flowKey, err)
+	}
+
+	if providerType != "gemini" {
+		return nil, "", fmt.Errorf("video extraction flow '%s' requires a multimodal video provider (gemini), but '%s' was configured", flowKey, providerType)
 	}
 
 	return s.getGeminiProvider(apiKeySecret, modelName), modelName, nil
@@ -418,18 +409,10 @@ func (s *AIRouterService) TestPing(ctx context.Context, req model.TestPingReques
 	}
 
 	if keySecret == "" {
-		if req.Provider == "gemini" {
-			keySecret = s.defaultGeminiKey
-		} else {
-			keySecret = s.defaultOpenRouterKey
-		}
-	}
-
-	if keySecret == "" {
 		return &model.TestPingResponse{
 			Success:   false,
 			LatencyMs: 0,
-			Message:   fmt.Sprintf("No API key configured for provider '%s'", req.Provider),
+			Message:   fmt.Sprintf("No valid API key selected for provider '%s'; please assign an active API key from the vault", req.Provider),
 		}, nil
 	}
 

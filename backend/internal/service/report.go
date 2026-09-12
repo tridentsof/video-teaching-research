@@ -278,3 +278,18 @@ func (s *ReportService) GenerateReportForVideo(ctx context.Context, videoID uuid
 func (s *ReportService) GetReportByVideoID(ctx context.Context, videoID uuid.UUID) (*model.Report, error) {
 	return s.reportRepo.GetByVideoID(ctx, videoID)
 }
+
+// DeleteReport deletes the report and its items for a video and updates the video status back to 'mapped'.
+func (s *ReportService) DeleteReport(ctx context.Context, videoID uuid.UUID) error {
+	if err := s.reportRepo.DeleteByVideoID(ctx, videoID); err != nil {
+		return fmt.Errorf("failed to delete report: %w", err)
+	}
+
+	// If video was in report_generated state, roll back to mapped
+	video, err := s.videoRepo.GetByID(ctx, videoID)
+	if err == nil && video != nil && video.Status == "report_generated" {
+		_ = s.videoRepo.UpdateStatus(ctx, videoID, "mapped", nil)
+	}
+
+	return nil
+}

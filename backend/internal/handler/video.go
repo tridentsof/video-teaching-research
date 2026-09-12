@@ -152,3 +152,71 @@ func (h *VideoHandler) Update(c *gin.Context) {
 	RespondSuccess(c, video)
 }
 
+// Delete removes a video and all its associated data.
+// DELETE /api/videos/:id
+func (h *VideoHandler) Delete(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		RespondError(c, http.StatusBadRequest, "invalid video ID")
+		return
+	}
+
+	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			RespondError(c, http.StatusNotFound, "video not found")
+			return
+		}
+		if strings.Contains(err.Error(), "cannot delete") || strings.Contains(err.Error(), "actively processing") {
+			RespondError(c, http.StatusBadRequest, err.Error())
+			return
+		}
+		RespondError(c, http.StatusInternalServerError, "failed to delete video: "+err.Error())
+		return
+	}
+
+	c.JSON(http.StatusNoContent, nil)
+}
+
+// BulkDeleteRequest contains the list of video IDs to delete.
+type BulkDeleteRequest struct {
+	VideoIDs []string `json:"video_ids" binding:"required"`
+}
+
+// BulkDelete removes multiple videos and returns results for each.
+// POST /api/videos/bulk-delete
+func (h *VideoHandler) BulkDelete(c *gin.Context) {
+	var req BulkDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		RespondError(c, http.StatusBadRequest, "video_ids is required: "+err.Error())
+		return
+	}
+
+	type FailItem struct {
+		ID    string `json:"id"`
+		Error string `json:"error"`
+	}
+
+	deleted := make([]string, 0)
+	failed := make([]FailItem, 0)
+
+	for _, idStr := range req.VideoIDs {
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			failed = append(failed, FailItem{ID: idStr, Error: "invalid UUID"})
+			continue
+		}
+
+		if err := h.svc.Delete(c.Request.Context(), id); err != nil {
+			failed = append(failed, FailItem{ID: idStr, Error: err.Error()})
+		} else {
+			deleted = append(deleted, idStr)
+		}
+	}
+
+	RespondSuccess(c, gin.H{
+		"deleted": deleted,
+		"failed":  failed,
+		"total":   len(req.VideoIDs),
+	})
+}
+

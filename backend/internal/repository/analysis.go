@@ -95,6 +95,46 @@ func (r *AnalysisRepository) GetLatestRun(ctx context.Context) (*model.AnalysisR
 	return &run, nil
 }
 
+// ListRuns returns all analysis runs ordered by triggered_at desc.
+func (r *AnalysisRepository) ListRuns(ctx context.Context) ([]model.AnalysisRun, error) {
+	query := `
+		SELECT id, triggered_at, status, config, error_msg, completed_at
+		FROM analysis_runs
+		ORDER BY triggered_at DESC
+	`
+	rows, err := r.db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list analysis runs: %w", err)
+	}
+	defer rows.Close()
+
+	var runs []model.AnalysisRun
+	for rows.Next() {
+		var run model.AnalysisRun
+		if err := rows.Scan(
+			&run.ID, &run.TriggeredAt, &run.Status, &run.Config, &run.ErrorMsg, &run.CompletedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan analysis run: %w", err)
+		}
+		runs = append(runs, run)
+	}
+	return runs, nil
+}
+
+// DeleteRun deletes an analysis run and its cascaded data.
+func (r *AnalysisRepository) DeleteRun(ctx context.Context, runID uuid.UUID) error {
+	query := `DELETE FROM analysis_runs WHERE id = $1`
+	cmdTag, err := r.db.Pool.Exec(ctx, query, runID)
+	if err != nil {
+		return fmt.Errorf("failed to delete analysis run: %w", err)
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("analysis run not found")
+	}
+	return nil
+}
+
+
 // SavePatterns inserts detected recurring patterns.
 func (r *AnalysisRepository) SavePatterns(ctx context.Context, patterns []model.Pattern) error {
 	if len(patterns) == 0 {

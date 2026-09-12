@@ -123,3 +123,50 @@ func (h *PipelineHandler) CancelVideo(c *gin.Context) {
 		"status":   "cancelled",
 	})
 }
+
+// ResetPipeline wipes all intermediate pipeline data for a video and resets it to 'uploaded' status.
+// DELETE /api/videos/:id/pipeline
+func (h *PipelineHandler) ResetPipeline(c *gin.Context) {
+	videoID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		RespondError(c, http.StatusBadRequest, "invalid video ID")
+		return
+	}
+
+	if err := h.orchestrator.ResetPipeline(c.Request.Context(), videoID); err != nil {
+		if err.Error() == "video not found: "+videoID.String() {
+			RespondError(c, http.StatusNotFound, "video not found")
+			return
+		}
+		RespondError(c, http.StatusInternalServerError, "failed to reset pipeline: "+err.Error())
+		return
+	}
+
+	RespondSuccess(c, gin.H{
+		"message":  "pipeline reset successfully — video returned to 'uploaded' status",
+		"video_id": videoID,
+		"status":   "uploaded",
+	})
+}
+
+// DeleteEvents removes all extracted events and mappings for a video, resetting status to chunked.
+// DELETE /api/videos/:id/events
+func (h *PipelineHandler) DeleteEvents(c *gin.Context) {
+	videoID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		RespondError(c, http.StatusBadRequest, "invalid video ID")
+		return
+	}
+
+	if err := h.orchestrator.DeleteEventsByVideoID(c.Request.Context(), videoID); err != nil {
+		RespondError(c, http.StatusInternalServerError, "failed to delete events: "+err.Error())
+		return
+	}
+
+	RespondSuccess(c, gin.H{
+		"message":  "events and mappings deleted successfully — video status reset to 'chunked'",
+		"video_id": videoID,
+		"status":   "chunked",
+	})
+}
+

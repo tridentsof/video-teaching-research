@@ -7,8 +7,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/video-teaching-research/backend/internal/model"
 	"github.com/video-teaching-research/backend/internal/service"
 )
+
 
 // AnalysisHandler handles HTTP endpoints for Phase 6 analysis and interview questions.
 type AnalysisHandler struct {
@@ -142,6 +144,42 @@ func (h *AnalysisHandler) GetLatestRun(c *gin.Context) {
 	}
 	RespondSuccess(c, gin.H{"run": run})
 }
+
+// ListRuns returns all analysis runs.
+// GET /api/analysis/runs
+func (h *AnalysisHandler) ListRuns(c *gin.Context) {
+	runs, err := h.svc.ListRuns(c.Request.Context())
+	if err != nil {
+		RespondError(c, http.StatusInternalServerError, "failed to list analysis runs: "+err.Error())
+		return
+	}
+	if runs == nil {
+		runs = []model.AnalysisRun{}
+	}
+	RespondSuccess(c, gin.H{"runs": runs})
+}
+
+// DeleteRun deletes an analysis run and its related data.
+// DELETE /api/analysis/:run_id
+func (h *AnalysisHandler) DeleteRun(c *gin.Context) {
+	runID, err := uuid.Parse(c.Param("run_id"))
+	if err != nil {
+		RespondError(c, http.StatusBadRequest, "invalid analysis run ID")
+		return
+	}
+
+	if err := h.svc.DeleteRun(c.Request.Context(), runID); err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			RespondError(c, http.StatusNotFound, "analysis run not found")
+			return
+		}
+		RespondError(c, http.StatusInternalServerError, "failed to delete analysis run: "+err.Error())
+		return
+	}
+
+	RespondSuccess(c, gin.H{"message": "analysis run deleted successfully"})
+}
+
 
 // GetTeacherAnalysis returns teacher analysis and interview questions.
 // GET /api/analysis/:run_id/teachers/:teacher_id

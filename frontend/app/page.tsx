@@ -24,7 +24,14 @@ import {
   SlidersHorizontal,
   Pencil,
   Check,
+  Trash2,
+  RotateCw,
+  Eraser,
+  Layers,
+  Film,
+  MoreHorizontal,
 } from 'lucide-react';
+
 
 export default function VideoListPage() {
   const { t } = useTranslation();
@@ -36,6 +43,7 @@ export default function VideoListPage() {
   // Search & Filter state
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [modeFilter, setModeFilter] = useState<string>('all');
   const [teacherFilter, setTeacherFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('newest');
 
@@ -46,6 +54,32 @@ export default function VideoListPage() {
   const [savingEdit, setSavingEdit] = useState<boolean>(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [editSuccess, setEditSuccess] = useState<string | null>(null);
+
+  // Delete video state
+  const [deletingVideo, setDeletingVideo] = useState<Video | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState<string>('');
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const [resettingVideo, setResettingVideo] = useState<Video | null>(null);
+  const [isResetting, setIsResetting] = useState<boolean>(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+
+  // Bulk delete state
+  const [selectedVideoIds, setSelectedVideoIds] = useState<string[]>([]);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState<boolean>(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState<boolean>(false);
+  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
+  const [bulkDeleteConfirmText, setBulkDeleteConfirmText] = useState<string>('');
+
+  // Clear events state
+  const [clearingEventsVideo, setClearingEventsVideo] = useState<Video | null>(null);
+  const [isClearingEvents, setIsClearingEvents] = useState<boolean>(false);
+  const [clearingEventsError, setClearingEventsError] = useState<string | null>(null);
+
+
+  // Action dropdown menu state
+  const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
 
   const fetchVideos = async (silent = false) => {
     try {
@@ -100,6 +134,128 @@ export default function VideoListPage() {
     }
   };
 
+  // Delete handlers
+  const handleOpenDelete = (v: Video) => {
+    setDeletingVideo(v);
+    setDeleteConfirmText('');
+    setDeleteError(null);
+  };
+
+  const handleCloseDelete = () => {
+    if (isDeleting) return;
+    setDeletingVideo(null);
+    setDeleteError(null);
+    setDeleteConfirmText('');
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingVideo) return;
+    try {
+      setIsDeleting(true);
+      setDeleteError(null);
+      await api.deleteVideo(deletingVideo.id);
+      setVideos((prev) => prev.filter((item) => item.id !== deletingVideo.id));
+      setDeletingVideo(null);
+      setEditSuccess(t('deleteVideoSuccess') || 'Video deleted successfully');
+      setTimeout(() => setEditSuccess(null), 4500);
+    } catch (err: any) {
+      setDeleteError(err.message || 'Failed to delete video');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Reset pipeline handlers
+  const handleOpenReset = (v: Video) => {
+    setResettingVideo(v);
+    setResetError(null);
+  };
+
+  const handleCloseReset = () => {
+    if (isResetting) return;
+    setResettingVideo(null);
+    setResetError(null);
+  };
+
+  const handleConfirmReset = async () => {
+    if (!resettingVideo) return;
+    try {
+      setIsResetting(true);
+      setResetError(null);
+      await api.resetPipeline(resettingVideo.id);
+      setVideos((prev) =>
+        prev.map((item) =>
+          item.id === resettingVideo.id
+            ? { ...item, status: 'uploaded', error_msg: undefined, failed_step: undefined }
+            : item
+        )
+      );
+      setResettingVideo(null);
+      setEditSuccess(t('resetPipelineSuccess') || 'Pipeline reset successfully');
+      setTimeout(() => setEditSuccess(null), 4500);
+    } catch (err: any) {
+      setResetError(err.message || 'Failed to reset pipeline');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  // Bulk delete handlers
+  const handleToggleSelectAll = () => {
+    if (selectedVideoIds.length === filteredVideos.length) {
+      setSelectedVideoIds([]);
+    } else {
+      setSelectedVideoIds(filteredVideos.map((v) => v.id));
+    }
+  };
+
+  const handleToggleSelectVideo = (id: string) => {
+    setSelectedVideoIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    if (bulkDeleteConfirmText !== 'DELETE') return;
+    try {
+      setIsBulkDeleting(true);
+      setBulkDeleteError(null);
+      const res = await api.bulkDeleteVideos(selectedVideoIds);
+      if (res.failed && res.failed.length > 0) {
+        setBulkDeleteError(`Deleted ${res.deleted.length} videos, but ${res.failed.length} failed.`);
+      } else {
+        setShowBulkDeleteModal(false);
+        setSelectedVideoIds([]);
+        setBulkDeleteConfirmText('');
+        setEditSuccess(t('bulkDeleteSuccess') || 'Đã xóa các video đã chọn thành công!');
+        setTimeout(() => setEditSuccess(null), 4500);
+      }
+      await fetchVideos(true);
+    } catch (err: any) {
+      setBulkDeleteError(err.message || 'Failed to bulk delete videos');
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  // Clear events handler
+  const handleConfirmClearEvents = async () => {
+    if (!clearingEventsVideo) return;
+    try {
+      setIsClearingEvents(true);
+      setClearingEventsError(null);
+      await api.deleteVideoEvents(clearingEventsVideo.id);
+      setClearingEventsVideo(null);
+      setEditSuccess(t('deleteRawEventsSuccess') || 'Events cleared successfully! Video reset to chunked.');
+      setTimeout(() => setEditSuccess(null), 4500);
+      await fetchVideos(true);
+    } catch (err: any) {
+      setClearingEventsError(err.message || 'Failed to clear events');
+    } finally {
+      setIsClearingEvents(false);
+    }
+  };
+
 
   useEffect(() => {
     fetchVideos();
@@ -120,6 +276,19 @@ export default function VideoListPage() {
     }, 2500);
     return () => clearInterval(timer);
   }, [isAnyRunning]);
+
+  // Close open action menu on outside click
+  useEffect(() => {
+    if (!openActionMenuId) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.action-menu-container')) {
+        setOpenActionMenuId(null);
+      }
+    };
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, [openActionMenuId]);
 
   // Unique list of teachers from videos
   const teacherIds = useMemo(() => {
@@ -155,7 +324,18 @@ export default function VideoListPage() {
           }
         }
 
-        // 3. Teacher filter
+        // 3. Mode filter
+        if (modeFilter !== 'all') {
+          if (modeFilter === 'chunk') {
+            if (v.processing_mode !== 'chunk') return false;
+          } else if (modeFilter === 'full') {
+            if (v.processing_mode !== 'full') return false;
+          } else if (modeFilter === 'unprocessed') {
+            if (v.processing_mode) return false;
+          }
+        }
+
+        // 4. Teacher filter
         if (teacherFilter !== 'all') {
           if (v.teacher_id !== teacherFilter) return false;
         }
@@ -164,13 +344,13 @@ export default function VideoListPage() {
       })
       .sort((a, b) => {
         if (sortBy === 'newest') {
-          const timeA = a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0;
-          const timeB = b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0;
+          const timeA = new Date(a.updated_at || a.uploaded_at || 0).getTime();
+          const timeB = new Date(b.updated_at || b.uploaded_at || 0).getTime();
           return timeB - timeA;
         }
         if (sortBy === 'oldest') {
-          const timeA = a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0;
-          const timeB = b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0;
+          const timeA = new Date(a.uploaded_at || a.updated_at || 0).getTime();
+          const timeB = new Date(b.uploaded_at || b.updated_at || 0).getTime();
           return timeA - timeB;
         }
         if (sortBy === 'title_asc') {
@@ -187,23 +367,32 @@ export default function VideoListPage() {
         }
         return 0;
       });
-  }, [videos, searchTerm, statusFilter, teacherFilter, sortBy]);
+  }, [videos, searchTerm, statusFilter, modeFilter, teacherFilter, sortBy]);
 
-  const isFiltered = searchTerm.trim() !== '' || statusFilter !== 'all' || teacherFilter !== 'all' || sortBy !== 'newest';
+  const isFiltered = searchTerm.trim() !== '' || statusFilter !== 'all' || modeFilter !== 'all' || teacherFilter !== 'all' || sortBy !== 'newest';
 
   const resetFilters = () => {
     setSearchTerm('');
     setStatusFilter('all');
+    setModeFilter('all');
     setTeacherFilter('all');
     setSortBy('newest');
   };
 
   const handleTrigger = async (id: string) => {
     try {
+      setVideos((prev) =>
+        prev.map((v) =>
+          v.id === id
+            ? { ...v, status: 'chunking', failed_step: undefined, error_msg: undefined }
+            : v
+        )
+      );
       await api.triggerPipeline(id);
       fetchVideos(true);
     } catch (err: any) {
       alert(`Failed to start pipeline: ${err.message}`);
+      fetchVideos(true);
     }
   };
 
@@ -582,6 +771,28 @@ export default function VideoListPage() {
             <option value="cancelled">{t('filterCancelled')}</option>
           </select>
 
+          {/* Processing Mode Filter */}
+          <select
+            value={modeFilter}
+            onChange={(e) => setModeFilter(e.target.value)}
+            style={{
+              padding: '7px 10px',
+              fontSize: '12px',
+              backgroundColor: '#FFFFFF',
+              border: modeFilter !== 'all' ? '1px solid var(--accent)' : '1px solid var(--card-border)',
+              borderRadius: '6px',
+              color: modeFilter !== 'all' ? 'var(--accent)' : 'var(--text-main)',
+              fontWeight: modeFilter !== 'all' ? 600 : 400,
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="all">{t('filterAllModes')}</option>
+            <option value="chunk">{t('filterModeChunk')}</option>
+            <option value="full">{t('filterModeFull')}</option>
+            <option value="unprocessed">{t('modeUnprocessed')}</option>
+          </select>
+
           {/* Teacher Filter */}
           <select
             value={teacherFilter}
@@ -631,15 +842,73 @@ export default function VideoListPage() {
           </select>
         </div>
 
+        {/* Bulk Actions Banner */}
+        {selectedVideoIds.length > 0 && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            backgroundColor: '#FEF2F2',
+            border: '1px solid #FECACA',
+            borderRadius: '8px',
+            padding: '10px 16px',
+            marginBottom: '14px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#991B1B', fontWeight: 600, fontSize: '13px' }}>
+              <span>{selectedVideoIds.length} {t('selectedVideosCount') || 'đã chọn'}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                onClick={() => setSelectedVideoIds([])}
+                className="btn btn-secondary btn-sm"
+              >
+                {t('deselectAll') || 'Bỏ chọn'}
+              </button>
+              <button
+                onClick={() => {
+                  setBulkDeleteError(null);
+                  setBulkDeleteConfirmText('');
+                  setShowBulkDeleteModal(true);
+                }}
+                className="btn btn-sm"
+                style={{
+                  backgroundColor: '#DC2626',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                }}
+              >
+                <Trash2 size={13} />
+                <span>{t('bulkDeleteVideos') || 'Xóa Đã Chọn'}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Video Table */}
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
             <tr style={{ backgroundColor: '#F4EFE6', borderBottom: '2px solid var(--card-border)' }}>
-              <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700 }}>{t('teacher')}</th>
-              <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700 }}>{t('lessonTitle')}</th>
-              <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700 }}>{t('duration')}</th>
-              <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700 }}>{t('status')}</th>
-              <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700 }}>{t('actions')}</th>
+              <th style={{ padding: '12px 14px', width: '38px', textAlign: 'center' }}>
+                <input
+                  type="checkbox"
+                  checked={filteredVideos.length > 0 && selectedVideoIds.length === filteredVideos.length}
+                  onChange={handleToggleSelectAll}
+                  style={{ cursor: 'pointer' }}
+                />
+              </th>
+              <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700, width: '85px', whiteSpace: 'nowrap' }}>{t('teacher')}</th>
+              <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700, minWidth: '220px' }}>{t('lessonTitle')}</th>
+              <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700, width: '90px', whiteSpace: 'nowrap' }}>{t('duration')}</th>
+              <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700, width: '110px', whiteSpace: 'nowrap' }}>{t('processingMode')}</th>
+              <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700, width: '130px', whiteSpace: 'nowrap' }}>{t('status')}</th>
+              <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, width: '180px', whiteSpace: 'nowrap' }}>{t('actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -648,22 +917,58 @@ export default function VideoListPage() {
               (!activeUpload?.videoId || !videos.some((v) => v.id === activeUpload.videoId)) &&
               (statusFilter === 'all' || statusFilter === 'in_progress') && (
                 <tr style={{ borderBottom: '1px solid var(--card-border)', backgroundColor: '#F0FDF4' }}>
-                  <td style={{ padding: '14px', fontWeight: 700, color: '#166534' }}>
-                    {activeUpload.teacherId}
+                  <td style={{ padding: '14px', textAlign: 'center' }}></td>
+                  <td style={{ padding: '14px', whiteSpace: 'nowrap' }}>
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        color: '#166534',
+                        backgroundColor: '#DCFCE7',
+                        padding: '3px 8px',
+                        borderRadius: '4px',
+                        border: '1px solid #BBF7D0',
+                        fontSize: '12px',
+                        fontFamily: 'var(--font-mono)',
+                        display: 'inline-block',
+                      }}
+                    >
+                      {activeUpload.teacherId}
+                    </span>
                   </td>
                   <td style={{ padding: '14px' }}>
                     <Link
                       href="/videos/uploading"
-                      style={{ fontWeight: 600, color: '#166534', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                      style={{ fontWeight: 600, color: '#166534', display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+                      onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
                     >
                       <Loader2 size={13} className="animate-spin" />
                       <span>{activeUpload.title}</span>
                     </Link>
                   </td>
-                  <td style={{ padding: '14px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                  <td style={{ padding: '14px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                     —
                   </td>
-                  <td style={{ padding: '14px' }}>
+                  <td style={{ padding: '14px', whiteSpace: 'nowrap' }}>
+                    <span
+                      className="badge"
+                      style={{
+                        backgroundColor: activeUpload?.enableChunking ? '#EEF2FF' : '#FAF5FF',
+                        color: activeUpload?.enableChunking ? '#4338CA' : '#6B21A8',
+                        border: activeUpload?.enableChunking ? '1px solid #C7D2FE' : '1px solid #E9D5FF',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {activeUpload?.enableChunking ? <Layers size={11} /> : <Film size={11} />}
+                      <span>{activeUpload?.enableChunking ? t('modeChunk') : t('modeFull')}</span>
+                    </span>
+                  </td>
+                  <td style={{ padding: '14px', whiteSpace: 'nowrap' }}>
                     <span
                       className="badge"
                       style={{
@@ -674,14 +979,15 @@ export default function VideoListPage() {
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '5px',
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       <Loader2 size={11} className="animate-spin" />
                       {t('liveUploadingBadge')} ({activeUpload.percentage}%)
                     </span>
                   </td>
-                  <td style={{ padding: '14px', textAlign: 'right' }}>
-                    <Link href="/videos/uploading" className="btn btn-primary btn-sm" style={{ backgroundColor: '#16A34A' }}>
+                  <td style={{ padding: '14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <Link href="/videos/uploading" className="btn btn-primary btn-sm" style={{ backgroundColor: '#16A34A', whiteSpace: 'nowrap' }}>
                       <span>{t('btnViewLiveProgress')}</span>
                     </Link>
                   </td>
@@ -696,27 +1002,124 @@ export default function VideoListPage() {
               const isCompleted = v.status === 'report_generated' || v.status === 'completed';
 
               return (
-                <tr key={v.id} style={{ borderBottom: '1px solid var(--card-border)', backgroundColor: isRunning ? '#FAFCF8' : 'transparent' }}>
-                  <td style={{ padding: '14px', fontWeight: 700, color: 'var(--accent)' }}>
-                    {v.teacher_id}
+                <tr
+                  key={v.id}
+                  style={{
+                    borderBottom: '1px solid var(--card-border)',
+                    backgroundColor: selectedVideoIds.includes(v.id) ? '#FEF2F2' : isRunning ? '#FAFCF8' : 'transparent',
+                  }}
+                >
+                  <td style={{ padding: '14px', textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedVideoIds.includes(v.id)}
+                      onChange={() => handleToggleSelectVideo(v.id)}
+                      disabled={isRunning}
+                      style={{ cursor: isRunning ? 'not-allowed' : 'pointer' }}
+                    />
+                  </td>
+                  <td style={{ padding: '14px', whiteSpace: 'nowrap' }}>
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        color: 'var(--accent)',
+                        backgroundColor: '#F7F3EE',
+                        padding: '3px 8px',
+                        borderRadius: '4px',
+                        border: '1px solid #EADBCC',
+                        fontSize: '12px',
+                        fontFamily: 'var(--font-mono)',
+                        display: 'inline-block',
+                      }}
+                    >
+                      {v.teacher_id}
+                    </span>
                   </td>
                   <td style={{ padding: '14px' }}>
                     <Link
                       href={`/videos/${v.id}`}
-                      style={{ fontWeight: 600, color: 'var(--text-main)', textDecoration: 'underline' }}
+                      style={{
+                        fontWeight: 600,
+                        color: 'var(--text-main)',
+                        textDecoration: 'none',
+                        lineHeight: 1.4,
+                        display: 'inline-block',
+                        wordBreak: 'break-word',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+                      onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
                     >
                       {v.title}
                     </Link>
                   </td>
-                  <td style={{ padding: '14px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+
+                  <td style={{ padding: '14px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                     {durMin ? `~${durMin} min` : '—'}
                   </td>
-                  <td style={{ padding: '14px' }}>
+                  <td style={{ padding: '14px', whiteSpace: 'nowrap' }}>
+                    {v.processing_mode === 'chunk' ? (
+                      <span
+                        className="badge"
+                        title={t('modeChunkTooltip')}
+                        style={{
+                          backgroundColor: '#EEF2FF',
+                          color: '#4338CA',
+                          border: '1px solid #C7D2FE',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          cursor: 'help',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        <Layers size={11} />
+                        <span>{t('modeChunk')}</span>
+                      </span>
+                    ) : v.processing_mode === 'full' ? (
+                      <span
+                        className="badge"
+                        title={t('modeFullTooltip')}
+                        style={{
+                          backgroundColor: '#FAF5FF',
+                          color: '#6B21A8',
+                          border: '1px solid #E9D5FF',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          cursor: 'help',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        <Film size={11} />
+                        <span>{t('modeFull')}</span>
+                      </span>
+                    ) : (
+                      <span
+                        className="badge"
+                        style={{
+                          backgroundColor: '#F3F4F6',
+                          color: '#6B7280',
+                          border: '1px solid #E5E7EB',
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {t('modeUnprocessed')}
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ padding: '14px', whiteSpace: 'nowrap' }}>
                     <span
                       className="badge"
                       title={isFailed && v.error_msg ? v.error_msg : undefined}
-                      style={
-                        isFailed
+                      style={{
+                        whiteSpace: 'nowrap',
+                        ...(isFailed
                           ? { backgroundColor: '#FEE2E2', color: '#DC2626', border: '1px solid #FECACA', fontWeight: 700, cursor: v.error_msg ? 'help' : 'default' }
                           : isCancelled
                           ? { backgroundColor: '#FEF3C7', color: '#D97706', border: '1px solid #FCD34D', fontWeight: 700 }
@@ -732,59 +1135,263 @@ export default function VideoListPage() {
                             }
                           : isCompleted
                           ? { backgroundColor: '#E0F2FE', color: '#0369A1', border: '1px solid #BAE6FD', fontWeight: 600 }
-                          : { backgroundColor: '#FAF5EE', color: 'var(--accent)', border: '1px solid #E8D9C8', fontWeight: 600 }
-                      }
+                          : { backgroundColor: '#FAF5EE', color: 'var(--accent)', border: '1px solid #E8D9C8', fontWeight: 600 }),
+                      }}
                     >
                       {isRunning && <Loader2 size={11} className="animate-spin" />}
                       {getStatusLabel(v.status)}
                     </span>
                   </td>
-                  <td style={{ padding: '14px', textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: '8px' }}>
-                      <Link
-                        href={`/videos/${v.id}`}
-                        className={isRunning ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"}
-                        style={isRunning ? { backgroundColor: '#16A34A', borderColor: '#15803D' } : {}}
-                      >
-                        {isRunning ? <Loader2 size={13} className="animate-spin" /> : <ListOrdered size={13} />}
-                        <span>{isRunning ? t('btnViewLiveProgress') : isFailed ? t('inspectError') : t('eventsList')}</span>
-                      </Link>
-
-                      {isCompleted && (
+                  <td style={{ padding: '14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      {/* Primary Action Button */}
+                      {isRunning ? (
+                        <Link
+                          href={`/videos/${v.id}`}
+                          className="btn btn-primary btn-sm"
+                          style={{ backgroundColor: '#16A34A', borderColor: '#15803D', whiteSpace: 'nowrap' }}
+                        >
+                          <Loader2 size={13} className="animate-spin" />
+                          <span>{t('btnViewLiveProgress')}</span>
+                        </Link>
+                      ) : isCompleted ? (
                         <Link
                           href={`/reports/${v.id}`}
                           className="btn btn-primary btn-sm"
+                          style={{ whiteSpace: 'nowrap' }}
                         >
                           <FileText size={13} />
                           <span>{t('viewReport')}</span>
                         </Link>
-                      )}
-
-                      {!isRunning && !isCompleted && (
+                      ) : isFailed ? (
                         <button
                           onClick={() => handleTrigger(v.id)}
-                          className={isFailed ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"}
-                          style={isFailed ? { backgroundColor: 'var(--accent)' } : {}}
+                          className="btn btn-primary btn-sm"
+                          style={{ backgroundColor: 'var(--accent)', borderColor: 'var(--accent)', whiteSpace: 'nowrap' }}
+                        >
+                          <RotateCcw size={13} />
+                          <span>{t('retryAnalysis')}</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleTrigger(v.id)}
+                          className="btn btn-secondary btn-sm"
+                          style={{ whiteSpace: 'nowrap' }}
                         >
                           <Play size={13} />
-                          <span>{isFailed ? t('retryAnalysis') : t('runPipeline')}</span>
+                          <span>{t('runPipeline')}</span>
                         </button>
                       )}
 
-                      {!isRunning && (
+                      {/* More Actions Dropdown Menu */}
+                      <div className="action-menu-container" style={{ position: 'relative', display: 'inline-block' }}>
                         <button
-                          onClick={() => handleOpenEdit(v)}
-                          className="btn btn-secondary btn-sm"
-                          title={t('editVideo')}
-                          style={{
-                            padding: '6px 9px',
-                            color: 'var(--text-muted)',
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenActionMenuId(openActionMenuId === v.id ? null : v.id);
                           }}
+                          className="btn btn-secondary btn-sm"
+                          style={{
+                            padding: '6px 8px',
+                            color: openActionMenuId === v.id ? 'var(--accent)' : 'var(--text-muted)',
+                            backgroundColor: openActionMenuId === v.id ? '#F4EFE6' : undefined,
+                          }}
+                          title={t('moreActions') || 'More Actions'}
                         >
-                          <Pencil size={13} />
-                          <span>{t('editVideo')}</span>
+                          <MoreHorizontal size={15} />
                         </button>
-                      )}
+
+                        {openActionMenuId === v.id && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              right: 0,
+                              top: 'calc(100% + 4px)',
+                              backgroundColor: '#FFFFFF',
+                              border: '1px solid var(--card-border)',
+                              borderRadius: '8px',
+                              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08)',
+                              minWidth: '185px',
+                              zIndex: 100,
+                              padding: '5px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '2px',
+                              textAlign: 'left',
+                            }}
+                          >
+                            {/* Inspect Error (if failed) */}
+                            {isFailed && (
+                              <Link
+                                href={`/videos/${v.id}`}
+                                onClick={() => setOpenActionMenuId(null)}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  padding: '7px 10px',
+                                  fontSize: '12px',
+                                  color: '#DC2626',
+                                  borderRadius: '6px',
+                                  textDecoration: 'none',
+                                  fontWeight: 500,
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#FEF2F2')}
+                                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                              >
+                                <AlertCircle size={14} />
+                                <span>{t('inspectError')}</span>
+                              </Link>
+                            )}
+
+                            {/* Events Timeline */}
+                            <Link
+                              href={`/videos/${v.id}`}
+                              onClick={() => setOpenActionMenuId(null)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '7px 10px',
+                                fontSize: '12px',
+                                color: 'var(--text-main)',
+                                borderRadius: '6px',
+                                textDecoration: 'none',
+                                fontWeight: 500,
+                              }}
+                              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#F7F3EE')}
+                              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                            >
+                              <ListOrdered size={14} />
+                              <span>{t('eventsList')}</span>
+                            </Link>
+
+                            {!isRunning && (
+                              <>
+                                {/* Edit / Reassign */}
+                                <button
+                                  onClick={() => {
+                                    setOpenActionMenuId(null);
+                                    handleOpenEdit(v);
+                                  }}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '7px 10px',
+                                    fontSize: '12px',
+                                    color: 'var(--text-main)',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    backgroundColor: 'transparent',
+                                    width: '100%',
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                    fontWeight: 500,
+                                  }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#F7F3EE')}
+                                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                                >
+                                  <Pencil size={14} />
+                                  <span>{t('editVideo')}</span>
+                                </button>
+
+                                {/* Reset Pipeline */}
+                                {(isCompleted || isFailed || isCancelled) && (
+                                  <button
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      handleOpenReset(v);
+                                    }}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '8px',
+                                      padding: '7px 10px',
+                                      fontSize: '12px',
+                                      color: '#D97706',
+                                      borderRadius: '6px',
+                                      border: 'none',
+                                      backgroundColor: 'transparent',
+                                      width: '100%',
+                                      cursor: 'pointer',
+                                      textAlign: 'left',
+                                      fontWeight: 500,
+                                    }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#FFFBEB')}
+                                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                                  >
+                                    <RotateCw size={14} />
+                                    <span>{t('resetPipeline') || 'Reset Pipeline'}</span>
+                                  </button>
+                                )}
+
+                                {/* Clear Events */}
+                                {['extracted', 'mapped', 'report_generated', 'completed'].includes(v.status) && (
+                                  <button
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      setClearingEventsError(null);
+                                      setClearingEventsVideo(v);
+                                    }}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '8px',
+                                      padding: '7px 10px',
+                                      fontSize: '12px',
+                                      color: '#EA580C',
+                                      borderRadius: '6px',
+                                      border: 'none',
+                                      backgroundColor: 'transparent',
+                                      width: '100%',
+                                      cursor: 'pointer',
+                                      textAlign: 'left',
+                                      fontWeight: 500,
+                                    }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#FFF7ED')}
+                                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                                  >
+                                    <Eraser size={14} />
+                                    <span>{t('deleteRawEvents') || 'Clear Events'}</span>
+                                  </button>
+                                )}
+
+                                {/* Divider */}
+                                <div style={{ height: '1px', backgroundColor: 'var(--card-border)', margin: '4px 0' }} />
+
+                                {/* Delete Video */}
+                                <button
+                                  onClick={() => {
+                                    setOpenActionMenuId(null);
+                                    handleOpenDelete(v);
+                                  }}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '7px 10px',
+                                    fontSize: '12px',
+                                    color: '#DC2626',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    backgroundColor: 'transparent',
+                                    width: '100%',
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                    fontWeight: 500,
+                                  }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#FEF2F2')}
+                                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                                >
+                                  <Trash2 size={14} />
+                                  <span>{t('deleteVideo') || 'Delete Video'}</span>
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -794,7 +1401,7 @@ export default function VideoListPage() {
             {/* Empty state when no items match filters */}
             {filteredVideos.length === 0 && !loading && (
               <tr>
-                <td colSpan={5} style={{ padding: '48px 20px', textAlign: 'center' }}>
+                <td colSpan={7} style={{ padding: '48px 20px', textAlign: 'center' }}>
                   <div style={{
                     display: 'flex',
                     flexDirection: 'column',
@@ -1043,6 +1650,585 @@ export default function VideoListPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Video Confirmation Modal */}
+      {deletingVideo && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(28, 25, 23, 0.55)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCloseDelete();
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid #FECACA',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.08)',
+              width: '100%',
+              maxWidth: '480px',
+              padding: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              animation: 'fadeIn 0.15s ease-out',
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  backgroundColor: '#FEE2E2',
+                  color: '#DC2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  <Trash2 size={20} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '17px', fontWeight: 700, color: '#DC2626' }}>
+                    {t('deleteVideoTitle') || 'Xóa Video'}
+                  </h3>
+                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    {t('deleteVideoWarning') || 'Hành động này không thể khôi phục.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleCloseDelete}
+                disabled={isDeleting}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', borderRadius: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Info about what will be deleted */}
+            <div style={{
+              backgroundColor: '#FEF2F2',
+              border: '1px solid #FECACA',
+              borderRadius: '6px',
+              padding: '12px 14px',
+              fontSize: '13px',
+              color: '#7F1D1D',
+              lineHeight: 1.5,
+            }}>
+              <strong>{deletingVideo.teacher_id}</strong> — {deletingVideo.title}
+              <br />
+              <span style={{ fontSize: '12px', color: '#991B1B', marginTop: '6px', display: 'block' }}>
+                {t('deleteVideoCascadeWarning') || 'Tất cả dữ liệu liên quan sẽ bị xóa: chunks, events, mappings, reports, codebook, pipeline jobs.'}
+              </span>
+            </div>
+
+            {deleteError && (
+              <div style={{
+                backgroundColor: '#FEE2E2',
+                border: '1px solid #FECACA',
+                color: '#DC2626',
+                padding: '10px 12px',
+                borderRadius: '6px',
+                fontSize: '13px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}>
+                <AlertCircle size={15} />
+                <span>{deleteError}</span>
+              </div>
+            )}
+
+            {/* Confirmation input */}
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
+                {t('deleteConfirmLabel') || 'Nhập "DELETE" để xác nhận:'}
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="DELETE"
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  fontSize: '13px',
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: 700,
+                  color: '#DC2626',
+                  backgroundColor: '#FEF2F2',
+                  border: '1px solid #FECACA',
+                  borderRadius: '6px',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '4px' }}>
+              <button
+                type="button"
+                onClick={handleCloseDelete}
+                disabled={isDeleting}
+                className="btn btn-secondary"
+                style={{ fontSize: '13px' }}
+              >
+                <span>{t('commonCancel')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting || deleteConfirmText !== 'DELETE'}
+                className="btn btn-primary"
+                style={{
+                  fontSize: '13px',
+                  backgroundColor: '#DC2626',
+                  borderColor: '#B91C1C',
+                  opacity: deleteConfirmText !== 'DELETE' ? 0.5 : 1,
+                }}
+              >
+                {isDeleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                <span>{isDeleting ? (t('btnDeleting') || 'Đang xóa...') : (t('btnConfirmDelete') || 'Xóa Vĩnh Viễn')}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Pipeline Confirmation Modal */}
+      {resettingVideo && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(28, 25, 23, 0.55)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCloseReset();
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid #FCD34D',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.08)',
+              width: '100%',
+              maxWidth: '480px',
+              padding: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              animation: 'fadeIn 0.15s ease-out',
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  backgroundColor: '#FEF3C7',
+                  color: '#D97706',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  <RotateCw size={20} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '17px', fontWeight: 700, color: '#92400E' }}>
+                    {t('resetPipelineTitle') || 'Reset Pipeline'}
+                  </h3>
+                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    {t('resetPipelineDesc') || 'Xóa tất cả kết quả phân tích và quay lại trạng thái ban đầu.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleCloseReset}
+                disabled={isResetting}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', borderRadius: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Info */}
+            <div style={{
+              backgroundColor: '#FFFBEB',
+              border: '1px solid #FCD34D',
+              borderRadius: '6px',
+              padding: '12px 14px',
+              fontSize: '13px',
+              color: '#92400E',
+              lineHeight: 1.5,
+            }}>
+              <strong>{resettingVideo.teacher_id}</strong> — {resettingVideo.title}
+              <br />
+              <span style={{ fontSize: '12px', color: '#78350F', marginTop: '6px', display: 'block' }}>
+                {t('resetPipelineCascadeWarning') || 'Sẽ xóa: chunks, events, mappings, reports, codebook, pipeline jobs. Video gốc sẽ được giữ lại.'}
+              </span>
+            </div>
+
+            {resetError && (
+              <div style={{
+                backgroundColor: '#FEE2E2',
+                border: '1px solid #FECACA',
+                color: '#DC2626',
+                padding: '10px 12px',
+                borderRadius: '6px',
+                fontSize: '13px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}>
+                <AlertCircle size={15} />
+                <span>{resetError}</span>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '4px' }}>
+              <button
+                type="button"
+                onClick={handleCloseReset}
+                disabled={isResetting}
+                className="btn btn-secondary"
+                style={{ fontSize: '13px' }}
+              >
+                <span>{t('commonCancel')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReset}
+                disabled={isResetting}
+                className="btn btn-primary"
+                style={{
+                  fontSize: '13px',
+                  backgroundColor: '#D97706',
+                  borderColor: '#B45309',
+                }}
+              >
+                {isResetting ? <Loader2 size={13} className="animate-spin" /> : <RotateCw size={13} />}
+                <span>{isResetting ? (t('btnResetting') || 'Đang reset...') : (t('btnConfirmReset') || 'Reset Pipeline')}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation Dialog */}
+      {showBulkDeleteModal && selectedVideoIds.length > 0 && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.45)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px',
+        }}>
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '480px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              padding: '20px 24px',
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              borderBottom: '1px solid var(--card-border)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '10px',
+                  backgroundColor: '#FEE2E2',
+                  color: '#DC2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  <Trash2 size={20} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '17px', fontWeight: 700, color: '#DC2626' }}>
+                    {t('bulkDeleteTitle') || 'Xóa Các Video Đã Chọn'}
+                  </h3>
+                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    {t('deleteVideoWarning') || 'Hành động này không thể khôi phục.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowBulkDeleteModal(false)}
+                disabled={isBulkDeleting}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', borderRadius: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{
+                backgroundColor: '#FEF2F2',
+                border: '1px solid #FECACA',
+                borderRadius: '6px',
+                padding: '12px 14px',
+                fontSize: '13px',
+                color: '#7F1D1D',
+                lineHeight: 1.5,
+              }}>
+                <strong>{selectedVideoIds.length} videos</strong>
+                <br />
+                <span style={{ fontSize: '12px', color: '#991B1B', marginTop: '6px', display: 'block' }}>
+                  {t('bulkDeleteWarning') || 'Hành động này sẽ xóa vĩnh viễn các video đã chọn và toàn bộ dữ liệu liên quan (chunks, sự kiện, khớp tiêu chí, báo cáo, codebook).'}
+                </span>
+              </div>
+
+              {bulkDeleteError && (
+                <div style={{
+                  backgroundColor: '#FEE2E2',
+                  border: '1px solid #FECACA',
+                  color: '#DC2626',
+                  padding: '10px 12px',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}>
+                  <AlertCircle size={15} />
+                  <span>{bulkDeleteError}</span>
+                </div>
+              )}
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
+                  {t('deleteConfirmLabel') || 'Nhập "DELETE" để xác nhận:'}
+                </label>
+                <input
+                  type="text"
+                  value={bulkDeleteConfirmText}
+                  onChange={(e) => setBulkDeleteConfirmText(e.target.value)}
+                  placeholder="DELETE"
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid var(--card-border)',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{
+              padding: '16px 24px',
+              backgroundColor: '#F9FAFB',
+              borderTop: '1px solid var(--card-border)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '10px',
+            }}>
+              <button
+                type="button"
+                onClick={() => setShowBulkDeleteModal(false)}
+                disabled={isBulkDeleting}
+                className="btn btn-secondary"
+              >
+                {t('commonCancel') || 'Hủy'}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmBulkDelete}
+                disabled={isBulkDeleting || bulkDeleteConfirmText !== 'DELETE'}
+                style={{
+                  backgroundColor: bulkDeleteConfirmText === 'DELETE' ? '#DC2626' : '#9CA3AF',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: bulkDeleteConfirmText === 'DELETE' && !isBulkDeleting ? 'pointer' : 'not-allowed',
+                  opacity: isBulkDeleting ? 0.7 : 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <Trash2 size={15} />
+                <span>{isBulkDeleting ? (t('btnDeleting') || 'Đang xóa...') : (t('btnConfirmDelete') || 'Xóa Vĩnh Viễn')}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clear Events Confirmation Dialog */}
+      {clearingEventsVideo && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.45)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px',
+        }}>
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '460px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              padding: '20px 24px',
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              borderBottom: '1px solid var(--card-border)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '10px',
+                  backgroundColor: '#FFEDD5',
+                  color: '#EA580C',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  <Eraser size={20} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '17px', fontWeight: 700, color: '#EA580C' }}>
+                    {t('deleteRawEventsTitle') || 'Xóa Sự Kiện Đã Trích Xuất'}
+                  </h3>
+                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    {clearingEventsVideo.teacher_id} — {clearingEventsVideo.title}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setClearingEventsVideo(null)}
+                disabled={isClearingEvents}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', borderRadius: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{
+                backgroundColor: '#FFF7ED',
+                border: '1px solid #FED7AA',
+                borderRadius: '6px',
+                padding: '12px 14px',
+                fontSize: '13px',
+                color: '#9A3412',
+                lineHeight: 1.5,
+              }}>
+                {t('deleteRawEventsWarning') || 'Hành động này sẽ xóa toàn bộ sự kiện, khớp tiêu chí và báo cáo, đưa video về trạng thái đã cắt đoạn (chunked). Video gốc và các video chunk vẫn được giữ nguyên.'}
+              </div>
+
+              {clearingEventsError && (
+                <div style={{
+                  backgroundColor: '#FEE2E2',
+                  border: '1px solid #FECACA',
+                  color: '#DC2626',
+                  padding: '10px 12px',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}>
+                  <AlertCircle size={15} />
+                  <span>{clearingEventsError}</span>
+                </div>
+              )}
+            </div>
+
+            <div style={{
+              padding: '16px 24px',
+              backgroundColor: '#F9FAFB',
+              borderTop: '1px solid var(--card-border)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '10px',
+            }}>
+              <button
+                type="button"
+                onClick={() => setClearingEventsVideo(null)}
+                disabled={isClearingEvents}
+                className="btn btn-secondary"
+              >
+                {t('commonCancel') || 'Hủy'}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmClearEvents}
+                disabled={isClearingEvents}
+                style={{
+                  backgroundColor: '#EA580C',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: isClearingEvents ? 'not-allowed' : 'pointer',
+                  opacity: isClearingEvents ? 0.7 : 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <Eraser size={15} />
+                <span>{isClearingEvents ? (t('btnDeleting') || 'Đang xóa...') : (t('btnConfirmDeleteEvents') || 'Xóa Sự Kiện')}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

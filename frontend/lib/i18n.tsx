@@ -114,6 +114,15 @@ export const translations: TranslationDict = {
   videosInRepo: { en: 'videos in repository', vi: 'video trong kho bài giảng' },
   filterSearchPlaceholder: { en: 'Search by lesson title or teacher ID...', vi: 'Tìm theo tên bài giảng hoặc mã giáo viên...' },
   filterAllStatuses: { en: 'All Statuses', vi: 'Tất Cả Trạng Thái' },
+  filterAllModes: { en: 'All Processing Modes', vi: 'Tất Cả Chế Độ' },
+  filterModeChunk: { en: 'Chunk Mode', vi: 'Chế Độ Chunk' },
+  filterModeFull: { en: 'Full Video Mode', vi: 'Chế Độ Full Video' },
+  modeChunk: { en: 'Chunk', vi: 'Chunk' },
+  modeFull: { en: 'Full Video', vi: 'Full Video' },
+  modeUnprocessed: { en: 'Unprocessed', vi: 'Chưa Xử Lý' },
+  modeChunkTooltip: { en: 'Video was sliced into segments and processed with parallel workers', vi: 'Video được chia thành các đoạn và xử lý song song' },
+  modeFullTooltip: { en: 'Video was analyzed directly as a single full file with AI', vi: 'Video được gửi trực tiếp toàn bộ để phân tích' },
+  processingMode: { en: 'Mode', vi: 'Chế Độ' },
   filterCompleted: { en: 'Completed', vi: 'Đã Hoàn Thành' },
   filterInProgress: { en: 'In Progress', vi: 'Đang Xử Lý' },
   filterQueued: { en: 'Queued', vi: 'Đang Chờ' },
@@ -121,12 +130,13 @@ export const translations: TranslationDict = {
   filterCancelled: { en: 'Cancelled', vi: 'Đã Hủy' },
   filterAllTeachers: { en: 'All Teachers', vi: 'Tất Cả Giáo Viên' },
   filterSortBy: { en: 'Sort by', vi: 'Sắp xếp' },
-  sortNewest: { en: 'Newest First', vi: 'Mới nhất' },
+  sortNewest: { en: 'Recently Active / Newest', vi: 'Hoạt động gần nhất / Mới nhất' },
   sortOldest: { en: 'Oldest First', vi: 'Cũ nhất' },
   sortTitleAsc: { en: 'Title (A → Z)', vi: 'Tiêu đề (A → Z)' },
   sortTitleDesc: { en: 'Title (Z → A)', vi: 'Tiêu đề (Z → A)' },
   sortDurationDesc: { en: 'Duration (Longest)', vi: 'Thời lượng (Dài nhất)' },
   sortDurationAsc: { en: 'Duration (Shortest)', vi: 'Thời lượng (Ngắn nhất)' },
+  moreActions: { en: 'More Actions', vi: 'Thao tác khác' },
   filterReset: { en: 'Reset Filters', vi: 'Đặt Lại Bộ Lọc' },
   filterShowingCount: { en: 'Showing {count} of {total} lessons', vi: 'Hiển thị {count} / {total} bài giảng' },
   filterNoResultsTitle: { en: 'No matching lessons found', vi: 'Không tìm thấy bài giảng phù hợp' },
@@ -157,6 +167,88 @@ export const translations: TranslationDict = {
   videoUpdateError: { en: 'Failed to update video: ', vi: 'Không thể cập nhật video: ' },
   cannotEditWhileRunning: { en: 'Cannot edit video while analysis pipeline is running.', vi: 'Không thể chỉnh sửa khi tiến trình phân tích đang chạy.' },
   quickSelectTeacher: { en: 'Quick Select Existing Teacher', vi: 'Chọn Nhanh Giáo Viên Có Sẵn' },
+
+  // Delete video
+  deleteVideo: { en: 'Delete Video', vi: 'Xóa Video' },
+  deleteVideoTitle: { en: 'Delete Video', vi: 'Xóa Video' },
+  deleteVideoWarning: { en: 'This action cannot be undone.', vi: 'Hành động này không thể khôi phục.' },
+  deleteVideoCascadeWarning: {
+    en: 'All associated data will be deleted: chunks, events, mappings, reports, codebook, pipeline jobs.',
+    vi: 'Tất cả dữ liệu liên quan sẽ bị xóa: chunks, events, mappings, reports, codebook, pipeline jobs.',
+  },
+  deleteConfirmLabel: { en: 'Type "DELETE" to confirm:', vi: 'Nhập "DELETE" để xác nhận:' },
+  deleteVideoSuccess: { en: 'Video and all associated data deleted successfully!', vi: 'Đã xóa video và tất cả dữ liệu liên quan thành công!' },
+  btnConfirmDelete: { en: 'Delete Permanently', vi: 'Xóa Vĩnh Viễn' },
+  btnDeleting: { en: 'Deleting...', vi: 'Đang xóa...' },
+
+  // Reset pipeline
+  resetPipeline: { en: 'Reset Pipeline', vi: 'Reset Pipeline' },
+  resetPipelineTitle: { en: 'Reset Pipeline', vi: 'Reset Pipeline' },
+  resetPipelineDesc: {
+    en: 'Delete all analysis results and return to initial uploaded status.',
+    vi: 'Xóa tất cả kết quả phân tích và quay lại trạng thái ban đầu.',
+  },
+  resetPipelineCascadeWarning: {
+    en: 'This will delete: chunks, events, mappings, reports, codebook, pipeline jobs. The original video file will be kept.',
+    vi: 'Sẽ xóa: chunks, events, mappings, reports, codebook, pipeline jobs. Video gốc sẽ được giữ lại.',
+  },
+  resetPipelineSuccess: { en: 'Pipeline reset successfully! Video returned to uploaded status.', vi: 'Reset pipeline thành công! Video đã quay lại trạng thái uploaded.' },
+  btnConfirmReset: { en: 'Reset Pipeline', vi: 'Reset Pipeline' },
+  btnResetting: { en: 'Resetting...', vi: 'Đang reset...' },
+
+  // Delete report
+  deleteReport: { en: 'Delete Report', vi: 'Xóa Báo Cáo' },
+  deleteReportTitle: { en: 'Delete Observation Report', vi: 'Xóa Báo Cáo Quan Sát' },
+  deleteReportWarning: {
+    en: 'This will delete the generated report and its item statistics. The video status will roll back to mapped.',
+    vi: 'Hành động này sẽ xóa báo cáo và toàn bộ thống kê tiêu chí. Video sẽ quay lại trạng thái đã khớp (mapped).',
+  },
+  deleteReportSuccess: { en: 'Report deleted successfully!', vi: 'Đã xóa báo cáo thành công!' },
+  btnConfirmDeleteReport: { en: 'Delete Report', vi: 'Xóa Báo Cáo' },
+
+  // Delete analysis run
+  deleteAnalysisRun: { en: 'Delete Analysis Run', vi: 'Xóa Đợt Phân Tích' },
+  deleteAnalysisRunTitle: { en: 'Delete Grounded Theory Analysis Run', vi: 'Xóa Đợt Phân Tích Grounded Theory' },
+  deleteAnalysisRunWarning: {
+    en: 'This will delete this analysis run and all associated patterns, categories, themes, and teacher interview questions.',
+    vi: 'Hành động này sẽ xóa đợt phân tích và toàn bộ patterns, categories, themes, và câu hỏi phỏng vấn giáo viên liên quan.',
+  },
+  deleteAnalysisRunSuccess: { en: 'Analysis run deleted successfully!', vi: 'Đã xóa đợt phân tích thành công!' },
+  btnConfirmDeleteRun: { en: 'Delete Run', vi: 'Xóa Đợt Phân Tích' },
+
+  // Bulk delete videos
+  bulkDeleteVideos: { en: 'Delete Selected', vi: 'Xóa Đã Chọn' },
+  bulkDeleteTitle: { en: 'Delete Selected Videos', vi: 'Xóa Các Video Đã Chọn' },
+  bulkDeleteWarning: {
+    en: 'This will permanently delete the selected videos and all their associated data (chunks, events, mappings, reports, codebook).',
+    vi: 'Hành động này sẽ xóa vĩnh viễn các video đã chọn và toàn bộ dữ liệu liên quan (chunks, sự kiện, khớp tiêu chí, báo cáo, codebook).',
+  },
+  bulkDeleteSuccess: { en: 'Selected videos deleted successfully!', vi: 'Đã xóa các video đã chọn thành công!' },
+  selectedVideosCount: { en: 'selected', vi: 'đã chọn' },
+  selectAll: { en: 'Select All', vi: 'Chọn tất cả' },
+  deselectAll: { en: 'Deselect All', vi: 'Bỏ chọn tất cả' },
+
+  // Delete Codebook
+  deleteCodebook: { en: 'Clear Codebook', vi: 'Xóa Sổ Mã Hóa' },
+  deleteCodebookTitle: { en: 'Clear Codebook Entries', vi: 'Xóa Toàn Bộ Mục Sổ Mã Hóa' },
+  deleteCodebookWarning: {
+    en: 'This will delete all codebook entries for this video. You can re-generate them with AI anytime.',
+    vi: 'Hành động này sẽ xóa toàn bộ mục mã hóa của video này. Bạn có thể dùng AI tạo lại bất cứ lúc nào.',
+  },
+  deleteCodebookSuccess: { en: 'Codebook cleared successfully!', vi: 'Đã xóa sổ mã hóa thành công!' },
+  btnConfirmDeleteCodebook: { en: 'Clear Codebook', vi: 'Xóa Sổ Mã Hóa' },
+
+  // Delete Raw Events
+  deleteRawEvents: { en: 'Clear Events', vi: 'Xóa Sự Kiện' },
+  deleteRawEventsTitle: { en: 'Clear Extracted Events', vi: 'Xóa Sự Kiện Đã Trích Xuất' },
+  deleteRawEventsWarning: {
+    en: 'This will delete all extracted events, mappings, and report, resetting the video status back to chunked.',
+    vi: 'Hành động này sẽ xóa toàn bộ sự kiện, khớp tiêu chí và báo cáo, đưa video về trạng thái đã cắt đoạn (chunked).',
+  },
+  deleteRawEventsSuccess: { en: 'Events cleared successfully! Video reset to chunked.', vi: 'Đã xóa sự kiện thành công! Video đã chuyển về trạng thái chunked.' },
+  btnConfirmDeleteEvents: { en: 'Clear Events', vi: 'Xóa Sự Kiện' },
+
+
 
 
   // Upload Page

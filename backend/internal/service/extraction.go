@@ -189,9 +189,14 @@ func (s *ExtractionService) processRawVideo(ctx context.Context, video *model.Vi
 	// Call Gemini Video Analysis on full video
 	aiVideo := s.aiVideo
 	if s.aiRouter != nil {
-		if rProvider, _, err := s.aiRouter.GetVideoProviderForFlow(ctx, "video_extraction"); err == nil && rProvider != nil {
-			aiVideo = rProvider
+		rProvider, _, err := s.aiRouter.GetVideoProviderForFlow(ctx, "video_extraction")
+		if err != nil {
+			return nil, fmt.Errorf("video extraction configuration error: %w", err)
 		}
+		aiVideo = rProvider
+	}
+	if aiVideo == nil {
+		return nil, fmt.Errorf("no AI video provider configured for flow 'video_extraction'")
 	}
 	rawOutput, err := aiVideo.AnalyzeVideoChunk(ctx, localVideoPath, VideoEventExtractionPrompt)
 	if err != nil {
@@ -279,9 +284,16 @@ func (s *ExtractionService) processChunk(ctx context.Context, video *model.Video
 	// Call Gemini Video Analysis
 	aiVideo := s.aiVideo
 	if s.aiRouter != nil {
-		if rProvider, _, err := s.aiRouter.GetVideoProviderForFlow(ctx, "video_extraction"); err == nil && rProvider != nil {
-			aiVideo = rProvider
+		rProvider, _, err := s.aiRouter.GetVideoProviderForFlow(ctx, "video_extraction")
+		if err != nil {
+			_ = s.chunkRepo.UpdateChunkStatus(ctx, chunk.ID, "error", nil)
+			return nil, fmt.Errorf("video extraction configuration error: %w", err)
 		}
+		aiVideo = rProvider
+	}
+	if aiVideo == nil {
+		_ = s.chunkRepo.UpdateChunkStatus(ctx, chunk.ID, "error", nil)
+		return nil, fmt.Errorf("no AI video provider configured for flow 'video_extraction'")
 	}
 	rawOutput, err := aiVideo.AnalyzeVideoChunk(ctx, localChunkPath, VideoEventExtractionPrompt)
 	if err != nil {

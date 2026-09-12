@@ -214,14 +214,16 @@ func (s *AnalysisService) generateCategoriesAndThemes(
 	aiText := s.aiText
 	modelName := s.modelName
 	if s.aiRouter != nil {
-		if rProvider, rModel, err := s.aiRouter.GetTextProviderForFlow(ctx, "thematic_analysis"); err == nil && rProvider != nil {
-			aiText = rProvider
-			modelName = rModel
+		rProvider, rModel, err := s.aiRouter.GetTextProviderForFlow(ctx, "thematic_analysis")
+		if err != nil {
+			return nil, nil, fmt.Errorf("thematic_analysis configuration error: %w", err)
 		}
+		aiText = rProvider
+		modelName = rModel
 	}
 
 	if aiText == nil {
-		return nil, nil, fmt.Errorf("AI text provider not configured")
+		return nil, nil, fmt.Errorf("AI text provider not configured for flow 'thematic_analysis'")
 	}
 
 	var patternList strings.Builder
@@ -479,3 +481,14 @@ func (s *AnalysisService) GetTeacherAnalysisAndQuestions(ctx context.Context, ru
 func (s *AnalysisService) GetLatestRun(ctx context.Context) (*model.AnalysisRun, error) {
 	return s.analysisRepo.GetLatestRun(ctx)
 }
+
+// ListRuns retrieves all analysis runs.
+func (s *AnalysisService) ListRuns(ctx context.Context) ([]model.AnalysisRun, error) {
+	return s.analysisRepo.ListRuns(ctx)
+}
+
+// DeleteRun deletes an analysis run by ID.
+func (s *AnalysisService) DeleteRun(ctx context.Context, runID uuid.UUID) error {
+	return s.analysisRepo.DeleteRun(ctx, runID)
+}
+

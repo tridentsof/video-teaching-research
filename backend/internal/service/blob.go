@@ -112,8 +112,11 @@ func (a *AzureBlobStorage) Download(ctx context.Context, blobPath string) (io.Re
 	return resp.Body, nil
 }
 
-// Delete removes a blob from Azure Blob Storage.
+// Delete removes a blob from Azure Blob Storage and cleans up local cache.
 func (a *AzureBlobStorage) Delete(ctx context.Context, blobPath string) error {
+	localPath := filepath.Join("./storage", blobPath)
+	_ = os.Remove(localPath)
+
 	_, err := a.client.DeleteBlob(ctx, a.containerName, blobPath, nil)
 	if err != nil {
 		return fmt.Errorf("failed to delete blob %s: %w", blobPath, err)
