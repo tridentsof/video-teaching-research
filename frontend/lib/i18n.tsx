@@ -63,7 +63,9 @@ export const translations: TranslationDict = {
   aiStudioKeyStatusActive: { en: 'Active in Flow Routing', vi: 'Kích hoạt sử dụng trong chuỗi' },
 
   // Admin & Settings Tabs
-  tabAdminCenter: { en: 'Admin Center', vi: 'Admin Center' },
+  tabAdminCenter: { en: 'API Config & Routing', vi: 'Cấu Hình API & Định Tuyến' },
+  tabApiConfig: { en: 'API Config & Routing', vi: 'Cấu Hình API & Định Tuyến' },
+  tabTelegramAlerts: { en: 'Telegram Notifications', vi: 'Cấu Hình Telegram' },
   tabActivityLog: { en: 'Activity & Audit Trail', vi: 'Nhật Ký Hoạt Động & Kiểm Toán' },
 
   // Common UI Actions & Words

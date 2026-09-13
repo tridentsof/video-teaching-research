@@ -131,7 +131,7 @@ export default function SettingsPage() {
   const [flowState, setFlowState] = useState<Record<string, { model_id: string; api_key_id?: string; temperature: number; fallback_model_id?: string }>>({});
   const [selectedFlowKey, setSelectedFlowKey] = useState<string>('video_extraction');
   const [activePreset, setActivePreset] = useState<string>('custom');
-  const [activeAdminTab, setActiveAdminTab] = useState<'admin_center' | 'activity_log'>('admin_center');
+  const [activeAdminTab, setActiveAdminTab] = useState<'api_config' | 'telegram' | 'activity_log'>('api_config');
 
   // Key Modal State
   const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
@@ -696,43 +696,60 @@ export default function SettingsPage() {
           <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '34px', fontWeight: 500, color: 'var(--accent)', marginBottom: '4px' }}>
             {activeAdminTab === 'activity_log'
               ? t('tabActivityLog')
-              : t('tabAdminCenter')}
+              : activeAdminTab === 'telegram'
+              ? t('tabTelegramAlerts')
+              : t('tabApiConfig')}
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
             {activeAdminTab === 'activity_log'
               ? (language === 'vi' ? 'Theo dõi biến động cấu hình hệ thống AI Studio và dấu vết can thiệp phân tích sư phạm' : 'Audit trail tracking both AI Studio configuration adjustments and pedagogical research operations')
+              : activeAdminTab === 'telegram'
+              ? (language === 'vi' ? 'Quản lý kết nối Telegram Bot, danh sách người nhận đăng ký và kiểm thử thông báo phân tích video' : 'Manage Telegram bot integration, active subscriber channels, and pipeline completion alerts')
               : t('aiStudioSubtitle')}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button
-            onClick={() => {
-              setIsModelFormView(false);
-              setIsModelModalOpen(true);
-            }}
-            className="btn btn-outline"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '13px', fontWeight: 600, padding: '9px 16px', borderRadius: '8px' }}
-          >
-            <Cpu size={15} />
-            <span>{t('aiStudioManageModels')}</span>
-          </button>
-          <button
-            onClick={openAddKey}
-            className="btn btn-outline"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '13px', fontWeight: 600, padding: '9px 16px', borderRadius: '8px' }}
-          >
-            <Key size={15} />
-            <span>{t('aiStudioAddKey')}</span>
-          </button>
-          {activeAdminTab === 'admin_center' && (
+          {activeAdminTab === 'api_config' && (
+            <>
+              <button
+                onClick={() => {
+                  setIsModelFormView(false);
+                  setIsModelModalOpen(true);
+                }}
+                className="btn btn-outline"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '13px', fontWeight: 600, padding: '9px 16px', borderRadius: '8px' }}
+              >
+                <Cpu size={15} />
+                <span>{t('aiStudioManageModels')}</span>
+              </button>
+              <button
+                onClick={openAddKey}
+                className="btn btn-outline"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '13px', fontWeight: 600, padding: '9px 16px', borderRadius: '8px' }}
+              >
+                <Key size={15} />
+                <span>{t('aiStudioAddKey')}</span>
+              </button>
+              <button
+                onClick={handleSaveAll}
+                disabled={saving || loading}
+                className="btn btn-primary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '13px', fontWeight: 600, padding: '9px 18px', borderRadius: '8px' }}
+              >
+                {saving ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />}
+                <span>{saving ? t('commonSaving') : t('aiStudioSaveAll')}</span>
+              </button>
+            </>
+          )}
+
+          {activeAdminTab === 'telegram' && (
             <button
-              onClick={handleSaveAll}
-              disabled={saving || loading}
-              className="btn btn-primary"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '13px', fontWeight: 600, padding: '9px 18px', borderRadius: '8px' }}
+              onClick={fetchTelegramStatus}
+              className="btn btn-outline"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '13px', fontWeight: 600, padding: '9px 16px', borderRadius: '8px' }}
             >
-              {saving ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />}
-              <span>{saving ? t('commonSaving') : t('aiStudioSaveAll')}</span>
+              <RefreshCw size={15} />
+              <span>{language === 'vi' ? 'Làm Mới Trạng Thái' : 'Refresh Status'}</span>
             </button>
           )}
         </div>
@@ -747,15 +764,15 @@ export default function SettingsPage() {
         marginBottom: '4px',
       }}>
         <button
-          onClick={() => setActiveAdminTab('admin_center')}
+          onClick={() => setActiveAdminTab('api_config')}
           style={{
             padding: '10px 18px',
             fontSize: '13.5px',
             fontWeight: 600,
-            color: activeAdminTab === 'admin_center' ? 'var(--accent)' : 'var(--text-muted)',
+            color: activeAdminTab === 'api_config' ? 'var(--accent)' : 'var(--text-muted)',
             backgroundColor: 'transparent',
             border: 'none',
-            borderBottom: activeAdminTab === 'admin_center' ? '2px solid var(--accent)' : '2px solid transparent',
+            borderBottom: activeAdminTab === 'api_config' ? '2px solid var(--accent)' : '2px solid transparent',
             cursor: 'pointer',
             display: 'inline-flex',
             alignItems: 'center',
@@ -764,7 +781,40 @@ export default function SettingsPage() {
           }}
         >
           <Sliders size={16} />
-          <span>{t('tabAdminCenter')}</span>
+          <span>{t('tabApiConfig')}</span>
+        </button>
+
+        <button
+          onClick={() => setActiveAdminTab('telegram')}
+          style={{
+            padding: '10px 18px',
+            fontSize: '13.5px',
+            fontWeight: 600,
+            color: activeAdminTab === 'telegram' ? 'var(--accent)' : 'var(--text-muted)',
+            backgroundColor: 'transparent',
+            border: 'none',
+            borderBottom: activeAdminTab === 'telegram' ? '2px solid var(--accent)' : '2px solid transparent',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <Bell size={16} />
+          <span>{t('tabTelegramAlerts')}</span>
+          {(telegramStatus?.active_subscribers ?? 0) > 0 && (
+            <span style={{
+              fontSize: '10.5px',
+              fontWeight: 700,
+              padding: '1px 6px',
+              borderRadius: '999px',
+              backgroundColor: activeAdminTab === 'telegram' ? 'var(--accent)' : 'rgba(34, 197, 94, 0.15)',
+              color: activeAdminTab === 'telegram' ? '#FFFFFF' : '#16A34A',
+            }}>
+              {telegramStatus?.active_subscribers}
+            </span>
+          )}
         </button>
 
         <button
@@ -789,13 +839,13 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {/* Tab 2: Activity Log */}
+      {/* Tab 3: Activity Log */}
       {activeAdminTab === 'activity_log' && (
         <ActivityLogView onNavigateTab={(tab) => setActiveAdminTab(tab as any)} />
       )}
 
-      {/* Tab 1: Admin Center Content */}
-      {activeAdminTab === 'admin_center' && (
+      {/* Tab 1: API Config & Routing Content */}
+      {activeAdminTab === 'api_config' && (
         <>
       {/* Top Vault Strip: Saved Keys */}
       <div style={{
@@ -874,115 +924,6 @@ export default function SettingsPage() {
               Using environment fallback credentials (.env)
             </span>
           )}
-        </div>
-      </div>
-
-      {/* Telegram Notification Infrastructure Card */}
-      <div style={{
-        backgroundColor: 'var(--card-bg)',
-        border: '1px solid var(--card-border)',
-        borderRadius: '12px',
-        padding: '16px 20px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '16px',
-        boxShadow: 'var(--shadow-sm)',
-      }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '680px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Bell size={13} color="var(--accent)" />
-              {language === 'vi' ? 'Hạ Tầng Thông Báo Telegram • Pipeline Alerts' : 'Telegram Notification Infrastructure • Pipeline Alerts'}
-            </span>
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '2px 8px',
-              borderRadius: '999px',
-              fontSize: '11px',
-              fontWeight: 600,
-              backgroundColor: telegramStatus?.is_enabled ? 'rgba(34, 197, 94, 0.1)' : 'rgba(156, 163, 175, 0.1)',
-              color: telegramStatus?.is_enabled ? '#16A34A' : 'var(--text-muted)',
-              border: telegramStatus?.is_enabled ? '1px solid rgba(34, 197, 94, 0.25)' : '1px solid var(--card-border)',
-            }}>
-              <span style={{
-                width: '6px',
-                height: '6px',
-                borderRadius: '50%',
-                backgroundColor: telegramStatus?.is_enabled ? '#16A34A' : '#9CA3AF',
-                boxShadow: telegramStatus?.is_enabled ? '0 0 6px #16A34A' : 'none',
-              }} />
-              <span>{telegramStatus?.is_enabled ? (language === 'vi' ? 'Sẵn sàng (Bot Polling)' : 'Active (Bot Polling)') : (language === 'vi' ? 'Chưa cấu hình' : 'Disabled')}</span>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginTop: '2px' }}>
-            <a
-              href={`https://t.me/${telegramStatus?.bot_username || 'tesol_video_teaching_bot'}`}
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                fontSize: '13px',
-                fontWeight: 600,
-                color: 'var(--accent)',
-                textDecoration: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-              }}
-            >
-              <span>@{telegramStatus?.bot_username || 'tesol_video_teaching_bot'}</span>
-              <ExternalLink size={13} />
-            </a>
-
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              {language === 'vi'
-                ? 'Thành viên mở bot gõ /subscribe (hoặc /start) để tự động nhận tin khi video phân tích xong.'
-                : 'Team members open bot and send /subscribe (or /start) to receive pipeline completion alerts.'}
-            </span>
-          </div>
-        </div>
-
-        {/* Telegram Actions & Subscribers Counter */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 12px',
-            borderRadius: '8px',
-            fontSize: '12.5px',
-            fontWeight: 600,
-            backgroundColor: 'var(--bg)',
-            border: '1px solid var(--card-border)',
-          }}>
-            <CheckCircle2 size={15} color="var(--accent-green)" />
-            <span>
-              {telegramStatus?.active_subscribers ?? 0} {language === 'vi' ? 'người nhận đã đăng ký' : 'active subscriber(s)'}
-            </span>
-          </div>
-
-          <button
-            onClick={handleSendTelegramTest}
-            disabled={sendingTelegramTest || !telegramStatus?.is_enabled}
-            className="btn btn-outline"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '12.5px',
-              fontWeight: 600,
-              padding: '7px 14px',
-              borderRadius: '8px',
-              opacity: (!telegramStatus?.is_enabled || sendingTelegramTest) ? 0.6 : 1,
-            }}
-          >
-            <Send size={13} className={sendingTelegramTest ? 'animate-spin' : ''} />
-            <span>{sendingTelegramTest ? (language === 'vi' ? 'Đang gửi...' : 'Sending...') : (language === 'vi' ? 'Gửi thông báo test' : 'Send Test Alert')}</span>
-          </button>
         </div>
       </div>
 
@@ -1312,6 +1253,393 @@ export default function SettingsPage() {
       </div>
       </>
       )}
+
+      {/* Tab 2: Telegram Notifications Dedicated Tab */}
+      {activeAdminTab === 'telegram' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Top 3 KPI / Status Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+            
+            {/* Card 1: Bot Identity */}
+            <div style={{
+              backgroundColor: 'var(--card-bg)',
+              border: '1px solid var(--card-border)',
+              borderRadius: '14px',
+              padding: '20px',
+              boxShadow: 'var(--shadow-sm)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '14px',
+            }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Bell size={13} color="var(--accent)" />
+                    {language === 'vi' ? 'Bot Thông Báo' : 'Telegram Bot'}
+                  </span>
+                  <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '3px 9px',
+                    borderRadius: '999px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    backgroundColor: telegramStatus?.is_enabled ? 'rgba(34, 197, 94, 0.1)' : 'rgba(156, 163, 175, 0.1)',
+                    color: telegramStatus?.is_enabled ? '#16A34A' : 'var(--text-muted)',
+                    border: telegramStatus?.is_enabled ? '1px solid rgba(34, 197, 94, 0.25)' : '1px solid var(--card-border)',
+                  }}>
+                    <span style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      backgroundColor: telegramStatus?.is_enabled ? '#16A34A' : '#9CA3AF',
+                      boxShadow: telegramStatus?.is_enabled ? '0 0 6px #16A34A' : 'none',
+                    }} />
+                    <span>{telegramStatus?.is_enabled ? (language === 'vi' ? 'Long-polling Active' : 'Long-polling Active') : (language === 'vi' ? 'Chưa cấu hình' : 'Disabled')}</span>
+                  </div>
+                </div>
+
+                <a
+                  href={`https://t.me/${telegramStatus?.bot_username || 'tesol_video_teaching_bot'}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    fontSize: '17px',
+                    fontWeight: 700,
+                    color: 'var(--accent)',
+                    textDecoration: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <span>@{telegramStatus?.bot_username || 'tesol_video_teaching_bot'}</span>
+                  <ExternalLink size={15} />
+                </a>
+                <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  {language === 'vi'
+                    ? 'Worker nền lắng nghe liên tục các lệnh đăng ký qua Telegram Bot API'
+                    : 'Background worker continuously listening for chat commands via Telegram Bot API'}
+                </p>
+              </div>
+
+              <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', borderTop: '1px solid var(--card-border)', paddingTop: '10px' }}>
+                Mode: <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-main)' }}>Background Daemon</span>
+              </div>
+            </div>
+
+            {/* Card 2: Subscribers Counter */}
+            <div style={{
+              backgroundColor: 'var(--card-bg)',
+              border: '1px solid var(--card-border)',
+              borderRadius: '14px',
+              padding: '20px',
+              boxShadow: 'var(--shadow-sm)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '14px',
+            }}>
+              <div>
+                <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                  <CheckCircle2 size={13} color="var(--accent-green)" />
+                  {language === 'vi' ? 'Kênh Nhận Đã Đăng Ký' : 'Active Subscribers'}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                  <span style={{ fontSize: '32px', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-main)' }}>
+                    {telegramStatus?.active_subscribers ?? 0}
+                  </span>
+                  <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                    {language === 'vi' ? 'tài khoản / nhóm' : 'channels / groups'}
+                  </span>
+                </div>
+                <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  {language === 'vi'
+                    ? 'Lưu trữ bền vững trong cơ sở dữ liệu Supabase PostgreSQL'
+                    : 'Persisted reliably in shared Supabase PostgreSQL database'}
+                </p>
+              </div>
+
+              <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', borderTop: '1px solid var(--card-border)', paddingTop: '10px' }}>
+                Auto-unsubscribe: <span style={{ color: 'var(--accent-green)', fontWeight: 600 }}>Enabled on 403 Forbidden</span>
+              </div>
+            </div>
+
+            {/* Card 3: Instant Test Alert */}
+            <div style={{
+              backgroundColor: 'var(--card-bg)',
+              border: '1px solid var(--card-border)',
+              borderRadius: '14px',
+              padding: '20px',
+              boxShadow: 'var(--shadow-sm)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '14px',
+            }}>
+              <div>
+                <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                  <Send size={13} color="var(--accent)" />
+                  {language === 'vi' ? 'Kiểm Thử Kết Nối' : 'Connection Testing'}
+                </span>
+                <p style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>
+                  {language === 'vi'
+                    ? 'Gửi ngay một tin nhắn thử nghiệm tới toàn bộ các tài khoản và nhóm đang đăng ký nhận tin.'
+                    : 'Dispatch an immediate test notification to all currently active subscriber chats and channels.'}
+                </p>
+              </div>
+
+              <button
+                onClick={handleSendTelegramTest}
+                disabled={sendingTelegramTest || !telegramStatus?.is_enabled}
+                className="btn btn-primary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  padding: '10px 16px',
+                  borderRadius: '9px',
+                  opacity: (!telegramStatus?.is_enabled || sendingTelegramTest) ? 0.6 : 1,
+                  width: '100%',
+                }}
+              >
+                <Send size={14} className={sendingTelegramTest ? 'animate-spin' : ''} />
+                <span>{sendingTelegramTest ? (language === 'vi' ? 'Đang gửi thông báo...' : 'Sending alert...') : (language === 'vi' ? 'Gửi Thông Báo Thử Nghiệm' : 'Send Test Notification')}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 2-Column Section: Instructions & Live Preview */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '20px' }}>
+            
+            {/* Left: Step-by-step Guide & Commands */}
+            <div style={{
+              backgroundColor: 'var(--card-bg)',
+              border: '1px solid var(--card-border)',
+              borderRadius: '14px',
+              padding: '24px',
+              boxShadow: 'var(--shadow-sm)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '18px',
+            }}>
+              <div style={{ borderBottom: '1px solid var(--card-border)', paddingBottom: '12px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <MessageSquare size={17} color="var(--accent)" />
+                  <span>{language === 'vi' ? 'Hướng Dẫn Kết Nối & Đăng Ký' : 'Connection & Subscription Guide'}</span>
+                </h3>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  {language === 'vi'
+                    ? 'Thực hiện 3 bước đơn giản để nhận kết quả phân tích video tự động trên thiết bị của bạn:'
+                    : 'Follow 3 simple steps to receive automated video pipeline alerts on your devices:'}
+                </p>
+              </div>
+
+              {/* Steps List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                  <div style={{
+                    width: '26px',
+                    height: '26px',
+                    borderRadius: '50%',
+                    backgroundColor: 'var(--bg)',
+                    border: '1.5px solid var(--accent)',
+                    color: 'var(--accent)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    flexShrink: 0,
+                  }}>1</div>
+                  <div>
+                    <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>
+                      {language === 'vi' ? 'Mở Telegram và tìm bot' : 'Open Telegram and locate bot'}
+                    </div>
+                    <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      {language === 'vi' ? 'Tìm kiếm ' : 'Search for '}
+                      <a
+                        href={`https://t.me/${telegramStatus?.bot_username || 'tesol_video_teaching_bot'}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}
+                      >
+                        @{telegramStatus?.bot_username || 'tesol_video_teaching_bot'}
+                      </a>
+                      {language === 'vi' ? ' hoặc mở trực tiếp đường dẫn trên bất kỳ thiết bị nào.' : ' or click the direct link.'}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                  <div style={{
+                    width: '26px',
+                    height: '26px',
+                    borderRadius: '50%',
+                    backgroundColor: 'var(--bg)',
+                    border: '1.5px solid var(--accent)',
+                    color: 'var(--accent)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    flexShrink: 0,
+                  }}>2</div>
+                  <div>
+                    <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>
+                      {language === 'vi' ? 'Nhấn Start hoặc gửi lệnh /subscribe' : 'Press Start or send /subscribe'}
+                    </div>
+                    <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      {language === 'vi'
+                        ? 'Bot sẽ tự động xác nhận và lưu Chat ID vào cơ sở dữ liệu chung để phát thông báo khi video xong.'
+                        : 'Bot will instantly confirm and record your chat ID into the shared database for pipeline notifications.'}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                  <div style={{
+                    width: '26px',
+                    height: '26px',
+                    borderRadius: '50%',
+                    backgroundColor: 'var(--bg)',
+                    border: '1.5px solid var(--accent)',
+                    color: 'var(--accent)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    flexShrink: 0,
+                  }}>3</div>
+                  <div>
+                    <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>
+                      {language === 'vi' ? 'Hỗ trợ nhóm nghiên cứu (Telegram Group)' : 'Team Research Groups Support'}
+                    </div>
+                    <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      {language === 'vi'
+                        ? 'Thêm bot vào nhóm làm việc chung và gõ /subscribe. Toàn bộ thành viên nhóm sẽ cùng nhận kết quả.'
+                        : 'Invite the bot to your group chat and type /subscribe. All team members will receive pipeline updates simultaneously.'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Command Reference Table */}
+              <div style={{ borderTop: '1px solid var(--card-border)', paddingTop: '14px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
+                  {language === 'vi' ? 'Bảng Lệnh Tương Tác Bot' : 'Bot Command Cheat-sheet'}
+                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
+                  {[
+                    { cmd: '/subscribe, /start', desc: language === 'vi' ? 'Đăng ký tài khoản hoặc nhóm nhận thông báo tự động' : 'Subscribe chat/group to pipeline alerts' },
+                    { cmd: '/status', desc: language === 'vi' ? 'Xem trạng thái kết nối và số lượng kênh đang nhận tin' : 'Check subscription status & total active subscribers' },
+                    { cmd: '/unsubscribe', desc: language === 'vi' ? 'Hủy nhận thông báo (khi nào cần có thể đăng ký lại)' : 'Deactivate notification delivery' },
+                    { cmd: '/help', desc: language === 'vi' ? 'Xem hướng dẫn chi tiết từ bot' : 'Display bot instructions and usage guide' },
+                  ].map((c) => (
+                    <div
+                      key={c.cmd}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '7px 10px',
+                        borderRadius: '7px',
+                        backgroundColor: 'var(--bg)',
+                        fontSize: '12.5px',
+                      }}
+                    >
+                      <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--accent)' }}>{c.cmd}</span>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{c.desc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Realistic Telegram Message Bubble Mockup */}
+            <div style={{
+              backgroundColor: 'var(--card-bg)',
+              border: '1px solid var(--card-border)',
+              borderRadius: '14px',
+              padding: '24px',
+              boxShadow: 'var(--shadow-sm)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px',
+            }}>
+              <div style={{ borderBottom: '1px solid var(--card-border)', paddingBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Layers size={17} color="var(--accent)" />
+                    <span>{language === 'vi' ? 'Xem Trước Tin Nhắn Mẫu' : 'Alert Message Preview'}</span>
+                  </h3>
+                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    {language === 'vi' ? 'Mẫu nội dung được tự động định dạng gửi về Telegram' : 'Format of automated notifications dispatched on pipeline completion'}
+                  </p>
+                </div>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent)', backgroundColor: 'rgba(37,99,235,0.08)', padding: '2px 8px', borderRadius: '5px' }}>
+                  HTML Mode
+                </span>
+              </div>
+
+              {/* Simulated Telegram Chat Bubble */}
+              <div style={{
+                backgroundColor: '#1E293B',
+                color: '#F8FAFC',
+                borderRadius: '12px',
+                padding: '16px 18px',
+                fontSize: '13px',
+                lineHeight: '1.6',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                border: '1px solid #334155',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+              }}>
+                <div style={{ fontSize: '15px', fontWeight: 700, color: '#38BDF8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>Phân tích Video hoàn tất!</span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px', fontSize: '12.5px' }}>
+                  <div><b>Video:</b> Giảng dạy tiếng Anh - Lớp 10A1</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#94A3B8' }}>ID: 8833bde7-0760-4398-9326-70af38d5a45e</div>
+                  <div><b>Thời lượng video:</b> 42 phút 15 giây</div>
+                  <div><b>Chế độ:</b> Chunking (Phân đoạn song song)</div>
+                  <div><b>Thời gian xử lý:</b> 3 phút 20 giây</div>
+                  <div><b>Events trích xuất:</b> 28 sự kiện</div>
+                  <div><b>Checklist mappings:</b> 14 mục</div>
+                  <div style={{ color: '#4ADE80' }}><b>Báo cáo quan sát:</b> Đã tạo thành công</div>
+                  <div style={{ color: '#4ADE80' }}><b>Qualitative Codebook:</b> Đã tổng hợp</div>
+                </div>
+
+                <div style={{ borderTop: '1px solid #334155', paddingTop: '8px', marginTop: '6px' }}>
+                  <span style={{ color: '#38BDF8', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}>
+                    🔗 Xem chi tiết kết quả phân tích trong hệ thống
+                  </span>
+                </div>
+
+                <div style={{ alignSelf: 'flex-end', fontSize: '10px', color: '#64748B', marginTop: '-4px' }}>
+                  16:45 • Đã gửi
+                </div>
+              </div>
+
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center' }}>
+                {language === 'vi'
+                  ? 'Khi pipeline phân tích thất bại, bot cũng sẽ tự động gửi cảnh báo chi tiết bước lỗi và nguyên nhân.'
+                  : 'If the video pipeline encounters errors, the bot automatically dispatches failure alerts with diagnostic details.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* Modal: Add / Edit API Key */}
       {isKeyModalOpen && (
