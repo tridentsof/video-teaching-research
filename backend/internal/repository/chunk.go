@@ -174,3 +174,18 @@ func (r *ChunkRepository) DeleteJobsByVideoID(ctx context.Context, videoID uuid.
 	}
 	return nil
 }
+
+// ResetChunksStatus resets status, gemini_raw_output, and processed_at for all chunks of a video.
+func (r *ChunkRepository) ResetChunksStatus(ctx context.Context, videoID uuid.UUID, status string) error {
+	query := `
+		UPDATE video_chunks
+		SET status = $1, gemini_raw_output = NULL, processed_at = NULL
+		WHERE video_id = $2
+	`
+	_, err := r.db.Pool.Exec(ctx, query, status, videoID)
+	if err != nil {
+		return fmt.Errorf("failed to reset chunks status: %w", err)
+	}
+	return nil
+}
+

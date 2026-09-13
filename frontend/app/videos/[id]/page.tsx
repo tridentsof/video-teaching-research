@@ -40,7 +40,6 @@ const chunkedStepOrder = [
   { key: 'upload', nameKey: 'stepUploadTitle', descKey: 'stepUploadDesc' },
   { key: 'chunking', nameKey: 'stepChunkingTitle', descKey: 'stepChunkingDesc' },
   { key: 'event_extraction', altKey: 'extracting', nameKey: 'stepExtractingChunkedTitle', descKey: 'stepExtractingChunkedDesc' },
-  { key: 'event_merge', altKey: 'merging', nameKey: 'stepMergeTitle', descKey: 'stepMergeDesc' },
   { key: 'mapping', nameKey: 'stepMappingChunkedTitle', descKey: 'stepMappingDesc' },
   { key: 'report_generation', altKey: 'statistics', nameKey: 'stepReportChunkedTitle', descKey: 'stepReportDesc' },
 ];
@@ -48,7 +47,6 @@ const chunkedStepOrder = [
 const fullVideoStepOrder = [
   { key: 'upload', nameKey: 'stepUploadTitle', descKey: 'stepUploadDesc' },
   { key: 'event_extraction', altKey: 'extracting', nameKey: 'stepExtractingTitle', descKey: 'stepExtractingDesc' },
-  { key: 'event_merge', altKey: 'merging', nameKey: 'stepNormalizationTitle', descKey: 'stepNormalizationDesc' },
   { key: 'mapping', nameKey: 'stepMappingTitle', descKey: 'stepMappingDesc' },
   { key: 'report_generation', altKey: 'statistics', nameKey: 'stepReportTitle', descKey: 'stepReportDesc' },
 ];
@@ -78,7 +76,7 @@ export default function VideoDetailPage() {
 
   const [elapsedSec, setElapsedSec] = useState<number>(0);
   const [nowTimestamp, setNowTimestamp] = useState<number>(Date.now());
-
+  const runSessionStartRef = useRef<number | null>(null);
 
   const modeDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -106,6 +104,41 @@ export default function VideoDetailPage() {
     const m = Math.floor(sec / 60);
     const s = Math.round(sec % 60);
     return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  };
+
+  const formatVideoDuration = (sec?: number) => {
+    if (!sec || isNaN(sec) || sec <= 0) return null;
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = Math.floor(sec % 60);
+    if (h > 0) {
+      return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes || isNaN(bytes) || bytes <= 0) return null;
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+  };
+
+  const formatUploadDate = (dateStr?: string) => {
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return dateStr;
+    }
   };
 
   const loadData = async (silent = false) => {
@@ -140,39 +173,56 @@ export default function VideoDetailPage() {
 
   const isRunning =
     retrying ||
-    ['uploading', 'chunking', 'extracting', 'merging', 'mapping', 'statistics', 'generating_report', 'review_pending', 'mapped'].includes(video?.status || '');
+    ['uploading', 'chunking', 'extracting', 'merging', 'mapping', 'statistics', 'generating_report'].includes(video?.status || '');
 
-  // Find the earliest job started_at or current run time
-  const earliestJobStartedAt = jobs
-    .filter((j) => j.started_at)
-    .map((j) => new Date(j.started_at!).getTime())
-    .sort((a, b) => a - b)[0];
+  // Active execution duration calculation
+  // Sum individual durations of finished steps (excludes idle wait time between failures and retries)
+  const completedJobs = jobs.filter(
+    (j) => (j.status === 'completed' || j.status === 'skipped') && j.started_at && j.finished_at
+  );
+  const completedDurationSec = completedJobs.reduce((acc, j) => {
+    const dur = (new Date(j.finished_at!).getTime() - new Date(j.started_at!).getTime()) / 1000;
+    return acc + (dur > 0 ? dur : 0);
+  }, 0);
+
+  const activeJob = jobs.find((j) => j.status === 'running' && j.started_at);
+
+  // Track session start when running begins
+  useEffect(() => {
+    if (isRunning) {
+      if (runSessionStartRef.current === null) {
+        runSessionStartRef.current = Date.now();
+      }
+    } else {
+      runSessionStartRef.current = null;
+    }
+  }, [isRunning]);
 
   // Live timer tick every 1s when running
   useEffect(() => {
     if (!isRunning) return;
-    const interval = setInterval(() => {
+
+    const updateElapsed = () => {
       const now = Date.now();
       setNowTimestamp(now);
-      if (earliestJobStartedAt) {
-        setElapsedSec(Math.max(0, Math.round((now - earliestJobStartedAt) / 1000)));
-      } else {
-        setElapsedSec((prev) => prev + 1);
-      }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isRunning, earliestJobStartedAt]);
 
-  // Calculate total completed duration across all finished jobs
-  const completedJobs = jobs.filter((j) => j.status === 'completed' && j.started_at && j.finished_at);
-  let totalCompletedDuration = 0;
-  if (completedJobs.length > 0) {
-    const minStart = Math.min(...completedJobs.map((j) => new Date(j.started_at!).getTime()));
-    const maxFinish = Math.max(...completedJobs.map((j) => new Date(j.finished_at!).getTime()));
-    if (maxFinish > minStart) {
-      totalCompletedDuration = (maxFinish - minStart) / 1000;
-    }
-  }
+      let runningDuration = 0;
+      if (activeJob?.started_at) {
+        runningDuration = Math.max(0, (now - new Date(activeJob.started_at).getTime()) / 1000);
+      } else if (runSessionStartRef.current) {
+        runningDuration = Math.max(0, (now - runSessionStartRef.current) / 1000);
+      }
+
+      setElapsedSec(Math.round(completedDurationSec + runningDuration));
+    };
+
+    updateElapsed();
+    const interval = setInterval(updateElapsed, 1000);
+    return () => clearInterval(interval);
+  }, [isRunning, completedDurationSec, activeJob?.started_at]);
+
+  // Total completed duration across all finished jobs
+  const totalCompletedDuration = completedJobs.length > 0 ? Math.round(completedDurationSec) : 0;
 
   // Sync rerunChunking setting from video.processing_mode when loaded
   useEffect(() => {
@@ -187,6 +237,13 @@ export default function VideoDetailPage() {
     : jobs.some((j) => j.step === 'chunking' && j.status !== 'skipped') || (jobs.length === 0 && rerunChunking);
   const currentStepOrder = isChunkedMode ? chunkedStepOrder : fullVideoStepOrder;
 
+  // Detect when user changes mode selection from the video's previous run mode
+  const isModeChanged = Boolean(
+    video?.processing_mode &&
+      ((video.processing_mode === 'full' && rerunChunking) ||
+        (video.processing_mode === 'chunk' && !rerunChunking))
+  );
+
   // Poll every 1.5s when active, 6s when idle
   useEffect(() => {
     loadData();
@@ -199,9 +256,15 @@ export default function VideoDetailPage() {
     if (!id) return;
     try {
       setRetrying(true);
-      setElapsedSec(0);
+      runSessionStartRef.current = Date.now();
+      // If processing mode changed between full and chunk, resume is invalid — force clean restart
+      const effectiveMode = isModeChanged ? 'restart' : mode;
+      const isResuming = effectiveMode === 'resume';
 
-      const isResuming = mode === 'resume';
+      if (!isResuming) {
+        setElapsedSec(0);
+      }
+
       let startingStatus = rerunChunking ? 'chunking' : 'extracting';
       let startingStep = rerunChunking ? 'chunking' : 'event_extraction';
 
@@ -213,8 +276,8 @@ export default function VideoDetailPage() {
           startingStatus = 'extracting';
           startingStep = 'event_extraction';
         } else if (failedStepName === 'event_merge' || failedStepName === 'merging') {
-          startingStatus = 'merging';
-          startingStep = 'event_merge';
+          startingStatus = 'mapping';
+          startingStep = 'mapping';
         } else if (failedStepName === 'mapping') {
           startingStatus = 'mapping';
           startingStep = 'mapping';
@@ -236,32 +299,43 @@ export default function VideoDetailPage() {
           : null
       );
 
+      const nowIso = new Date().toISOString();
       setJobs((prev) => {
+        if (!isResuming) {
+          return [
+            {
+              id: 'temp-' + Date.now(),
+              video_id: id,
+              step: startingStep,
+              status: 'running' as const,
+              started_at: nowIso,
+              created_at: nowIso,
+            },
+          ];
+        }
+
         const hasStep = prev.some((j) => j.step === startingStep);
         if (hasStep) {
           return prev.map((j) =>
             j.step === startingStep || j.status === 'failed' || j.status === 'error'
-              ? { ...j, status: 'running' as const, error_msg: undefined }
+              ? { ...j, status: 'running' as const, started_at: nowIso, finished_at: undefined, error_msg: undefined }
               : j
           );
         }
         return [
-          ...prev.map((j) =>
-            j.status === 'failed' || j.status === 'error'
-              ? { ...j, status: 'running' as const, error_msg: undefined }
-              : j
-          ),
+          ...prev.filter((j) => j.status !== 'failed' && j.status !== 'error'),
           {
             id: 'temp-' + Date.now(),
             video_id: id,
             step: startingStep,
             status: 'running' as const,
-            created_at: new Date().toISOString(),
+            started_at: nowIso,
+            created_at: nowIso,
           },
         ];
       });
 
-      await api.triggerPipeline(id, undefined, rerunChunking, mode);
+      await api.triggerPipeline(id, undefined, rerunChunking, effectiveMode);
       toast.info(
         isResuming
           ? `Resuming analysis from checkpoint for "${video?.title || id}".`
@@ -358,6 +432,10 @@ export default function VideoDetailPage() {
       case 'report_generated':
       case 'completed':
         return t('statusCompleted');
+      case 'review_pending':
+        return 'Chờ duyệt';
+      case 'mapped':
+        return 'Đã ánh xạ';
       case 'failed':
       case 'error':
         return t('commonFailed');
@@ -470,6 +548,52 @@ export default function VideoDetailPage() {
               </span>
             ) : null}
 
+            {/* Video Duration Badge */}
+            {Boolean(video?.duration_sec) && (
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  color: '#374151',
+                  backgroundColor: '#F3F4F6',
+                  border: '1px solid #E5E7EB',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                }}
+                title={t('videoDuration')}
+              >
+                <Clock size={12} color="#6B7280" />
+                <span>{t('videoDuration')}: <strong>{formatVideoDuration(video?.duration_sec)}</strong></span>
+              </span>
+            )}
+
+            {/* Video File Size Badge */}
+            {Boolean(video?.file_size || (activeUpload?.videoId === video?.id ? activeUpload?.fileSize : undefined)) && (
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  color: '#374151',
+                  backgroundColor: '#F3F4F6',
+                  border: '1px solid #E5E7EB',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                }}
+                title={t('fileSize')}
+              >
+                <HardDrive size={12} color="#6B7280" />
+                <span>{t('fileSize')}: <strong>{formatFileSize(video?.file_size || activeUpload?.fileSize)}</strong></span>
+              </span>
+            )}
+
             {/* Completed Total Duration Badge */}
             {!isRunning && video?.status === 'report_generated' && totalCompletedDuration > 0 && (
               <span style={{
@@ -499,6 +623,19 @@ export default function VideoDetailPage() {
           }}>
             {video?.title}
           </h2>
+          {video?.uploaded_at && (
+            <div style={{
+              fontSize: '12px',
+              color: 'var(--text-muted)',
+              fontFamily: 'var(--font-mono)',
+              marginTop: '5px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}>
+              <span>{t('uploadedAt')}: {formatUploadDate(video.uploaded_at)}</span>
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -702,9 +839,67 @@ export default function VideoDetailPage() {
             </div>
           )}
 
-          <button onClick={() => handleRerun(isVideoFailed ? 'resume' : 'restart')} disabled={retrying || isRunning} className="btn btn-primary btn-sm">
+          {isModeChanged && (
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '7px',
+                padding: '5px 12px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(254, 243, 199, 0.75)',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                boxShadow: '0 1px 3px rgba(217, 119, 6, 0.08)',
+                backdropFilter: 'blur(6px)',
+                transition: 'all 0.2s ease',
+              }}
+              title={t('modeChangedTooltip')}
+            >
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '18px',
+                  height: '18px',
+                  borderRadius: '50%',
+                  backgroundColor: '#F59E0B',
+                  color: '#FFFFFF',
+                  flexShrink: 0,
+                  boxShadow: '0 1px 2px rgba(180, 83, 9, 0.25)',
+                }}
+              >
+                <AlertTriangle size={11} strokeWidth={2.6} />
+              </div>
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: '#92400E',
+                  lineHeight: 1.2,
+                  letterSpacing: '-0.01em',
+                }}
+              >
+                {t('modeChangedBadge')}
+              </span>
+            </div>
+          )}
+
+          <button
+            onClick={() => handleRerun(isVideoFailed && !isModeChanged ? 'resume' : 'restart')}
+            disabled={retrying || isRunning}
+            className="btn btn-primary btn-sm"
+          >
             {retrying || isRunning ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-            <span>{retrying || isRunning ? t('commonInProgress') : (isVideoFailed ? 'Resume Analysis' : t('rerunPipeline'))}</span>
+            <span>
+              {retrying || isRunning
+                ? t('commonInProgress')
+                : isModeChanged
+                ? `${t('rerunPipeline')} (Từ Đầu)`
+                : isVideoFailed
+                ? 'Resume Analysis'
+                : t('rerunPipeline')}
+            </span>
           </button>
         </div>
       </div>
@@ -1040,21 +1235,39 @@ export default function VideoDetailPage() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <button
-                onClick={() => handleRerun('resume')}
-                disabled={retrying}
-                className="btn btn-primary btn-sm"
-                title="Resume pipeline from failed step and reuse existing extractions"
-                style={{
-                  backgroundColor: '#DC2626',
-                  borderColor: '#B91C1C',
-                  color: '#FFFFFF',
-                  padding: '8px 16px',
-                }}
-              >
-                {retrying ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                <span>Resume from {failedStepName || 'Failed Step'}</span>
-              </button>
+              {!isModeChanged ? (
+                <button
+                  onClick={() => handleRerun('resume')}
+                  disabled={retrying}
+                  className="btn btn-primary btn-sm"
+                  title="Resume pipeline from failed step and reuse existing extractions"
+                  style={{
+                    backgroundColor: '#DC2626',
+                    borderColor: '#B91C1C',
+                    color: '#FFFFFF',
+                    padding: '8px 16px',
+                  }}
+                >
+                  {retrying ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                  <span>Resume from {failedStepName || 'Failed Step'}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleRerun('restart')}
+                  disabled={retrying}
+                  className="btn btn-primary btn-sm"
+                  title="Chế độ phân tích đã đổi — phân tích lại sạch từ Step 1"
+                  style={{
+                    backgroundColor: '#D97706',
+                    borderColor: '#B45309',
+                    color: '#FFFFFF',
+                    padding: '8px 16px',
+                  }}
+                >
+                  {retrying ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                  <span>Chạy lại từ đầu ({rerunChunking ? '10-min Segments' : 'Full Video'})</span>
+                </button>
+              )}
 
               <button
                 onClick={() => handleRerun('restart')}

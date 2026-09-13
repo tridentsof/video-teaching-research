@@ -36,6 +36,7 @@ type UploadVideoRequest struct {
 	Title       string
 	Filename    string
 	DurationSec *int
+	FileSize    *int64
 	Reader      io.Reader
 	UserID      *uuid.UUID
 }
@@ -63,6 +64,7 @@ func (s *VideoService) Upload(ctx context.Context, req UploadVideoRequest) (*mod
 		TeacherID:   strings.TrimSpace(req.TeacherID),
 		Title:       strings.TrimSpace(req.Title),
 		DurationSec: req.DurationSec,
+		FileSize:    req.FileSize,
 		BlobURL:     nil,
 		Status:      "uploading",
 		UploadedAt:  startTime,

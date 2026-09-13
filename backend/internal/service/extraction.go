@@ -95,14 +95,12 @@ func (s *ExtractionService) ExtractEventsForVideo(ctx context.Context, videoID u
 	_ = s.chunkRepo.CreateJob(ctx, job)
 	_ = s.videoRepo.UpdateStatus(ctx, videoID, "extracting", nil)
 
-	// Clean up any previously extracted events for re-runs
-	_ = s.rawEventRepo.DeleteByVideoID(ctx, videoID)
-
 	var allEvents []model.RawEvent
 
 	// If no chunks were created, analyze the raw video directly (without chunking)
 	if len(chunks) == 0 {
 		log.Printf("No chunks present for video %s — extracting directly from original full video", videoID)
+		_ = s.rawEventRepo.DeleteByVideoID(ctx, videoID)
 		events, err := s.processRawVideo(ctx, video)
 		if err != nil {
 			errMsg := fmt.Sprintf("direct raw video extraction failed: %v", err)
@@ -113,39 +111,75 @@ func (s *ExtractionService) ExtractEventsForVideo(ctx context.Context, videoID u
 		}
 		allEvents = events
 	} else {
-		// Process chunks concurrently with worker pool
-		sem := make(chan struct{}, s.maxConcurrentChunks)
-		var wg sync.WaitGroup
-		var mu sync.Mutex
-		var extractionErrors []error
-
-		for _, ch := range chunks {
-			wg.Add(1)
-			go func(chunk model.VideoChunk) {
-				defer wg.Done()
-				sem <- struct{}{}
-				defer func() { <-sem }()
-
-				events, err := s.processChunk(ctx, video, chunk)
-				mu.Lock()
-				defer mu.Unlock()
-				if err != nil {
-					log.Printf("Error extracting chunk %d (%s): %v", chunk.ChunkIndex, chunk.ID, err)
-					extractionErrors = append(extractionErrors, fmt.Errorf("chunk %d error: %w", chunk.ChunkIndex, err))
-				} else {
-					allEvents = append(allEvents, events...)
-				}
-			}(ch)
+		// Clean up any lingering un-chunked events from a previous full-mode run to prevent event duplication
+		if err := s.rawEventRepo.DeleteOrphanRawEventsByVideoID(ctx, videoID); err != nil {
+			log.Printf("Warning: failed to delete orphan raw events for video %s: %v", videoID, err)
 		}
 
-		wg.Wait()
+		// Fetch existing raw events to find which chunks are already successfully processed
+		existingEvents, err := s.rawEventRepo.ListByVideoID(ctx, videoID, false)
+		if err != nil {
+			log.Printf("Warning: failed to fetch existing events for video %s: %v", videoID, err)
+		}
+		eventsByChunk := make(map[uuid.UUID][]model.RawEvent)
+		for _, e := range existingEvents {
+			if e.ChunkID != nil {
+				eventsByChunk[*e.ChunkID] = append(eventsByChunk[*e.ChunkID], e)
+			}
+		}
 
-		if len(extractionErrors) > 0 {
-			errMsg := fmt.Sprintf("%d chunks failed during extraction: %v", len(extractionErrors), extractionErrors[0])
-			failedStep := "event_extraction"
-			_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
-			_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
-			return nil, fmt.Errorf("%s", errMsg)
+		var chunksToProcess []model.VideoChunk
+		for _, ch := range chunks {
+			// If chunk is processed and has events in DB, keep existing events and skip AI call
+			if ch.Status == "processed" && len(eventsByChunk[ch.ID]) > 0 {
+				log.Printf("[Video %s] Chunk %d (%s) already processed with %d events — skipping AI extraction",
+					videoID, ch.ChunkIndex, ch.ID, len(eventsByChunk[ch.ID]))
+				allEvents = append(allEvents, eventsByChunk[ch.ID]...)
+			} else {
+				// Clean up any partial/dirty events for this chunk before running
+				_ = s.rawEventRepo.DeleteByChunkID(ctx, ch.ID)
+				chunksToProcess = append(chunksToProcess, ch)
+			}
+		}
+
+		log.Printf("[Video %s] Total chunks: %d, already processed: %d, to process: %d",
+			videoID, len(chunks), len(chunks)-len(chunksToProcess), len(chunksToProcess))
+
+		if len(chunksToProcess) > 0 {
+			// Process chunks concurrently with worker pool
+			sem := make(chan struct{}, s.maxConcurrentChunks)
+			var wg sync.WaitGroup
+			var mu sync.Mutex
+			var extractionErrors []error
+
+			for _, ch := range chunksToProcess {
+				wg.Add(1)
+				go func(chunk model.VideoChunk) {
+					defer wg.Done()
+					sem <- struct{}{}
+					defer func() { <-sem }()
+
+					events, err := s.processChunk(ctx, video, chunk)
+					mu.Lock()
+					defer mu.Unlock()
+					if err != nil {
+						log.Printf("Error extracting chunk %d (%s): %v", chunk.ChunkIndex, chunk.ID, err)
+						extractionErrors = append(extractionErrors, fmt.Errorf("chunk %d error: %w", chunk.ChunkIndex, err))
+					} else {
+						allEvents = append(allEvents, events...)
+					}
+				}(ch)
+			}
+
+			wg.Wait()
+
+			if len(extractionErrors) > 0 {
+				errMsg := fmt.Sprintf("%d chunks failed during extraction: %v", len(extractionErrors), extractionErrors[0])
+				failedStep := "event_extraction"
+				_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+				_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
+				return nil, fmt.Errorf("%s", errMsg)
+			}
 		}
 	}
 
@@ -198,9 +232,32 @@ func (s *ExtractionService) processRawVideo(ctx context.Context, video *model.Vi
 	if aiVideo == nil {
 		return nil, fmt.Errorf("no AI video provider configured for flow 'video_extraction'")
 	}
-	rawOutput, err := aiVideo.AnalyzeVideoChunk(ctx, localVideoPath, VideoEventExtractionPrompt)
-	if err != nil {
-		return nil, fmt.Errorf("gemini analysis failed: %w", err)
+	// Call Gemini Video Analysis with retry loop
+	var rawOutput string
+	maxRetries := 3
+	var lastErr error
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		rawOutput, err = aiVideo.AnalyzeVideoChunk(ctx, localVideoPath, VideoEventExtractionPrompt)
+		if err == nil {
+			lastErr = nil
+			break
+		}
+		lastErr = err
+		log.Printf("[Video %s] Raw video extraction attempt %d/%d failed: %v", video.ID, attempt, maxRetries, err)
+		if attempt < maxRetries {
+			backoff := time.Duration(attempt*3) * time.Second
+			select {
+			case <-time.After(backoff):
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
+	}
+	if lastErr != nil {
+		return nil, fmt.Errorf("gemini analysis failed after %d attempts: %w", maxRetries, lastErr)
 	}
 
 	// Parse JSON
@@ -295,10 +352,35 @@ func (s *ExtractionService) processChunk(ctx context.Context, video *model.Video
 		_ = s.chunkRepo.UpdateChunkStatus(ctx, chunk.ID, "error", nil)
 		return nil, fmt.Errorf("no AI video provider configured for flow 'video_extraction'")
 	}
-	rawOutput, err := aiVideo.AnalyzeVideoChunk(ctx, localChunkPath, VideoEventExtractionPrompt)
-	if err != nil {
+	// Call Gemini Video Analysis with retry loop
+	var rawOutput string
+	maxRetries := 3
+	var lastErr error
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if ctx.Err() != nil {
+			_ = s.chunkRepo.UpdateChunkStatus(ctx, chunk.ID, "error", nil)
+			return nil, ctx.Err()
+		}
+		rawOutput, err = aiVideo.AnalyzeVideoChunk(ctx, localChunkPath, VideoEventExtractionPrompt)
+		if err == nil {
+			lastErr = nil
+			break
+		}
+		lastErr = err
+		log.Printf("[Video %s] Chunk %d: AI extraction attempt %d/%d failed: %v", video.ID, chunk.ChunkIndex, attempt, maxRetries, err)
+		if attempt < maxRetries {
+			backoff := time.Duration(attempt*3) * time.Second
+			select {
+			case <-time.After(backoff):
+			case <-ctx.Done():
+				_ = s.chunkRepo.UpdateChunkStatus(ctx, chunk.ID, "error", nil)
+				return nil, ctx.Err()
+			}
+		}
+	}
+	if lastErr != nil {
 		_ = s.chunkRepo.UpdateChunkStatus(ctx, chunk.ID, "error", nil)
-		return nil, fmt.Errorf("gemini analysis failed: %w", err)
+		return nil, fmt.Errorf("gemini analysis failed after %d attempts: %w", maxRetries, lastErr)
 	}
 
 	// Persist raw Gemini output in chunk record for audit and re-parsing

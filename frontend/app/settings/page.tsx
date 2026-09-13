@@ -25,7 +25,13 @@ import {
   Activity,
   Edit2,
   ArrowLeft,
+  History,
+  AlertCircle,
+  ExternalLink,
+  Sliders,
 } from 'lucide-react';
+import { ActivityLogView } from '@/components/ActivityLogView';
+import { activityLogService } from '@/lib/activityLog';
 
 interface FlowMeta {
   titleEn: string;
@@ -123,6 +129,7 @@ export default function SettingsPage() {
   const [flowState, setFlowState] = useState<Record<string, { model_id: string; api_key_id?: string; temperature: number; fallback_model_id?: string }>>({});
   const [selectedFlowKey, setSelectedFlowKey] = useState<string>('video_extraction');
   const [activePreset, setActivePreset] = useState<string>('custom');
+  const [activeAdminTab, setActiveAdminTab] = useState<'ai_routing' | 'activity_log' | 'key_vault'>('ai_routing');
 
   // Key Modal State
   const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
@@ -227,6 +234,20 @@ export default function SettingsPage() {
           model_id: 'gemini-3.7-flash',
         };
       });
+      activityLogService.addLog({
+        category: 'admin',
+        module: 'preset',
+        action: 'ai_flow.apply_preset',
+        target_id: 'all-flash',
+        target_title: 'Preset: All-Gemini Flash',
+        actor: {
+          username: api.getCurrentUser()?.username || 'admin',
+          role: 'Admin',
+        },
+        summary: 'Áp dụng bộ định tuyến mẫu: Tất cả 5 bước pipeline sử dụng Gemini 3.7 Flash.',
+        summary_en: 'Applied preset routing: All 5 pipeline steps routed to Gemini 3.7 Flash.',
+        status: 'success',
+      });
       toast.success(
         language === 'vi'
           ? 'Đã áp dụng Preset: Tất cả luồng dùng Gemini 3.7 Flash'
@@ -238,6 +259,20 @@ export default function SettingsPage() {
       updated.thematic_analysis = { ...updated.thematic_analysis, model_id: 'claude-3.7-sonnet' };
       updated.interview_generator = { ...updated.interview_generator, model_id: 'claude-3.7-sonnet' };
       updated.codebook_generation = { ...updated.codebook_generation, model_id: 'gemini-3.7-flash' };
+      activityLogService.addLog({
+        category: 'admin',
+        module: 'preset',
+        action: 'ai_flow.apply_preset',
+        target_id: 'claude-research',
+        target_title: 'Preset: Claude 3.7 Research & Gemini Video',
+        actor: {
+          username: api.getCurrentUser()?.username || 'admin',
+          role: 'Admin',
+        },
+        summary: 'Áp dụng bộ định tuyến mẫu: 3 bước suy luận qua Claude 3.7 Sonnet, bóc tách qua Gemini Flash.',
+        summary_en: 'Applied preset routing: Reasoning steps via Claude 3.7 Sonnet, Extraction via Gemini Flash.',
+        status: 'success',
+      });
       toast.success(
         language === 'vi'
           ? 'Đã áp dụng Preset: Claude 3.7 cho Phân tích & Gemini Flash cho Video'
@@ -277,6 +312,27 @@ export default function SettingsPage() {
 
       const res = await api.updateAIFlowsSettings(payload);
       setSettingsData(res);
+
+      activityLogService.addLog({
+        category: 'admin',
+        module: 'ai_routing',
+        action: 'ai_flow.update_all',
+        target_id: 'ai_pipeline_flows',
+        target_title: 'AI Studio • 5 Luồng Xử Lý Pipeline',
+        actor: {
+          username: api.getCurrentUser()?.username || 'admin',
+          role: 'Admin',
+        },
+        summary: `Đã lưu thành công cấu hình định tuyến mới cho ${payload.length} luồng xử lý AI.`,
+        summary_en: `Successfully saved new routing configurations for ${payload.length} AI pipeline flows.`,
+        status: 'success',
+        diff: payload.map((p) => ({
+          field: p.flow_key,
+          label: (FLOW_METAS[p.flow_key] ? (language === 'vi' ? FLOW_METAS[p.flow_key].titleVi : FLOW_METAS[p.flow_key].titleEn) : p.flow_key),
+          after: `${p.model_id} (temp: ${p.temperature})`,
+        })),
+      });
+
       toast.success(t('aiStudioSavedSuccess'));
     } catch (err: any) {
       toast.error(err?.message || 'Failed to save settings');
@@ -303,10 +359,27 @@ export default function SettingsPage() {
       const modelId = currentFlow.model_id;
 
       const res = await api.testAIPing(provider, modelId, keyId);
+      activityLogService.addLog({
+        category: 'admin',
+        module: 'ai_routing',
+        action: 'model.ping_test',
+        target_id: modelId,
+        target_title: `Live Ping: ${modelId} (${provider})`,
+        actor: {
+          username: api.getCurrentUser()?.username || 'admin',
+          role: 'Admin',
+        },
+        summary: res.success
+          ? `Kiểm tra kết nối Live Ping thành công: phản hồi trong ${res.latency_ms}ms qua ${provider.toUpperCase()}.`
+          : `Kiểm tra kết nối Live Ping cảnh báo: ${res.message}`,
+        status: res.success ? 'success' : 'warning',
+        metadata: { latency_ms: res.latency_ms, provider, model_id: modelId },
+      });
+
       if (res.success) {
-        toast.success(`⚡ Ping OK (${res.latency_ms}ms): ${res.message}`);
+        toast.success(`Ping OK (${res.latency_ms}ms): ${res.message}`);
       } else {
-        toast.warning(`⚠️ Ping Warning: ${res.message}`);
+        toast.warning(`Ping Warning: ${res.message}`);
       }
     } catch (err: any) {
       toast.error(`Ping Failed: ${err?.message}`);
@@ -353,9 +426,37 @@ export default function SettingsPage() {
           key_secret: newKeySecret.trim() ? newKeySecret.trim() : undefined,
           is_default: newKeyIsDefault,
         });
+        activityLogService.addLog({
+          category: 'admin',
+          module: 'api_vault',
+          action: 'api_key.update',
+          target_id: newKeyLabel.trim(),
+          target_title: `API Key • ${newKeyLabel.trim()} (${newKeyProvider.toUpperCase()})`,
+          actor: {
+            username: api.getCurrentUser()?.username || 'admin',
+            role: 'Admin',
+          },
+          summary: `Cập nhật thông tin khóa API "${newKeyLabel.trim()}" trong két an toàn.`,
+          summary_en: `Updated API key "${newKeyLabel.trim()}" in vault.`,
+          status: 'success',
+        });
         toast.success(language === 'vi' ? 'Đã cập nhật khóa API thành công!' : 'API Key updated successfully!');
       } else {
         await api.createAPIKey(newKeyProvider, newKeyLabel.trim(), newKeySecret.trim(), newKeyIsDefault);
+        activityLogService.addLog({
+          category: 'admin',
+          module: 'api_vault',
+          action: 'api_key.create',
+          target_id: newKeyLabel.trim(),
+          target_title: `API Key • ${newKeyLabel.trim()} (${newKeyProvider.toUpperCase()})`,
+          actor: {
+            username: api.getCurrentUser()?.username || 'admin',
+            role: 'Admin',
+          },
+          summary: `Thêm khóa API mới "${newKeyLabel.trim()}" (Provider: ${newKeyProvider.toUpperCase()}) vào két an toàn.`,
+          summary_en: `Created new API key "${newKeyLabel.trim()}" in vault.`,
+          status: 'success',
+        });
         toast.success(language === 'vi' ? 'Đã thêm khóa API thành công!' : 'API Key saved and validated successfully!');
       }
       setIsKeyModalOpen(false);
@@ -374,6 +475,20 @@ export default function SettingsPage() {
     if (!confirm(`Are you sure you want to delete API key "${label}"?`)) return;
     try {
       await api.deleteAPIKey(id);
+      activityLogService.addLog({
+        category: 'admin',
+        module: 'api_vault',
+        action: 'api_key.delete',
+        target_id: label,
+        target_title: `API Key • ${label}`,
+        actor: {
+          username: api.getCurrentUser()?.username || 'admin',
+          role: 'Admin',
+        },
+        summary: `Đã xóa khóa API "${label}" khỏi két an toàn.`,
+        summary_en: `Deleted API key "${label}" from vault.`,
+        status: 'warning',
+      });
       toast.info(`API Key "${label}" deleted`);
       await fetchSettings();
     } catch (err: any) {
@@ -427,6 +542,20 @@ export default function SettingsPage() {
           supports_reasoning: modelFormReasoning,
           is_active: modelFormIsActive,
         });
+        activityLogService.addLog({
+          category: 'admin',
+          module: 'model_catalog',
+          action: 'model.update',
+          target_id: editingModelId,
+          target_title: `Model Catalog • ${modelFormDisplayName.trim()}`,
+          actor: {
+            username: api.getCurrentUser()?.username || 'admin',
+            role: 'Admin',
+          },
+          summary: `Cập nhật thông số kỹ thuật mô hình "${modelFormDisplayName.trim()}" trong danh mục.`,
+          summary_en: `Updated specifications for model "${modelFormDisplayName.trim()}" in catalog.`,
+          status: 'success',
+        });
         toast.success(t('aiStudioModelSaved'));
       } else {
         await api.createAIModel({
@@ -437,6 +566,20 @@ export default function SettingsPage() {
           supports_multimodal: modelFormMultimodal,
           supports_reasoning: modelFormReasoning,
           is_active: modelFormIsActive,
+        });
+        activityLogService.addLog({
+          category: 'admin',
+          module: 'model_catalog',
+          action: 'model.create',
+          target_id: modelFormId.trim(),
+          target_title: `Model Catalog • ${modelFormDisplayName.trim()}`,
+          actor: {
+            username: api.getCurrentUser()?.username || 'admin',
+            role: 'Admin',
+          },
+          summary: `Đăng ký mô hình AI mới "${modelFormDisplayName.trim()}" (ID: ${modelFormId.trim()}) vào danh mục.`,
+          summary_en: `Registered new model "${modelFormDisplayName.trim()}" in catalog.`,
+          status: 'success',
         });
         toast.success(t('aiStudioModelSaved'));
       }
@@ -453,6 +596,20 @@ export default function SettingsPage() {
     if (!confirm(`Are you sure you want to delete model "${name}" (${id})?`)) return;
     try {
       await api.deleteAIModel(id);
+      activityLogService.addLog({
+        category: 'admin',
+        module: 'model_catalog',
+        action: 'model.delete',
+        target_id: id,
+        target_title: `Model Catalog • ${name} (${id})`,
+        actor: {
+          username: api.getCurrentUser()?.username || 'admin',
+          role: 'Admin',
+        },
+        summary: `Đã xóa mô hình "${name}" (${id}) khỏi danh mục AI.`,
+        summary_en: `Deleted model "${name}" (${id}) from catalog.`,
+        status: 'warning',
+      });
       toast.info(`Model "${name}" deleted`);
       await fetchSettings();
     } catch (err: any) {
@@ -498,13 +655,21 @@ export default function SettingsPage() {
     <div style={{ padding: '36px 40px', maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
       
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', paddingBottom: '20px', borderBottom: '1px solid var(--card-border)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', paddingBottom: '16px', borderBottom: '1px solid var(--card-border)' }}>
         <div>
           <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '34px', fontWeight: 500, color: 'var(--accent)', marginBottom: '4px' }}>
-            {t('aiStudioTitle')}
+            {activeAdminTab === 'activity_log'
+              ? t('tabActivityLog')
+              : activeAdminTab === 'key_vault'
+              ? t('tabKeyVault')
+              : t('aiStudioTitle')}
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
-            {t('aiStudioSubtitle')}
+            {activeAdminTab === 'activity_log'
+              ? (language === 'vi' ? 'Theo dõi biến động cấu hình hệ thống AI Studio và dấu vết can thiệp phân tích sư phạm' : 'Audit trail tracking both AI Studio configuration adjustments and pedagogical research operations')
+              : activeAdminTab === 'key_vault'
+              ? (language === 'vi' ? 'Quản lý két an toàn API Key và danh mục mô hình AI kích hoạt' : 'Secure API Key vault and active AI model registry')
+              : t('aiStudioSubtitle')}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
@@ -527,18 +692,100 @@ export default function SettingsPage() {
             <Key size={15} />
             <span>{t('aiStudioAddKey')}</span>
           </button>
-          <button
-            onClick={handleSaveAll}
-            disabled={saving || loading}
-            className="btn btn-primary"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '13px', fontWeight: 600, padding: '9px 18px', borderRadius: '8px' }}
-          >
-            {saving ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />}
-            <span>{saving ? t('commonSaving') : t('aiStudioSaveAll')}</span>
-          </button>
+          {activeAdminTab === 'ai_routing' && (
+            <button
+              onClick={handleSaveAll}
+              disabled={saving || loading}
+              className="btn btn-primary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '13px', fontWeight: 600, padding: '9px 18px', borderRadius: '8px' }}
+            >
+              {saving ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />}
+              <span>{saving ? t('commonSaving') : t('aiStudioSaveAll')}</span>
+            </button>
+          )}
         </div>
       </div>
 
+      {/* Admin Navigation Tabs */}
+      <div style={{
+        display: 'flex',
+        gap: '4px',
+        borderBottom: '1px solid var(--card-border)',
+        marginTop: '-12px',
+        marginBottom: '4px',
+      }}>
+        <button
+          onClick={() => setActiveAdminTab('ai_routing')}
+          style={{
+            padding: '10px 18px',
+            fontSize: '13.5px',
+            fontWeight: 600,
+            color: activeAdminTab === 'ai_routing' ? 'var(--accent)' : 'var(--text-muted)',
+            backgroundColor: 'transparent',
+            border: 'none',
+            borderBottom: activeAdminTab === 'ai_routing' ? '2px solid var(--accent)' : '2px solid transparent',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <Sliders size={16} />
+          <span>{t('tabAiRouting')}</span>
+        </button>
+
+        <button
+          onClick={() => setActiveAdminTab('activity_log')}
+          style={{
+            padding: '10px 18px',
+            fontSize: '13.5px',
+            fontWeight: 600,
+            color: activeAdminTab === 'activity_log' ? 'var(--accent)' : 'var(--text-muted)',
+            backgroundColor: 'transparent',
+            border: 'none',
+            borderBottom: activeAdminTab === 'activity_log' ? '2px solid var(--accent)' : '2px solid transparent',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <History size={16} />
+          <span>{t('tabActivityLog')}</span>
+        </button>
+
+        <button
+          onClick={() => setActiveAdminTab('key_vault')}
+          style={{
+            padding: '10px 18px',
+            fontSize: '13.5px',
+            fontWeight: 600,
+            color: activeAdminTab === 'key_vault' ? 'var(--accent)' : 'var(--text-muted)',
+            backgroundColor: 'transparent',
+            border: 'none',
+            borderBottom: activeAdminTab === 'key_vault' ? '2px solid var(--accent)' : '2px solid transparent',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <Key size={16} />
+          <span>{t('tabKeyVault')}</span>
+        </button>
+      </div>
+
+      {/* Tab 2: Activity Log */}
+      {activeAdminTab === 'activity_log' && (
+        <ActivityLogView onNavigateTab={(tab) => setActiveAdminTab(tab as any)} />
+      )}
+
+      {/* Tab 1 & 3: Routing and Key Vault Content */}
+      {activeAdminTab !== 'activity_log' && (
+        <>
       {/* Top Vault Strip: Saved Keys */}
       <div style={{
         backgroundColor: 'var(--card-bg)',
@@ -728,9 +975,19 @@ export default function SettingsPage() {
                         {(() => {
                           const kObj = (settingsData?.api_keys || []).find((k) => k.id === cfg.api_key_id);
                           if (kObj) {
-                            return <span style={{ color: 'var(--accent-green, #16a34a)', fontWeight: 600 }}>🔑 {kObj.label}</span>;
+                            return (
+                              <span style={{ color: 'var(--accent-green, #16a34a)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <Key size={11} />
+                                <span>{kObj.label}</span>
+                              </span>
+                            );
                           }
-                          return <span style={{ color: 'var(--accent-red, #dc2626)', fontWeight: 700 }}>⚠️ {language === 'vi' ? 'Chưa gán Key' : 'No Key Assigned'}</span>;
+                          return (
+                            <span style={{ color: 'var(--accent-red, #dc2626)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <AlertCircle size={11} />
+                              <span>{language === 'vi' ? 'Chưa gán Key' : 'No Key Assigned'}</span>
+                            </span>
+                          );
                         })()}
                       </div>
                     </div>
@@ -848,10 +1105,13 @@ export default function SettingsPage() {
                 ))}
             </select>
             {(!settingsData?.api_keys || settingsData.api_keys.filter((k) => !currentModelInfo || k.provider === currentModelInfo.provider).length === 0) && (
-              <div style={{ fontSize: '11.5px', color: 'var(--accent-red, #dc2626)', marginTop: '2px', lineHeight: 1.4 }}>
-                ⚠️ {language === 'vi'
-                  ? `Chưa có API Key nào cho ${currentModelInfo?.provider?.toUpperCase() || 'provider này'}. Vui lòng tạo key mới ở Key Vault phía dưới.`
-                  : `No API key available for ${currentModelInfo?.provider?.toUpperCase() || 'this provider'}. Please add a key in the Vault below.`}
+              <div style={{ fontSize: '11.5px', color: 'var(--accent-red, #dc2626)', marginTop: '4px', lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <AlertCircle size={13} style={{ flexShrink: 0 }} />
+                <span>
+                  {language === 'vi'
+                    ? `Chưa có API Key nào cho ${currentModelInfo?.provider?.toUpperCase() || 'provider này'}. Vui lòng tạo key mới ở Key Vault phía dưới.`
+                    : `No API key available for ${currentModelInfo?.provider?.toUpperCase() || 'this provider'}. Please add a key in the Vault below.`}
+                </span>
               </div>
             )}
           </div>
@@ -930,6 +1190,8 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+      </>
+      )}
 
       {/* Modal: Add / Edit API Key */}
       {isKeyModalOpen && (
@@ -1179,13 +1441,15 @@ export default function SettingsPage() {
                             {(m.context_tokens || 128000).toLocaleString()} tokens
                           </span>
                           {m.supports_multimodal && (
-                            <span style={{ fontSize: '10.5px', fontWeight: 600, padding: '2px 6px', borderRadius: '4px', backgroundColor: '#FEF3C7', color: '#92400E' }}>
-                              ⚡ Video Multimodal
+                            <span style={{ fontSize: '10.5px', fontWeight: 600, padding: '2px 6px', borderRadius: '4px', backgroundColor: '#FEF3C7', color: '#92400E', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <Video size={11} />
+                              <span>Video Multimodal</span>
                             </span>
                           )}
                           {m.supports_reasoning && (
-                            <span style={{ fontSize: '10.5px', fontWeight: 600, padding: '2px 6px', borderRadius: '4px', backgroundColor: '#E0E7FF', color: '#3730A3' }}>
-                              🧠 Reasoning
+                            <span style={{ fontSize: '10.5px', fontWeight: 600, padding: '2px 6px', borderRadius: '4px', backgroundColor: '#E0E7FF', color: '#3730A3', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <Sparkles size={11} />
+                              <span>Reasoning</span>
                             </span>
                           )}
                         </div>

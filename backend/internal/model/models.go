@@ -21,6 +21,7 @@ type Video struct {
 	Title       string     `json:"title" db:"title"`
 	BlobURL     *string    `json:"blob_url,omitempty" db:"blob_url"`
 	DurationSec *int       `json:"duration_sec,omitempty" db:"duration_sec"`
+	FileSize    *int64     `json:"file_size,omitempty" db:"file_size"`
 	Status      string     `json:"status" db:"status"`
 	ErrorMsg    *string    `json:"error_msg,omitempty" db:"error_msg"`
 	FailedStep  *string    `json:"failed_step,omitempty" db:"failed_step"`

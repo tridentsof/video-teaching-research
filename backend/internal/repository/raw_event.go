@@ -106,3 +106,32 @@ func (r *RawEventRepository) DeleteByVideoID(ctx context.Context, videoID uuid.U
 	}
 	return nil
 }
+
+// DeleteByChunkID removes all raw events for a specific chunk.
+func (r *RawEventRepository) DeleteByChunkID(ctx context.Context, chunkID uuid.UUID) error {
+	_, err := r.db.Pool.Exec(ctx, `DELETE FROM raw_events WHERE chunk_id = $1`, chunkID)
+	if err != nil {
+		return fmt.Errorf("failed to delete raw events for chunk %s: %w", chunkID, err)
+	}
+	return nil
+}
+
+// DeleteOrphanRawEventsByVideoID removes all raw events where chunk_id IS NULL for a video (e.g. from full mode).
+func (r *RawEventRepository) DeleteOrphanRawEventsByVideoID(ctx context.Context, videoID uuid.UUID) error {
+	_, err := r.db.Pool.Exec(ctx, `DELETE FROM raw_events WHERE video_id = $1 AND chunk_id IS NULL`, videoID)
+	if err != nil {
+		return fmt.Errorf("failed to delete orphan raw events for video %s: %w", videoID, err)
+	}
+	return nil
+}
+
+// ResetDuplicatesByVideoID clears all is_duplicate_of markers for a video.
+func (r *RawEventRepository) ResetDuplicatesByVideoID(ctx context.Context, videoID uuid.UUID) error {
+	_, err := r.db.Pool.Exec(ctx, `UPDATE raw_events SET is_duplicate_of = NULL WHERE video_id = $1`, videoID)
+	if err != nil {
+		return fmt.Errorf("failed to reset duplicates for video %s: %w", videoID, err)
+	}
+	return nil
+}
+
+

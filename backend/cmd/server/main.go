@@ -101,6 +101,7 @@ func main() {
 
 		chunkRepo := repository.NewChunkRepository(db)
 		videoRepo := repository.NewVideoRepository(db)
+		_ = videoRepo.EnsureColumns(context.Background())
 		_ = videoRepo.CleanStuckUploadingVideos(context.Background())
 		videoService := service.NewVideoService(videoRepo, chunkRepo, blobStorage)
 		videoHandler = handler.NewVideoHandler(videoService)

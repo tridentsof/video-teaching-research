@@ -4,6 +4,7 @@ export interface Video {
   title: string;
   blob_url?: string;
   duration_sec?: number;
+  file_size?: number;
   status: string;
   error_msg?: string;
   failed_step?: string;

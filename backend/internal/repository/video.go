@@ -19,17 +19,24 @@ func NewVideoRepository(db *DB) *VideoRepository {
 	return &VideoRepository{db: db}
 }
 
+// EnsureColumns ensures required columns exist on videos table.
+func (r *VideoRepository) EnsureColumns(ctx context.Context) error {
+	query := `ALTER TABLE videos ADD COLUMN IF NOT EXISTS file_size BIGINT DEFAULT NULL;`
+	_, err := r.db.Pool.Exec(ctx, query)
+	return err
+}
+
 // Create inserts a new video record.
 func (r *VideoRepository) Create(ctx context.Context, v *model.Video) error {
 	if v.UpdatedAt.IsZero() {
 		v.UpdatedAt = v.UploadedAt
 	}
 	query := `
-		INSERT INTO videos (id, teacher_id, title, blob_url, duration_sec, status, error_msg, failed_step, uploaded_at, updated_at, user_id, processing_mode)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		INSERT INTO videos (id, teacher_id, title, blob_url, duration_sec, file_size, status, error_msg, failed_step, uploaded_at, updated_at, user_id, processing_mode)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
 	_, err := r.db.Pool.Exec(ctx, query,
-		v.ID, v.TeacherID, v.Title, v.BlobURL, v.DurationSec, v.Status, v.ErrorMsg, v.FailedStep, v.UploadedAt, v.UpdatedAt, v.UserID, v.ProcessingMode,
+		v.ID, v.TeacherID, v.Title, v.BlobURL, v.DurationSec, v.FileSize, v.Status, v.ErrorMsg, v.FailedStep, v.UploadedAt, v.UpdatedAt, v.UserID, v.ProcessingMode,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to insert video: %w", err)
@@ -40,7 +47,7 @@ func (r *VideoRepository) Create(ctx context.Context, v *model.Video) error {
 // List returns all videos ordered by updated_at descending, then uploaded_at descending.
 func (r *VideoRepository) List(ctx context.Context) ([]model.Video, error) {
 	query := `
-		SELECT id, teacher_id, title, blob_url, duration_sec, status, error_msg, failed_step, uploaded_at, updated_at, user_id, processing_mode
+		SELECT id, teacher_id, title, blob_url, duration_sec, file_size, status, error_msg, failed_step, uploaded_at, updated_at, user_id, processing_mode
 		FROM videos
 		ORDER BY updated_at DESC, uploaded_at DESC
 	`
@@ -54,7 +61,7 @@ func (r *VideoRepository) List(ctx context.Context) ([]model.Video, error) {
 	for rows.Next() {
 		var v model.Video
 		if err := rows.Scan(
-			&v.ID, &v.TeacherID, &v.Title, &v.BlobURL, &v.DurationSec, &v.Status, &v.ErrorMsg, &v.FailedStep, &v.UploadedAt, &v.UpdatedAt, &v.UserID, &v.ProcessingMode,
+			&v.ID, &v.TeacherID, &v.Title, &v.BlobURL, &v.DurationSec, &v.FileSize, &v.Status, &v.ErrorMsg, &v.FailedStep, &v.UploadedAt, &v.UpdatedAt, &v.UserID, &v.ProcessingMode,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan video: %w", err)
 		}
@@ -66,13 +73,13 @@ func (r *VideoRepository) List(ctx context.Context) ([]model.Video, error) {
 // GetByID returns a single video by ID.
 func (r *VideoRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Video, error) {
 	query := `
-		SELECT id, teacher_id, title, blob_url, duration_sec, status, error_msg, failed_step, uploaded_at, updated_at, user_id, processing_mode
+		SELECT id, teacher_id, title, blob_url, duration_sec, file_size, status, error_msg, failed_step, uploaded_at, updated_at, user_id, processing_mode
 		FROM videos
 		WHERE id = $1
 	`
 	var v model.Video
 	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
-		&v.ID, &v.TeacherID, &v.Title, &v.BlobURL, &v.DurationSec, &v.Status, &v.ErrorMsg, &v.FailedStep, &v.UploadedAt, &v.UpdatedAt, &v.UserID, &v.ProcessingMode,
+		&v.ID, &v.TeacherID, &v.Title, &v.BlobURL, &v.DurationSec, &v.FileSize, &v.Status, &v.ErrorMsg, &v.FailedStep, &v.UploadedAt, &v.UpdatedAt, &v.UserID, &v.ProcessingMode,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {

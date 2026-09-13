@@ -97,8 +97,8 @@ func (s *MappingService) MapEventsForVideo(ctx context.Context, videoID uuid.UUI
 	_ = s.chunkRepo.CreateJob(ctx, job)
 	_ = s.videoRepo.UpdateStatus(ctx, videoID, "mapping", nil)
 
-	// Fetch non-duplicate events
-	events, err := s.rawEventRepo.ListByVideoID(ctx, videoID, true)
+	// Fetch all raw events (deduplication bypassed to capture 100% extracted events)
+	events, err := s.rawEventRepo.ListByVideoID(ctx, videoID, false)
 	if err != nil {
 		errMsg := err.Error()
 		failedStep := "mapping"

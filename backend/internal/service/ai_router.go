@@ -75,11 +75,12 @@ func (s *AIRouterService) getGeminiProvider(apiKey string, modelName string) *ai
 	if apiKey == "" {
 		apiKey = s.defaultGeminiKey
 	}
-	if p, ok := s.geminiProviders[apiKey]; ok {
+	cacheKey := apiKey + ":" + modelName
+	if p, ok := s.geminiProviders[cacheKey]; ok {
 		return p
 	}
 	p := ai.NewGeminiDirectProvider(apiKey, modelName)
-	s.geminiProviders[apiKey] = p
+	s.geminiProviders[cacheKey] = p
 	return p
 }
 

@@ -177,7 +177,11 @@ func (n *DefaultTelegramNotifier) NotifyPipelineFailed(ctx context.Context, vide
 		sb.WriteString(fmt.Sprintf("🛑 <b>Bước lỗi:</b> <code>%s</code>\n", html.EscapeString(failedStep)))
 	}
 	if errMsg != "" {
-		sb.WriteString(fmt.Sprintf("❌ <b>Lỗi chi tiết:</b>\n<code>%s</code>\n", html.EscapeString(errMsg)))
+		displayErr := errMsg
+		if len(displayErr) > 1200 {
+			displayErr = displayErr[:1200] + "... (còn tiếp)"
+		}
+		sb.WriteString(fmt.Sprintf("❌ <b>Lỗi chi tiết:</b>\n<code>%s</code>\n", html.EscapeString(displayErr)))
 	}
 	if appURL != "" {
 		sb.WriteString(fmt.Sprintf("\n🔗 <a href=\"%s\">Xem video trong hệ thống</a>\n", appURL))

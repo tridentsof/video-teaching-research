@@ -17,7 +17,6 @@ const chunkedSteps = [
   { key: 'uploaded', labelKey: 'stepUpload', stepName: 'upload' },
   { key: 'chunked', labelKey: 'stepChunking', stepName: 'chunking' },
   { key: 'extracted', labelKey: 'stepExtraction', stepName: 'event_extraction' },
-  { key: 'merged', labelKey: 'stepDeduplication', stepName: 'event_merge' },
   { key: 'mapped', labelKey: 'stepMapping', stepName: 'mapping' },
   { key: 'report_generated', labelKey: 'stepReport', stepName: 'report_generation' },
 ];
@@ -25,7 +24,6 @@ const chunkedSteps = [
 const fullVideoSteps = [
   { key: 'uploaded', labelKey: 'stepUpload', stepName: 'upload' },
   { key: 'extracted', labelKey: 'stepExtraction', stepName: 'event_extraction' },
-  { key: 'merged', labelKey: 'stepNormalization', stepName: 'event_merge' },
   { key: 'mapped', labelKey: 'stepMapping', stepName: 'mapping' },
   { key: 'report_generated', labelKey: 'stepReport', stepName: 'report_generation' },
 ];
@@ -37,24 +35,6 @@ const chunkedStatusOrder: Record<string, number> = {
   chunked: 1,
   extracting: 2,
   extracted: 2,
-  merging: 3,
-  merged: 3,
-  review_pending: 3,
-  mapping: 4,
-  mapped: 4,
-  statistics: 5,
-  generating_report: 5,
-  report_generated: 5,
-  completed: 5,
-};
-
-const fullVideoStatusOrder: Record<string, number> = {
-  uploading: 0,
-  uploaded: 0,
-  chunking: 1,
-  chunked: 1,
-  extracting: 1,
-  extracted: 1,
   merging: 2,
   merged: 2,
   review_pending: 2,
@@ -66,31 +46,49 @@ const fullVideoStatusOrder: Record<string, number> = {
   completed: 4,
 };
 
+const fullVideoStatusOrder: Record<string, number> = {
+  uploading: 0,
+  uploaded: 0,
+  chunking: 1,
+  chunked: 1,
+  extracting: 1,
+  extracted: 1,
+  merging: 1,
+  merged: 1,
+  review_pending: 1,
+  mapping: 2,
+  mapped: 2,
+  statistics: 3,
+  generating_report: 3,
+  report_generated: 3,
+  completed: 3,
+};
+
 const chunkedStepNameToIndex: Record<string, number> = {
   upload: 0,
   chunking: 1,
   event_extraction: 2,
   extraction: 2,
-  event_merge: 3,
-  merge: 3,
-  deduplication: 3,
-  mapping: 4,
-  statistics: 5,
-  report_generation: 5,
-  report: 5,
+  event_merge: 2,
+  merge: 2,
+  deduplication: 2,
+  mapping: 3,
+  statistics: 4,
+  report_generation: 4,
+  report: 4,
 };
 
 const fullVideoStepNameToIndex: Record<string, number> = {
   upload: 0,
   event_extraction: 1,
   extraction: 1,
-  event_merge: 2,
-  merge: 2,
-  normalization: 2,
-  mapping: 3,
-  statistics: 4,
-  report_generation: 4,
-  report: 4,
+  event_merge: 1,
+  merge: 1,
+  normalization: 1,
+  mapping: 2,
+  statistics: 3,
+  report_generation: 3,
+  report: 3,
 };
 
 export const PipelineStepper: React.FC<PipelineStepperProps> = ({

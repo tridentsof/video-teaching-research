@@ -60,11 +60,13 @@ func (h *VideoHandler) Upload(c *gin.Context) {
 
 	log.Printf("[VideoHandler.Upload] Receiving upload: teacher=%s, title=%s, filename=%s, size=%d bytes", teacherID, title, header.Filename, header.Size)
 
+	fileSize := header.Size
 	video, err := h.svc.Upload(c.Request.Context(), service.UploadVideoRequest{
 		TeacherID:   teacherID,
 		Title:       title,
 		Filename:    header.Filename,
 		DurationSec: durationSecPtr,
+		FileSize:    &fileSize,
 		Reader:      file,
 		UserID:      userID,
 	})

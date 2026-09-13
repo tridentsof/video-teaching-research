@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unified Activity & Audit Log - Observation Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #FBF9F5;
+      --sidebar-bg: #F4EFE6;
+      --card-bg: #FFFFFF;
+      --card-border: #E8E3D9;
+      --card-border-soft: #F0EAE1;
+      --text-main: #1A1612;
+      --text-muted: #736B63;
+      --text-subtle: #A39B92;
+      
+      --accent: #9E4A28; /* Terracotta research */
+      --accent-hover: #843D1F;
+      --accent-soft: #F5EBE6;
+      
+      --accent-green: #2D6A4F;
+      --accent-green-soft: #EAF4EE;
+      
+      --accent-blue: #1D5C8A;
+      --accent-blue-soft: #EBF3F9;
+      
+      --accent-amber: #B26A00;
+      --accent-amber-soft: #FEF7EA;
+
+      --accent-purple: #6D28D9;
+      --accent-purple-soft: #F3E8FF;
+
+      --accent-red: #B91C1C;
+      --accent-red-soft: #FEF2F2;
+
+      --accent-teal: #0F766E;
+      --accent-teal-soft: #F0FDFA;
+
+      --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-serif: 'Instrument Serif', Georgia, serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --shadow-sm: 0 1px 3px rgba(40, 30, 20, 0.04);
+      --shadow-md: 0 8px 24px -4px rgba(40, 30, 20, 0.08);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      font-size: 13.5px;
+      line-height: 1.5;
+      padding: 32px;
+    }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    /* Page Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 20px;
+    }
+    .header h1 {
+      font-family: var(--font-serif);
+      font-size: 32px;
+      font-weight: 500;
+      color: var(--accent);
+      letter-spacing: -0.3px;
+    }
+    .header p {
+      color: var(--text-muted);
+      font-size: 13.5px;
+      margin-top: 4px;
+    }
+
+    /* Top Tabs */
+    .tab-bar {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .tab-btn {
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .tab-btn:hover:not(.active) { color: var(--text-main); }
+
+    /* Stats Grid */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      box-shadow: var(--shadow-sm);
+    }
+    .stat-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+    }
+    .stat-value {
+      font-size: 24px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: var(--text-main);
+      margin-top: 4px;
+    }
+    .stat-sub {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Scope Switcher & Filter Toolbar */
+    .filter-wrapper {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .scope-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--card-border-soft);
+      padding-bottom: 10px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .scope-group {
+      display: flex;
+      background: #F4EFE6;
+      padding: 3px;
+      border-radius: 8px;
+      gap: 2px;
+    }
+    .scope-btn {
+      padding: 5px 14px;
+      border-radius: 6px;
+      font-size: 12.5px;
+      font-weight: 600;
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .scope-btn.active {
+      background: #FFF;
+      color: var(--text-main);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    }
+
+    .toolbar-lower {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .search-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      padding: 6px 12px;
+      flex: 1;
+      max-width: 420px;
+    }
+    .search-box input {
+      border: none;
+      background: none;
+      outline: none;
+      font-size: 13px;
+      width: 100%;
+      color: var(--text-main);
+    }
+    .tag-filters {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .filter-chip {
+      padding: 4px 10px;
+      border-radius: 14px;
+      font-size: 11.5px;
+      font-weight: 600;
+      border: 1px solid var(--card-border);
+      background: var(--bg);
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .filter-chip.active {
+      background: var(--accent);
+      color: #FFF;
+      border-color: var(--accent);
+    }
+
+    /* Table */
+    .table-container {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+    th {
+      background: #FAF7F2;
+      padding: 10px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--card-border);
+    }
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--card-border-soft);
+      font-size: 13px;
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #FDFCF9; }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 7px;
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      letter-spacing: 0.3px;
+    }
+    /* Admin/AI badges */
+    .badge-routing { background: var(--accent-amber-soft); color: var(--accent-amber); border: 1px solid rgba(178,106,0,0.2); }
+    .badge-vault { background: var(--accent-blue-soft); color: var(--accent-blue); border: 1px solid rgba(29,92,138,0.2); }
+    .badge-models { background: var(--accent-purple-soft); color: var(--accent-purple); border: 1px solid rgba(109,40,217,0.2); }
+    /* Business badges */
+    .badge-video { background: #F5EBE6; color: #9E4A28; border: 1px solid rgba(158,74,40,0.25); }
+    .badge-checklist { background: var(--accent-blue-soft); color: var(--accent-blue); border: 1px solid rgba(29,92,138,0.2); }
+    .badge-themes { background: var(--accent-purple-soft); color: var(--accent-purple); border: 1px solid rgba(109,40,217,0.2); }
+    .badge-interview { background: var(--accent-green-soft); color: var(--accent-green); border: 1px solid rgba(45,106,79,0.2); }
+    .badge-export { background: var(--accent-teal-soft); color: var(--accent-teal); border: 1px solid rgba(15,118,110,0.2); }
+
+    .category-scope {
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 1px 4px;
+      border-radius: 3px;
+      margin-bottom: 2px;
+      display: inline-block;
+    }
+    .scope-admin-tag { background: #EEE; color: #555; }
+    .scope-biz-tag { background: #FDE8E8; color: #9E4A28; }
+
+    .entity-link {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--accent);
+      text-decoration: underline;
+      font-weight: 500;
+    }
+
+    .diff-old { color: var(--accent-red); text-decoration: line-through; font-family: var(--font-mono); font-size: 11.5px; }
+    .diff-new { color: var(--accent-green); font-weight: 600; font-family: var(--font-mono); font-size: 11.5px; }
+
+    .btn-detail {
+      background: none;
+      border: 1px solid var(--card-border);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      cursor: pointer;
+    }
+    .btn-detail:hover { background: var(--accent-soft); border-color: var(--accent); }
+
+    /* Drawer Simulation */
+    .drawer-box {
+      background: #FAF8F5;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .drawer-card {
+      background: #FFF;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+    .drawer-card h5 {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <h1>Observation Studio • Activity & Audit Trail</h1>
+      <p>Nhật ký toàn diện: Giám sát cấu hình Admin/AI Studio và dấu vết phân tích sư phạm nghiệp vụ (Business Workflow).</p>
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button class="btn-detail" style="color: var(--text-main);">📥 Xuất CSV / JSON</button>
+      <button class="btn-detail" style="background: var(--accent); color: #fff; border-color: var(--accent);">🔄 Làm Mới</button>
+    </div>
+  </div>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <button class="tab-btn">⚡ AI Studio & Routing</button>
+    <button class="tab-btn active">📜 Activity & Audit Trail (Hệ Thống & Nghiệp Vụ)</button>
+    <button class="tab-btn">🔑 Kho Khóa API & Models</button>
+  </div>
+
+  <!-- Stats Grid -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-title">Tổng Thao Tác (24h)</div>
+      <div class="stat-value">128</div>
+      <div class="stat-sub">94 nghiệp vụ • 34 admin/AI</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">Nghiệp Vụ Video & Sư Phạm</div>
+      <div class="stat-value" style="color: var(--accent);">94</div>
+      <div class="stat-sub">12 runs pipeline, 46 chấm chỉ báo</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">Thay Đổi Cấu Hình AI</div>
+      <div class="stat-value" style="color: var(--accent-amber);">18</div>
+      <div class="stat-sub">5 lần đổi model, 2 lần áp preset</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">Độ Tin Cậy & Thành Công</div>
+      <div class="stat-value" style="color: var(--accent-green);">99.2%</div>
+      <div class="stat-sub">1 cảnh báo timeout video chunk</div>
+    </div>
+  </div>
+
+  <!-- Filter & Scope Switcher -->
+  <div class="filter-wrapper">
+    <div class="scope-bar">
+      <!-- 2 Major Domains Switcher -->
+      <div class="scope-group">
+        <button class="scope-btn active">Tất Cả Phân Hệ (128)</button>
+        <button class="scope-btn">🎓 Nghiệp Vụ Nghiên Cứu (94)</button>
+        <button class="scope-btn">⚙️ Quản Trị & AI Studio (34)</button>
+      </div>
+      <div style="font-size: 12px; color: var(--text-muted);">
+        Khoảng thời gian: <strong style="color: var(--text-main);">24 giờ qua</strong>
+      </div>
+    </div>
+
+    <div class="toolbar-lower">
+      <div class="search-box">
+        <span>🔍</span>
+        <input type="text" placeholder="Tìm theo ID video, giáo viên, model id, mã codebook hoặc actor...">
+      </div>
+      <div class="tag-filters">
+        <button class="filter-chip active">Tất cả</button>
+        <button class="filter-chip">Video Pipeline (24)</button>
+        <button class="filter-chip">Khung Bảng Kiểm (32)</button>
+        <button class="filter-chip">Chủ Đề & Codebook (28)</button>
+        <button class="filter-chip">AI Routing (18)</button>
+        <button class="filter-chip">API Vault (6)</button>
+        <button class="filter-chip">Báo Cáo DOCX (10)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unified Table -->
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 130px;">Thời gian</th>
+          <th style="width: 140px;">Tác tử</th>
+          <th style="width: 130px;">Phân tầng / Module</th>
+          <th style="width: 160px;">Thực thể (Target Entity)</th>
+          <th>Chi tiết hành động (Business & Admin Diffs)</th>
+          <th style="text-align: right; width: 100px;">Thao tác</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <!-- Row 1: Business - Checklist Mapping Score -->
+        <tr>
+          <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">
+            <div>15:12:04</div>
+            <div style="font-size: 10.5px; color: var(--text-subtle);">4 phút trước</div>
+          </td>
+          <td>
+            <div style="font-weight: 600;">dr_minh (Researcher)</div>
+            <div style="font-size: 11px; color: var(--text-subtle); font-family: var(--font-mono);">Web UI</div>
+          </td>
+          <td>
+            <div><span class="category-scope scope-biz-tag">Business</span></div>
+            <span class="badge badge-checklist">CHECKLIST</span>
+          </td>
+          <td>
+            <a href="#" class="entity-link">TIÊU_CHÍ_2.3</a>
+            <div style="font-size: 11px; color: var(--text-subtle);">Khung Dạy Học Tích Cực</div>
+          </td>
+          <td>
+            <div>Điều chỉnh điểm quan sát sư phạm thủ công:</div>
+            <div style="margin-top: 3px;">
+              Điểm: <span class="diff-old">3/5 (AI dự đoán)</span> → <span class="diff-new">4/5 (Xác nhận thực tế)</span>
+              <span style="color: var(--text-muted); font-size: 12px; margin-left: 8px;">• Bổ sung dẫn chứng timestamp <code>[14:20-15:10]</code></span>
+            </div>
+          </td>
+          <td style="text-align: right;">
+            <button class="btn-detail">Xem Diff</button>
+          </td>
+        </tr>
+
+        <!-- Row 2: Admin - AI Routing Flow Update -->
+        <tr>
+          <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">
+            <div>14:52:10</div>
+            <div style="font-size: 10.5px; color: var(--text-subtle);">24 phút trước</div>
+          </td>
+          <td>
+            <div style="font-weight: 600;">admin_lan (Admin)</div>
+            <div style="font-size: 11px; color: var(--text-subtle); font-family: var(--font-mono);">192.168.1.45</div>
+          </td>
+          <td>
+            <div><span class="category-scope scope-admin-tag">System Admin</span></div>
+            <span class="badge badge-routing">AI_ROUTING</span>
+          </td>
+          <td>
+            <a href="#" class="entity-link">video_extraction</a>
+            <div style="font-size: 11px; color: var(--text-subtle);">Step 01 Pipeline</div>
+          </td>
+          <td>
+            <div>Chuyển đổi model xử lý multimodal cho bước bóc tách video:</div>
+            <div style="margin-top: 3px;">
+              Model: <span class="diff-old">gemini-2.5-pro</span> → <span class="diff-new">gemini-3.7-flash</span> 
+              <span style="color: var(--text-muted); font-size: 11.5px; margin-left: 8px;">(temp: 0.2, fallback: gemini-2.5-flash)</span>
+            </div>
+          </td>
+          <td style="text-align: right;">
+            <button class="btn-detail">Xem Diff</button>
+          </td>
+        </tr>
+
+        <!-- Row 3: Business - Re-run Pipeline -->
+        <tr>
+          <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">
+            <div>14:15:30</div>
+            <div style="font-size: 10.5px; color: var(--text-subtle);">1h 01m trước</div>
+          </td>
+          <td>
+            <div style="font-weight: 600;">dr_minh (Researcher)</div>
+            <div style="font-size: 11px; color: var(--text-subtle); font-family: var(--font-mono);">Web UI</div>
+          </td>
+          <td>
+            <div><span class="category-scope scope-biz-tag">Business</span></div>
+            <span class="badge badge-video">PIPELINE_RUN</span>
+          </td>
+          <td>
+            <a href="#" class="entity-link">VID_TOAN_LOP8_02</a>
+            <div style="font-size: 11px; color: var(--text-subtle);">GV: Nguyễn Thu Hà</div>
+          </td>
+          <td>
+            <div>Kích hoạt chạy lại toàn bộ Pipeline phân tích 5 bước với bộ Prompt v2.</div>
+            <div style="font-size: 11.5px; color: var(--accent-green); margin-top: 2px;">
+              ✓ Hoàn thành 5/5 chunks • Thời gian xử lý: 42s • Đã bóc tách 38 hành vi
+            </div>
+          </td>
+          <td style="text-align: right;">
+            <button class="btn-detail">Logs Run</button>
+          </td>
+        </tr>
+
+        <!-- Row 4: Business - Codebook update -->
+        <tr>
+          <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">
+            <div>13:40:22</div>
+            <div style="font-size: 10.5px; color: var(--text-subtle);">1h 36m trước</div>
+          </td>
+          <td>
+            <div style="font-weight: 600;">thao_nguyen (Coder)</div>
+            <div style="font-size: 11px; color: var(--text-subtle); font-family: var(--font-mono);">Web UI</div>
+          </td>
+          <td>
+            <div><span class="category-scope scope-biz-tag">Business</span></div>
+            <span class="badge badge-themes">CODEBOOK</span>
+          </td>
+          <td>
+            <a href="#" class="entity-link">CODE_SCAFFOLD_04</a>
+            <div style="font-size: 11px; color: var(--text-subtle);">Chủ đề: Dàn giáo nhận thức</div>
+          </td>
+          <td>
+            <div>Cập nhật tiêu chí bao gồm (Inclusion Criteria) cho mã quan sát:</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+              "Bổ sung: Bao gồm cả cử chỉ chỉ tay vào sơ đồ tư duy trên bảng của giáo viên."
+            </div>
+          </td>
+          <td style="text-align: right;">
+            <button class="btn-detail">Xem Diff</button>
+          </td>
+        </tr>
+
+        <!-- Row 5: Admin - API Key Vault -->
+        <tr>
+          <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">
+            <div>13:15:02</div>
+            <div style="font-size: 10.5px; color: var(--text-subtle);">2h 01m trước</div>
+          </td>
+          <td>
+            <div style="font-weight: 600;">admin_lan (Admin)</div>
+            <div style="font-size: 11px; color: var(--text-subtle); font-family: var(--font-mono);">192.168.1.45</div>
+          </td>
+          <td>
+            <div><span class="category-scope scope-admin-tag">System Admin</span></div>
+            <span class="badge badge-vault">KEY_VAULT</span>
+          </td>
+          <td>
+            <a href="#" class="entity-link">key_or_sec_01</a>
+            <div style="font-size: 11px; color: var(--text-subtle);">OpenRouter Vault</div>
+          </td>
+          <td>
+            <div>Thêm mới khóa API: <strong>OpenRouter Secondary Key</strong></div>
+            <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px; font-family: var(--font-mono);">
+              Provider: openrouter | Key: sk-or-v1-••••••••4a8e | is_default: false
+            </div>
+          </td>
+          <td style="text-align: right;">
+            <button class="btn-detail">Chi tiết</button>
+          </td>
+        </tr>
+
+        <!-- Row 6: Business - Export Report -->
+        <tr>
+          <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">
+            <div>11:20:18</div>
+            <div style="font-size: 10.5px; color: var(--text-subtle);">3h 56m trước</div>
+          </td>
+          <td>
+            <div style="font-weight: 600;">dr_minh (Researcher)</div>
+            <div style="font-size: 11px; color: var(--text-subtle); font-family: var(--font-mono);">Web UI</div>
+          </td>
+          <td>
+            <div><span class="category-scope scope-biz-tag">Business</span></div>
+            <span class="badge badge-export">EXPORT_DOCX</span>
+          </td>
+          <td>
+            <a href="#" class="entity-link">REPORT_MATH_KY1</a>
+            <div style="font-size: 11px; color: var(--text-subtle);">Hồ sơ phân tích tổng hợp</div>
+          </td>
+          <td>
+            <div>Xuất hồ sơ phân tích sư phạm định dạng Microsoft Word (.docx):</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+              Gồm 4 video quan sát, 12 danh mục Grounded Theory và 15 câu hỏi phỏng vấn sâu.
+            </div>
+          </td>
+          <td style="text-align: right;">
+            <button class="btn-detail">Chi tiết</button>
+          </td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Dual-mode Inspector Simulation (Visualizing Both Admin & Business Diffs) -->
+  <div class="drawer-box">
+    <!-- Admin Diff Example -->
+    <div class="drawer-card">
+      <h5>⚙️ Chi Tiết Nhật Ký Admin (AI Studio & Routing Diff)</h5>
+      <div style="font-family: var(--font-mono); font-size: 11.5px; line-height: 1.7; background: #FAF7F2; padding: 10px; border-radius: 6px; border: 1px solid var(--card-border);">
+        <div style="color: var(--text-muted); margin-bottom: 4px;">// Event: flow.update • Target: video_extraction</div>
+        <div style="color: var(--accent-red);">- model_id: "gemini-2.5-pro"</div>
+        <div style="color: var(--accent-green);">+ model_id: "gemini-3.7-flash"</div>
+        <div style="color: var(--text-muted);">  temperature: 0.2 (unchanged)</div>
+        <div style="color: var(--accent-green);">+ fallback_model_id: "gemini-2.5-flash"</div>
+      </div>
+    </div>
+
+    <!-- Business Diff Example -->
+    <div class="drawer-card">
+      <h5>🎓 Chi Tiết Nhật Ký Nghiệp Vụ (Checklist Scoring Audit)</h5>
+      <div style="font-family: var(--font-mono); font-size: 11.5px; line-height: 1.7; background: #FAF7F2; padding: 10px; border-radius: 6px; border: 1px solid var(--card-border);">
+        <div style="color: var(--text-muted); margin-bottom: 4px;">// Target: Tiêu chí 2.3 • Video: VID_TOAN_LOP8_02</div>
+        <div style="color: var(--accent-red);">- score: 3 (Auto AI score)</div>
+        <div style="color: var(--accent-green);">+ score: 4 (Verified by Researcher)</div>
+        <div style="color: var(--accent-green);">+ evidence: "GV đặt câu hỏi gợi mở tại [14:35] thay vì giảng trực tiếp."</div>
+        <div style="color: var(--text-muted);">  status: "verified"</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

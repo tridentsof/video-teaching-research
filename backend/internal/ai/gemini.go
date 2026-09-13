@@ -400,9 +400,18 @@ func (g *GeminiDirectProvider) AnalyzeVideoChunk(ctx context.Context, videoFileP
 		}
 
 		if resp.StatusCode == http.StatusTooManyRequests || (resp.StatusCode >= 500 && resp.StatusCode <= 599) {
-			log.Printf("[Gemini AnalyzeVideo] rate limit or server error %d: %s, retrying in %v...", resp.StatusCode, string(body), backoff)
+			sleepDuration := backoff
+			if resp.StatusCode == http.StatusTooManyRequests {
+				sleepDuration = 16 * time.Second
+			}
+			log.Printf("[Gemini AnalyzeVideo] rate limit or server error %d, retrying in %v...", resp.StatusCode, sleepDuration)
 			if attempt == maxRetries {
 				return "", fmt.Errorf("gemini failed with status %d: %s", resp.StatusCode, string(body))
+			}
+			select {
+			case <-ctx.Done():
+				return "", ctx.Err()
+			case <-time.After(sleepDuration):
 			}
 			continue
 		}

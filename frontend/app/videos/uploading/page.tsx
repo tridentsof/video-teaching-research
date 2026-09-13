@@ -58,15 +58,6 @@ export default function VideoUploadingPage() {
   const [jobs, setJobs] = useState<PipelineJob[]>([]);
   const [cancelling, setCancelling] = useState(false);
 
-  // Live stopwatch counter
-  useEffect(() => {
-    if (!activeUpload || activeUpload.status === 'cancelled' || activeUpload.status === 'error') return;
-    const timer = setInterval(() => {
-      setElapsedSec((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [activeUpload]);
-
   const pollVideoData = useCallback(async () => {
     if (!activeUpload?.videoId) return;
     try {
@@ -263,13 +254,15 @@ export default function VideoUploadingPage() {
     (isError ? 'An unexpected error occurred during video processing.' : '');
 
   // Calculate total completed duration across all finished jobs if available
-  const completedJobs = jobs.filter((j) => j.status === 'completed' && j.started_at && j.finished_at);
+  const completedJobs = jobs.filter((j) => (j.status === 'completed' || j.status === 'skipped') && j.started_at && j.finished_at);
   let totalCompletedDuration = elapsedSec;
   if (completedJobs.length > 0) {
-    const minStart = Math.min(...completedJobs.map((j) => new Date(j.started_at!).getTime()));
-    const maxFinish = Math.max(...completedJobs.map((j) => new Date(j.finished_at!).getTime()));
-    if (maxFinish > minStart) {
-      totalCompletedDuration = Math.round((maxFinish - minStart) / 1000);
+    const sumDuration = completedJobs.reduce((acc, j) => {
+      const dur = (new Date(j.finished_at!).getTime() - new Date(j.started_at!).getTime()) / 1000;
+      return acc + (dur > 0 ? dur : 0);
+    }, 0);
+    if (sumDuration > 0) {
+      totalCompletedDuration = Math.round(sumDuration);
     }
   }
 

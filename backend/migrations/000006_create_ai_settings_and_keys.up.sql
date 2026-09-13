@@ -44,12 +44,15 @@ CREATE TABLE IF NOT EXISTS flow_configs (
 -- ============================================================
 INSERT INTO ai_models (id, provider, display_name, context_tokens, supports_multimodal, supports_reasoning, is_active, sort_order)
 VALUES
-    ('gemini-3.7-flash',  'gemini',     'Google: Gemini 3.7 Flash',                 1048576, TRUE,  TRUE,  TRUE, 1),
-    ('gemini-2.5-flash',  'gemini',     'Google: Gemini 2.5 Flash',                 1048576, TRUE,  FALSE, TRUE, 2),
-    ('gemini-2.5-pro',    'gemini',     'Google: Gemini 2.5 Pro',                   2097152, TRUE,  TRUE,  TRUE, 3),
-    ('claude-3.7-sonnet', 'openrouter', 'Anthropic: Claude 3.7 Sonnet (OpenRouter)', 200000,  FALSE, TRUE,  TRUE, 4),
-    ('gpt-4o',            'openrouter', 'OpenAI: GPT-4o (OpenRouter)',               128000,  FALSE, TRUE,  TRUE, 5),
-    ('deepseek-r1',       'openrouter', 'DeepSeek: R1 (OpenRouter)',                  64000,   FALSE, TRUE,  TRUE, 6)
+    ('gemini-3.7-flash',         'gemini',     'Google: Gemini 3.7 Flash',                 1048576, TRUE,  TRUE,  TRUE, 1),
+    ('gemini-3.6-flash',         'gemini',     'Google: Gemini 3.6 Flash',                 1048576, TRUE,  TRUE,  TRUE, 2),
+    ('gemini-3.5-flash',         'gemini',     'Google: Gemini 3.5 Flash',                 1048576, TRUE,  TRUE,  TRUE, 3),
+    ('gemini-3-flash-preview',   'gemini',     'Google: Gemini 3 Flash Preview',           1048576, TRUE,  TRUE,  TRUE, 4),
+    ('gemini-2.5-flash',         'gemini',     'Google: Gemini 2.5 Flash',                 1048576, TRUE,  FALSE, TRUE, 5),
+    ('gemini-2.5-pro',           'gemini',     'Google: Gemini 2.5 Pro',                   2097152, TRUE,  TRUE,  TRUE, 6),
+    ('claude-3.7-sonnet',        'openrouter', 'Anthropic: Claude 3.7 Sonnet (OpenRouter)', 200000,  FALSE, TRUE,  TRUE, 7),
+    ('gpt-4o',                   'openrouter', 'OpenAI: GPT-4o (OpenRouter)',               128000,  FALSE, TRUE,  TRUE, 8),
+    ('deepseek-r1',              'openrouter', 'DeepSeek: R1 (OpenRouter)',                  64000,   FALSE, TRUE,  TRUE, 9)
 ON CONFLICT (id) DO UPDATE SET
     display_name = EXCLUDED.display_name,
     context_tokens = EXCLUDED.context_tokens,

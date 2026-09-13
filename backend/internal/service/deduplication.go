@@ -115,21 +115,18 @@ func (s *DeduplicationService) MergeAndDeduplicate(ctx context.Context, videoID 
 		return 0, fmt.Errorf("failed to fetch raw events: %w", err)
 	}
 
-	_, duplicates := s.DeduplicateEvents(events)
-
-	for dupID, origID := range duplicates {
-		if err := s.rawEventRepo.MarkDuplicate(ctx, dupID, origID); err != nil {
-			log.Printf("Warning: failed to mark duplicate %s in db: %v", dupID, err)
-		}
+	// Bypass deduplication as requested: preserve 100% extracted events without dropping or marking duplicates
+	if err := s.rawEventRepo.ResetDuplicatesByVideoID(ctx, videoID); err != nil {
+		log.Printf("Warning: failed to reset duplicates in db: %v", err)
 	}
 
 	_ = s.videoRepo.UpdateStatus(ctx, videoID, "review_pending", nil)
 	_ = s.chunkRepo.UpdateJob(ctx, jobID, "completed", nil)
 
-	log.Printf("Deduplication completed for video %s: marked %d duplicate events out of %d total",
-		videoID, len(duplicates), len(events))
+	log.Printf("Bypass deduplication enabled for video %s: preserving all %d raw events without deduplication",
+		videoID, len(events))
 
-	return len(duplicates), nil
+	return 0, nil
 }
 
 // Helper to calculate absolute diff
