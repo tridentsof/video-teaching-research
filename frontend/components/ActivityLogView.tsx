@@ -34,7 +34,11 @@ import {
   Check,
   ArrowRight,
   ExternalLink,
+  Calendar,
+  Filter,
 } from 'lucide-react';
+
+export type TimeRange = 'all' | 'today' | '24h' | '7d' | '30d' | 'custom';
 
 interface ActivityLogViewProps {
   onNavigateTab?: (tabKey: string) => void;
@@ -48,6 +52,9 @@ export const ActivityLogView: React.FC<ActivityLogViewProps> = () => {
   const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<LogCategory | 'all'>('all');
   const [selectedModule, setSelectedModule] = useState<LogModule | 'all'>('all');
+  const [timeRange, setTimeRange] = useState<TimeRange>('all');
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeLogDetail, setActiveLogDetail] = useState<ActivityLogItem | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -92,9 +99,74 @@ export const ActivityLogView: React.FC<ActivityLogViewProps> = () => {
     }
   };
 
-  // Filter logic
-  const filteredLogs = useMemo(() => {
+  // Time Filter logic
+  const timeFilteredLogs = useMemo(() => {
+    if (timeRange === 'all') return logs;
+
+    const now = new Date();
+    let minTime = 0;
+    let maxTime = Infinity;
+
+    if (timeRange === '24h') {
+      minTime = now.getTime() - 24 * 60 * 60 * 1000;
+    } else if (timeRange === 'today') {
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      minTime = todayStart.getTime();
+    } else if (timeRange === '7d') {
+      minTime = now.getTime() - 7 * 24 * 60 * 60 * 1000;
+    } else if (timeRange === '30d') {
+      minTime = now.getTime() - 30 * 24 * 60 * 60 * 1000;
+    } else if (timeRange === 'custom') {
+      if (customStartDate) {
+        const s = new Date(customStartDate);
+        s.setHours(0, 0, 0, 0);
+        minTime = s.getTime();
+      }
+      if (customEndDate) {
+        const e = new Date(customEndDate);
+        e.setHours(23, 59, 59, 999);
+        maxTime = e.getTime();
+      }
+    }
+
     return logs.filter((log) => {
+      const logTime = new Date(log.created_at).getTime();
+      if (isNaN(logTime)) return true;
+      return logTime >= minTime && logTime <= maxTime;
+    });
+  }, [logs, timeRange, customStartDate, customEndDate]);
+
+  // Label for active time range
+  const timeRangeLabel = useMemo(() => {
+    switch (timeRange) {
+      case 'today':
+        return language === 'vi' ? 'Hôm nay' : 'Today';
+      case '24h':
+        return language === 'vi' ? '24 giờ qua' : 'Last 24h';
+      case '7d':
+        return language === 'vi' ? '7 ngày qua' : 'Last 7 days';
+      case '30d':
+        return language === 'vi' ? '30 ngày qua' : 'Last 30 days';
+      case 'custom':
+        if (customStartDate && customEndDate) {
+          return `${customStartDate} → ${customEndDate}`;
+        }
+        if (customStartDate) {
+          return `Từ ${customStartDate}`;
+        }
+        if (customEndDate) {
+          return `Đến ${customEndDate}`;
+        }
+        return language === 'vi' ? 'Khoảng tùy chọn' : 'Custom range';
+      case 'all':
+      default:
+        return language === 'vi' ? 'Toàn thời gian' : 'All time';
+    }
+  }, [timeRange, customStartDate, customEndDate, language]);
+
+  // Category & Module Filter logic
+  const filteredLogs = useMemo(() => {
+    return timeFilteredLogs.filter((log) => {
       if (selectedCategory !== 'all' && log.category !== selectedCategory) {
         return false;
       }
@@ -114,17 +186,17 @@ export const ActivityLogView: React.FC<ActivityLogViewProps> = () => {
       }
       return true;
     });
-  }, [logs, selectedCategory, selectedModule, searchQuery]);
+  }, [timeFilteredLogs, selectedCategory, selectedModule, searchQuery]);
 
-  // Statistics calculation
+  // Statistics calculation for the active time range
   const stats = useMemo(() => {
-    const total = logs.length;
-    const businessCount = logs.filter((l) => l.category === 'business').length;
-    const adminCount = logs.filter((l) => l.category === 'admin').length;
-    const successCount = logs.filter((l) => l.status === 'success').length;
+    const total = timeFilteredLogs.length;
+    const businessCount = timeFilteredLogs.filter((l) => l.category === 'business').length;
+    const adminCount = timeFilteredLogs.filter((l) => l.category === 'admin').length;
+    const successCount = timeFilteredLogs.filter((l) => l.status === 'success').length;
     const rate = total > 0 ? ((successCount / total) * 100).toFixed(1) : '100';
     return { total, businessCount, adminCount, rate };
-  }, [logs]);
+  }, [timeFilteredLogs]);
 
   // Format relative timestamp
   const formatTime = (iso: string) => {
@@ -218,7 +290,7 @@ export const ActivityLogView: React.FC<ActivityLogViewProps> = () => {
         <div style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: '12px', padding: '16px 18px', boxShadow: 'var(--shadow-sm)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text-muted)' }}>
-              {language === 'vi' ? 'Tổng Thao Tác (24h)' : 'Total Events (24h)'}
+              {language === 'vi' ? `Tổng Thao Tác (${timeRangeLabel})` : `Total Events (${timeRangeLabel})`}
             </span>
             <History size={16} color="var(--text-muted)" />
           </div>
@@ -343,11 +415,137 @@ export const ActivityLogView: React.FC<ActivityLogViewProps> = () => {
             </button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
-            <Clock size={13} />
-            <span>{language === 'vi' ? 'Thời gian: 24 giờ qua' : 'Time range: Last 24 hours'}</span>
+          {/* Time Range Filter Pills */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', backgroundColor: 'var(--bg)', border: '1px solid var(--card-border)', padding: '3px', borderRadius: '8px' }}>
+              {(
+                [
+                  { key: 'all', vi: 'Tất cả', en: 'All' },
+                  { key: 'today', vi: 'Hôm nay', en: 'Today' },
+                  { key: '24h', vi: '24h qua', en: '24h' },
+                  { key: '7d', vi: '7 ngày', en: '7d' },
+                  { key: '30d', vi: '30 ngày', en: '30d' },
+                  { key: 'custom', vi: 'Tùy chọn', en: 'Custom', icon: Calendar },
+                ] as const
+              ).map((item) => {
+                const isActive = timeRange === item.key;
+                const Icon = 'icon' in item ? item.icon : null;
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => setTimeRange(item.key)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '5px 11px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: isActive ? 600 : 500,
+                      border: 'none',
+                      cursor: 'pointer',
+                      backgroundColor: isActive ? '#FFF' : 'transparent',
+                      color: isActive ? 'var(--accent)' : 'var(--text-muted)',
+                      boxShadow: isActive ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    {Icon && <Icon size={12} />}
+                    <span>{language === 'vi' ? item.vi : item.en}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
+
+        {/* Custom Date Range Picker Subbar */}
+        {timeRange === 'custom' && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              backgroundColor: 'var(--bg)',
+              border: '1px dashed var(--card-border)',
+              borderRadius: '8px',
+              padding: '8px 14px',
+              flexWrap: 'wrap',
+              fontSize: '12.5px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent)', fontWeight: 600 }}>
+              <Calendar size={14} />
+              <span>{language === 'vi' ? 'Chọn mốc thời gian:' : 'Select date range:'}</span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{language === 'vi' ? 'Từ ngày:' : 'From:'}</span>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                style={{
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--card-border)',
+                  backgroundColor: '#FFF',
+                  fontSize: '12px',
+                  fontFamily: 'var(--font-mono)',
+                  color: 'var(--text-main)',
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              />
+            </div>
+
+            <span style={{ color: 'var(--text-subtle)' }}>→</span>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{language === 'vi' ? 'Đến ngày:' : 'To:'}</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                style={{
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--card-border)',
+                  backgroundColor: '#FFF',
+                  fontSize: '12px',
+                  fontFamily: 'var(--font-mono)',
+                  color: 'var(--text-main)',
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              />
+            </div>
+
+            {(customStartDate || customEndDate) && (
+              <button
+                onClick={() => {
+                  setCustomStartDate('');
+                  setCustomEndDate('');
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  color: 'var(--accent)',
+                  fontSize: '11.5px',
+                  fontWeight: 600,
+                  padding: '2px 6px',
+                }}
+              >
+                <X size={12} />
+                <span>{language === 'vi' ? 'Xóa lọc ngày' : 'Reset dates'}</span>
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Lower Toolbar: Search & Module Chips */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
