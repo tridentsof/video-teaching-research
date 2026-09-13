@@ -371,3 +371,22 @@ type TelegramSubscriber struct {
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
+
+// ActivityLog represents an audit and activity record across admin and business operations.
+type ActivityLog struct {
+	ID            string                 `json:"id" db:"id"`
+	Category      string                 `json:"category" db:"category"` // 'business' or 'admin'
+	Module        string                 `json:"module" db:"module"`     // 'video_pipeline', 'checklist', 'codebook', 'ai_routing', etc.
+	Action        string                 `json:"action" db:"action"`     // 'pipeline_start', 'upload', etc.
+	TargetID      string                 `json:"target_id,omitempty" db:"target_id"`
+	TargetTitle   string                 `json:"target_title,omitempty" db:"target_title"`
+	ActorUsername string                 `json:"actor_username" db:"actor_username"`
+	ActorRole     string                 `json:"actor_role,omitempty" db:"actor_role"`
+	ClientIP      string                 `json:"client_ip,omitempty" db:"client_ip"`
+	Summary       string                 `json:"summary" db:"summary"`
+	Status        string                 `json:"status" db:"status"` // 'success', 'failed', 'warning'
+	DiffJSON      string                 `json:"diff,omitempty" db:"diff_json"`
+	MetadataJSON  string                 `json:"metadata,omitempty" db:"metadata_json"`
+	CreatedAt     time.Time              `json:"created_at" db:"created_at"`
+}
+

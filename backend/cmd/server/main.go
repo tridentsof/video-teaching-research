@@ -54,6 +54,7 @@ func main() {
 	var analysisHandler *handler.AnalysisHandler
 	var codebookHandler *handler.CodebookHandler
 	var settingsHandler *handler.SettingsHandler
+	var activityLogHandler *handler.ActivityLogHandler
 
 	// Initialize Blob Storage (Azure if credentials set, else Local fallback)
 	var blobStorage service.BlobStorage
@@ -149,6 +150,18 @@ func main() {
 			telegramBotSvc := service.NewTelegramBotService(cfg.TelegramBotToken, telegramSubscriberRepo, cfg.AppBaseURL)
 			go telegramBotSvc.Start(context.Background())
 		}
+
+		// Activity Log Repository & Service
+		activityLogRepo := repository.NewActivityLogRepository(db)
+		if err := activityLogRepo.EnsureTable(context.Background()); err != nil {
+			log.Printf("[ActivityLog] Warning: Failed to ensure activity_logs table: %v", err)
+		}
+		activityLogSvc := service.NewActivityLogService(activityLogRepo)
+		activityLogHandler = handler.NewActivityLogHandler(activityLogSvc)
+
+		orchestrator.SetActivityLogger(activityLogSvc)
+		videoHandler.SetActivityLogService(activityLogSvc)
+		settingsHandler.SetTelegramNotifier(telegramNotifier)
 
 		pipelineHandler = handler.NewPipelineHandler(orchestrator, rawEventRepo)
 		reportHandler = handler.NewReportHandler(reportSvc)
@@ -272,6 +285,15 @@ func main() {
 				}
 
 
+				// Activity & Audit Log routes
+				if activityLogHandler != nil {
+					activityLogs := protected.Group("/activity-logs")
+					{
+						activityLogs.GET("", activityLogHandler.List)
+						activityLogs.POST("", activityLogHandler.Create)
+					}
+				}
+
 				// AI Settings & Key Router routes
 				if settingsHandler != nil {
 					settings := protected.Group("/settings")
@@ -287,6 +309,8 @@ func main() {
 						settings.POST("/models", settingsHandler.CreateModel)
 						settings.PUT("/models/*id", settingsHandler.UpdateModel)
 						settings.DELETE("/models/*id", settingsHandler.DeleteModel)
+						settings.GET("/telegram/status", settingsHandler.GetTelegramStatus)
+						settings.POST("/telegram/test", settingsHandler.SendTelegramTest)
 					}
 				}
 			}

@@ -224,9 +224,85 @@ func (n *DefaultTelegramNotifier) sendMessage(ctx context.Context, htmlMsg, even
 		if n.chatID != "" {
 			return n.sendViaBotAPI(ctx, n.botToken, n.chatID, htmlMsg)
 		}
+
+		log.Printf("[Telegram] Notification skipped: Bot token is configured, but no subscribers found in database and TELEGRAM_CHAT_ID is empty. Send /subscribe to @tesol_video_teaching_bot or configure TELEGRAM_CHAT_ID in .env.")
 	}
 
 	return nil
+}
+
+// SendTestMessage sends a test notification to all active subscribers or static chat ID.
+func (n *DefaultTelegramNotifier) SendTestMessage(ctx context.Context, customMsg string) (int, error) {
+	if !n.IsEnabled() {
+		return 0, fmt.Errorf("telegram notification is disabled: no bot token or webhook configured")
+	}
+
+	if customMsg == "" {
+		customMsg = "🔔 <b>Thông báo thử nghiệm từ hệ thống Video Teaching Research!</b>\n\nKết nối Telegram Bot hoạt động bình thường ✅. Bạn sẽ nhận được thông báo tự động khi quá trình phân tích video hoàn tất."
+	}
+
+	if n.webhookURL != "" {
+		dummyVideo := &model.Video{Title: "Video Kiểm Thử"}
+		err := n.sendViaWebhook(ctx, customMsg, "test_notification", dummyVideo, n.appBaseURL)
+		if err != nil {
+			return 0, err
+		}
+		return 1, nil
+	}
+
+	if n.botToken != "" {
+		sentCount := 0
+		var lastErr error
+		if n.subscriberRepo != nil {
+			subs, err := n.subscriberRepo.ListActiveSubscribers(ctx)
+			if err == nil && len(subs) > 0 {
+				for _, sub := range subs {
+					if sendErr := n.sendViaBotAPI(ctx, n.botToken, fmt.Sprintf("%d", sub.ChatID), customMsg); sendErr != nil {
+						lastErr = sendErr
+					} else {
+						sentCount++
+					}
+				}
+				if sentCount > 0 {
+					return sentCount, nil
+				}
+				if lastErr != nil {
+					return 0, lastErr
+				}
+			}
+		}
+
+		if n.chatID != "" {
+			if err := n.sendViaBotAPI(ctx, n.botToken, n.chatID, customMsg); err != nil {
+				return 0, err
+			}
+			return 1, nil
+		}
+
+		return 0, fmt.Errorf("chưa có người đăng ký nào nhận tin (0 subscribers) và TELEGRAM_CHAT_ID chưa được cấu hình. Vui lòng mở Telegram tìm @tesol_video_teaching_bot và gửi /subscribe trước")
+	}
+
+	return 0, fmt.Errorf("không có cấu hình bot token")
+}
+
+// GetStatus returns the current status of Telegram integration.
+func (n *DefaultTelegramNotifier) GetStatus(ctx context.Context) (map[string]any, error) {
+	subCount := 0
+	if n.subscriberRepo != nil {
+		c, err := n.subscriberRepo.CountActive(ctx)
+		if err == nil {
+			subCount = c
+		}
+	}
+
+	return map[string]any{
+		"is_enabled":         n.IsEnabled(),
+		"has_bot_token":      n.botToken != "",
+		"has_webhook_url":    n.webhookURL != "",
+		"has_static_chat_id": n.chatID != "",
+		"active_subscribers": subCount,
+		"bot_username":       "tesol_video_teaching_bot",
+	}, nil
 }
 
 // sendViaWebhook delivers the message to the configured webhook URL.

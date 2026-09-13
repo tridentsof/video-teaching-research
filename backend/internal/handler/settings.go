@@ -12,12 +12,18 @@ import (
 
 // SettingsHandler handles HTTP endpoints for AI routing and API key management.
 type SettingsHandler struct {
-	routerSvc *service.AIRouterService
+	routerSvc        *service.AIRouterService
+	telegramNotifier *service.DefaultTelegramNotifier
 }
 
 // NewSettingsHandler creates a new SettingsHandler.
 func NewSettingsHandler(routerSvc *service.AIRouterService) *SettingsHandler {
 	return &SettingsHandler{routerSvc: routerSvc}
+}
+
+// SetTelegramNotifier sets the telegram notifier for testing and status inspection.
+func (h *SettingsHandler) SetTelegramNotifier(notifier *service.DefaultTelegramNotifier) {
+	h.telegramNotifier = notifier
 }
 
 // GetAIFlows returns the complete configuration of flows, available models, and saved keys.
@@ -210,5 +216,55 @@ func (h *SettingsHandler) DeleteModel(c *gin.Context) {
 	}
 
 	RespondSuccess(c, gin.H{"status": "deleted", "id": id})
+}
+
+// GetTelegramStatus returns current bot and subscriber information.
+// GET /api/settings/telegram/status
+func (h *SettingsHandler) GetTelegramStatus(c *gin.Context) {
+	if h.telegramNotifier == nil {
+		RespondSuccess(c, gin.H{
+			"is_enabled":         false,
+			"has_bot_token":      false,
+			"active_subscribers": 0,
+			"bot_username":       "tesol_video_teaching_bot",
+		})
+		return
+	}
+
+	st, err := h.telegramNotifier.GetStatus(c.Request.Context())
+	if err != nil {
+		RespondError(c, http.StatusInternalServerError, "failed to get telegram status: "+err.Error())
+		return
+	}
+	RespondSuccess(c, st)
+}
+
+// SendTelegramTestRequest is payload for sending a test message.
+type SendTelegramTestRequest struct {
+	Message string `json:"message"`
+}
+
+// SendTelegramTest dispatches a test notification message.
+// POST /api/settings/telegram/test
+func (h *SettingsHandler) SendTelegramTest(c *gin.Context) {
+	if h.telegramNotifier == nil || !h.telegramNotifier.IsEnabled() {
+		RespondError(c, http.StatusBadRequest, "Telegram bot chưa được kích hoạt hoặc chưa cấu hình token")
+		return
+	}
+
+	var req SendTelegramTestRequest
+	_ = c.ShouldBindJSON(&req)
+
+	count, err := h.telegramNotifier.SendTestMessage(c.Request.Context(), req.Message)
+	if err != nil {
+		RespondError(c, http.StatusBadRequest, "Lỗi gửi thông báo Telegram: "+err.Error())
+		return
+	}
+
+	RespondSuccess(c, gin.H{
+		"status":      "sent",
+		"recipients": count,
+		"message":    "Đã gửi tin nhắn test thành công tới Telegram!",
+	})
 }
 

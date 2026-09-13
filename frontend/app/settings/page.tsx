@@ -29,6 +29,8 @@ import {
   AlertCircle,
   ExternalLink,
   Sliders,
+  Send,
+  Bell,
 } from 'lucide-react';
 import { ActivityLogView } from '@/components/ActivityLogView';
 import { activityLogService } from '@/lib/activityLog';
@@ -153,6 +155,17 @@ export default function SettingsPage() {
   const [modelFormIsActive, setModelFormIsActive] = useState(true);
   const [savingModel, setSavingModel] = useState(false);
 
+  // Telegram Status & Test State
+  const [telegramStatus, setTelegramStatus] = useState<{
+    is_enabled: boolean;
+    has_bot_token: boolean;
+    has_webhook_url: boolean;
+    has_static_chat_id: boolean;
+    active_subscribers: number;
+    bot_username: string;
+  } | null>(null);
+  const [sendingTelegramTest, setSendingTelegramTest] = useState(false);
+
   // Load Settings
   const fetchSettings = async () => {
     try {
@@ -177,8 +190,31 @@ export default function SettingsPage() {
     }
   };
 
+  const fetchTelegramStatus = async () => {
+    try {
+      const st = await api.getTelegramStatus();
+      setTelegramStatus(st);
+    } catch (err) {
+      console.warn('Failed to load telegram status', err);
+    }
+  };
+
+  const handleSendTelegramTest = async () => {
+    try {
+      setSendingTelegramTest(true);
+      const res = await api.sendTelegramTest();
+      toast.success(res.message || (language === 'vi' ? 'Đã gửi thông báo thử nghiệm thành công!' : 'Test notification sent successfully!'));
+      fetchTelegramStatus();
+    } catch (err: any) {
+      toast.error(err?.message || (language === 'vi' ? 'Không thể gửi tin nhắn thử nghiệm' : 'Failed to send test notification'));
+    } finally {
+      setSendingTelegramTest(false);
+    }
+  };
+
   useEffect(() => {
     fetchSettings();
+    fetchTelegramStatus();
   }, []);
 
   const currentFlow = flowState[selectedFlowKey] || {
@@ -838,6 +874,115 @@ export default function SettingsPage() {
               Using environment fallback credentials (.env)
             </span>
           )}
+        </div>
+      </div>
+
+      {/* Telegram Notification Infrastructure Card */}
+      <div style={{
+        backgroundColor: 'var(--card-bg)',
+        border: '1px solid var(--card-border)',
+        borderRadius: '12px',
+        padding: '16px 20px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '16px',
+        boxShadow: 'var(--shadow-sm)',
+      }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '680px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Bell size={13} color="var(--accent)" />
+              {language === 'vi' ? 'Hạ Tầng Thông Báo Telegram • Pipeline Alerts' : 'Telegram Notification Infrastructure • Pipeline Alerts'}
+            </span>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '2px 8px',
+              borderRadius: '999px',
+              fontSize: '11px',
+              fontWeight: 600,
+              backgroundColor: telegramStatus?.is_enabled ? 'rgba(34, 197, 94, 0.1)' : 'rgba(156, 163, 175, 0.1)',
+              color: telegramStatus?.is_enabled ? '#16A34A' : 'var(--text-muted)',
+              border: telegramStatus?.is_enabled ? '1px solid rgba(34, 197, 94, 0.25)' : '1px solid var(--card-border)',
+            }}>
+              <span style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                backgroundColor: telegramStatus?.is_enabled ? '#16A34A' : '#9CA3AF',
+                boxShadow: telegramStatus?.is_enabled ? '0 0 6px #16A34A' : 'none',
+              }} />
+              <span>{telegramStatus?.is_enabled ? (language === 'vi' ? 'Sẵn sàng (Bot Polling)' : 'Active (Bot Polling)') : (language === 'vi' ? 'Chưa cấu hình' : 'Disabled')}</span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginTop: '2px' }}>
+            <a
+              href={`https://t.me/${telegramStatus?.bot_username || 'tesol_video_teaching_bot'}`}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                fontSize: '13px',
+                fontWeight: 600,
+                color: 'var(--accent)',
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              <span>@{telegramStatus?.bot_username || 'tesol_video_teaching_bot'}</span>
+              <ExternalLink size={13} />
+            </a>
+
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              {language === 'vi'
+                ? 'Thành viên mở bot gõ /subscribe (hoặc /start) để tự động nhận tin khi video phân tích xong.'
+                : 'Team members open bot and send /subscribe (or /start) to receive pipeline completion alerts.'}
+            </span>
+          </div>
+        </div>
+
+        {/* Telegram Actions & Subscribers Counter */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 12px',
+            borderRadius: '8px',
+            fontSize: '12.5px',
+            fontWeight: 600,
+            backgroundColor: 'var(--bg)',
+            border: '1px solid var(--card-border)',
+          }}>
+            <CheckCircle2 size={15} color="var(--accent-green)" />
+            <span>
+              {telegramStatus?.active_subscribers ?? 0} {language === 'vi' ? 'người nhận đã đăng ký' : 'active subscriber(s)'}
+            </span>
+          </div>
+
+          <button
+            onClick={handleSendTelegramTest}
+            disabled={sendingTelegramTest || !telegramStatus?.is_enabled}
+            className="btn btn-outline"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '12.5px',
+              fontWeight: 600,
+              padding: '7px 14px',
+              borderRadius: '8px',
+              opacity: (!telegramStatus?.is_enabled || sendingTelegramTest) ? 0.6 : 1,
+            }}
+          >
+            <Send size={13} className={sendingTelegramTest ? 'animate-spin' : ''} />
+            <span>{sendingTelegramTest ? (language === 'vi' ? 'Đang gửi...' : 'Sending...') : (language === 'vi' ? 'Gửi thông báo test' : 'Send Test Alert')}</span>
+          </button>
         </div>
       </div>
 

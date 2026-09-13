@@ -45,16 +45,32 @@ export const ActivityLogView: React.FC<ActivityLogViewProps> = () => {
   const toast = useToast();
 
   const [logs, setLogs] = useState<ActivityLogItem[]>(() => activityLogService.getLogs());
+  const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<LogCategory | 'all'>('all');
   const [selectedModule, setSelectedModule] = useState<LogModule | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeLogDetail, setActiveLogDetail] = useState<ActivityLogItem | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const handleRefresh = () => {
-    const updated = activityLogService.getLogs();
-    setLogs(updated);
-    toast.success(language === 'vi' ? 'Đã làm mới nhật ký hoạt động' : 'Activity logs refreshed');
+  const loadLogs = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const live = await activityLogService.fetchLogs(selectedCategory, selectedModule);
+      setLogs(live);
+    } catch {
+      setLogs(activityLogService.getLogs());
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedCategory, selectedModule]);
+
+  React.useEffect(() => {
+    loadLogs();
+  }, [loadLogs]);
+
+  const handleRefresh = async () => {
+    await loadLogs();
+    toast.success(language === 'vi' ? 'Đã làm mới nhật ký từ cơ sở dữ liệu' : 'Activity logs refreshed from database');
   };
 
   const handleExportCSV = () => {
@@ -187,11 +203,12 @@ export const ActivityLogView: React.FC<ActivityLogViewProps> = () => {
           </button>
           <button
             onClick={handleRefresh}
+            disabled={loading}
             className="btn btn-primary"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', padding: '8px 16px', borderRadius: '8px' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', padding: '8px 16px', borderRadius: '8px', opacity: loading ? 0.7 : 1 }}
           >
-            <RefreshCw size={14} />
-            <span>{language === 'vi' ? 'Làm mới' : 'Refresh'}</span>
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <span>{loading ? (language === 'vi' ? 'Đang tải...' : 'Loading...') : (language === 'vi' ? 'Làm mới' : 'Refresh')}</span>
           </button>
         </div>
       </div>

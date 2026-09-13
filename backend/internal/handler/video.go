@@ -14,12 +14,18 @@ import (
 
 // VideoHandler handles HTTP requests for video management.
 type VideoHandler struct {
-	svc *service.VideoService
+	svc            *service.VideoService
+	activityLogSvc *service.ActivityLogService
 }
 
 // NewVideoHandler creates a new VideoHandler.
 func NewVideoHandler(svc *service.VideoService) *VideoHandler {
 	return &VideoHandler{svc: svc}
+}
+
+// SetActivityLogService attaches the activity logger.
+func (h *VideoHandler) SetActivityLogService(logSvc *service.ActivityLogService) {
+	h.activityLogSvc = logSvc
 }
 
 // Upload handles multipart video file uploads.
@@ -77,6 +83,26 @@ func (h *VideoHandler) Upload(c *gin.Context) {
 	}
 
 	log.Printf("[VideoHandler.Upload] Video uploaded successfully: id=%s, blob_url=%v", video.ID, video.BlobURL)
+	if h.activityLogSvc != nil {
+		username := c.GetString("username")
+		if username == "" {
+			username = "researcher"
+		}
+		h.activityLogSvc.RecordAsync(
+			"business",
+			"video_pipeline",
+			"upload",
+			video.ID.String(),
+			video.Title,
+			username,
+			"researcher",
+			c.ClientIP(),
+			"Tải lên video mới: "+video.Title,
+			"success",
+			nil,
+			map[string]any{"teacher_id": video.TeacherID, "video_id": video.ID.String()},
+		)
+	}
 	RespondCreated(c, video)
 }
 
@@ -176,6 +202,27 @@ func (h *VideoHandler) Delete(c *gin.Context) {
 		return
 	}
 
+	if h.activityLogSvc != nil {
+		username := c.GetString("username")
+		if username == "" {
+			username = "researcher"
+		}
+		h.activityLogSvc.RecordAsync(
+			"business",
+			"video_pipeline",
+			"delete",
+			id.String(),
+			id.String(),
+			username,
+			"researcher",
+			c.ClientIP(),
+			"Xóa video: "+id.String(),
+			"success",
+			nil,
+			nil,
+		)
+	}
+
 	c.JSON(http.StatusNoContent, nil)
 }
 
@@ -213,6 +260,27 @@ func (h *VideoHandler) BulkDelete(c *gin.Context) {
 		} else {
 			deleted = append(deleted, idStr)
 		}
+	}
+
+	if h.activityLogSvc != nil && len(deleted) > 0 {
+		username := c.GetString("username")
+		if username == "" {
+			username = "researcher"
+		}
+		h.activityLogSvc.RecordAsync(
+			"business",
+			"video_pipeline",
+			"bulk_delete",
+			"",
+			"",
+			username,
+			"researcher",
+			c.ClientIP(),
+			strings.TrimSpace(strconv.Itoa(len(deleted))+" video đã được xóa đồng loạt"),
+			"success",
+			nil,
+			map[string]any{"deleted_ids": deleted, "failed_count": len(failed)},
+		)
 	}
 
 	RespondSuccess(c, gin.H{

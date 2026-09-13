@@ -30,6 +30,7 @@ type PipelineOrchestrator struct {
 	reportRepo    *repository.ReportRepository
 	cancelFuncs      map[uuid.UUID]context.CancelFunc
 	telegramNotifier TelegramNotifier
+	activityLogger   *ActivityLogService
 	mu               sync.Mutex
 }
 
@@ -68,6 +69,11 @@ func NewPipelineOrchestrator(
 // SetTelegramNotifier sets the telegram notifier for the orchestrator.
 func (p *PipelineOrchestrator) SetTelegramNotifier(notifier TelegramNotifier) {
 	p.telegramNotifier = notifier
+}
+
+// SetActivityLogger sets the activity logger for the orchestrator.
+func (p *PipelineOrchestrator) SetActivityLogger(logger *ActivityLogService) {
+	p.activityLogger = logger
 }
 
 // PipelineStatusSummary represents the aggregated progress of a video pipeline.
@@ -189,6 +195,23 @@ func (p *PipelineOrchestrator) TriggerPipeline(videoID uuid.UUID, checklistID *u
 		CreatedAt: now,
 	})
 
+	if p.activityLogger != nil {
+		p.activityLogger.RecordAsync(
+			"business",
+			"video_pipeline",
+			"pipeline_start",
+			videoID.String(),
+			video.Title,
+			"researcher",
+			"researcher",
+			"",
+			fmt.Sprintf("Khởi chạy phân tích video: %s (chế độ: %s)", video.Title, mode),
+			"success",
+			nil,
+			map[string]any{"mode": mode, "video_id": videoID.String()},
+		)
+	}
+
 	// Launch async pipeline
 	go func() {
 		defer func() {
@@ -202,6 +225,22 @@ func (p *PipelineOrchestrator) TriggerPipeline(videoID uuid.UUID, checklistID *u
 				log.Printf("Pipeline canceled for video %s", videoID)
 				_ = p.videoRepo.UpdateStatus(context.Background(), videoID, "cancelled", nil)
 				_ = p.chunkRepo.CancelRunningJobs(context.Background(), videoID)
+				if p.activityLogger != nil {
+					p.activityLogger.RecordAsync(
+						"business",
+						"video_pipeline",
+						"pipeline_cancelled",
+						videoID.String(),
+						video.Title,
+						"researcher",
+						"researcher",
+						"",
+						fmt.Sprintf("Hủy quá trình phân tích video: %s", video.Title),
+						"warning",
+						nil,
+						nil,
+					)
+				}
 				return
 			}
 			log.Printf("Pipeline error for video %s: %v", videoID, err)
@@ -225,6 +264,27 @@ func (p *PipelineOrchestrator) TriggerPipeline(videoID uuid.UUID, checklistID *u
 				failedStep = &s
 			}
 			_ = p.videoRepo.UpdateStatusWithError(context.Background(), videoID, "failed", failedStep, &errMsg, nil)
+
+			if p.activityLogger != nil {
+				failedStepDisplay := "general"
+				if failedStep != nil {
+					failedStepDisplay = *failedStep
+				}
+				p.activityLogger.RecordAsync(
+					"business",
+					"video_pipeline",
+					"pipeline_failed",
+					videoID.String(),
+					video.Title,
+					"researcher",
+					"researcher",
+					"",
+					fmt.Sprintf("Phân tích video thất bại tại bước [%s]: %s", failedStepDisplay, errMsg),
+					"failed",
+					nil,
+					map[string]any{"step": failedStepDisplay, "error": errMsg},
+				)
+			}
 
 			if p.telegramNotifier != nil && p.telegramNotifier.IsEnabled() {
 				failedStepStr := ""
@@ -447,27 +507,54 @@ func (p *PipelineOrchestrator) runPipeline(ctx context.Context, videoID uuid.UUI
 
 	log.Printf("[Video %s] Pipeline COMPLETE!", videoID)
 
-	if p.telegramNotifier != nil && p.telegramNotifier.IsEnabled() {
-		totalEvents := 0
-		if events, err := p.rawEventRepo.ListByVideoID(ctx, videoID, false); err == nil {
-			totalEvents = len(events)
-		}
-		totalMapped := 0
-		if mappings, err := p.mappingRepo.ListDetailsByVideoID(ctx, videoID); err == nil {
-			totalMapped = len(mappings)
-		}
-		hasReport := false
-		if rep, err := p.reportRepo.GetByVideoID(ctx, videoID); err == nil && rep != nil {
-			hasReport = true
-		}
-		hasCodebook := false
-		if p.codebookSvc != nil {
-			if cb, err := p.codebookSvc.GetByVideoID(ctx, videoID); err == nil && len(cb) > 0 {
-				hasCodebook = true
-			}
-		}
+	videoObj, _ := p.videoRepo.GetByID(ctx, videoID)
+	videoTitle := "Video"
+	if videoObj != nil && videoObj.Title != "" {
+		videoTitle = videoObj.Title
+	}
 
-		videoObj, _ := p.videoRepo.GetByID(ctx, videoID)
+	totalEvents := 0
+	if events, err := p.rawEventRepo.ListByVideoID(ctx, videoID, false); err == nil {
+		totalEvents = len(events)
+	}
+	totalMapped := 0
+	if mappings, err := p.mappingRepo.ListDetailsByVideoID(ctx, videoID); err == nil {
+		totalMapped = len(mappings)
+	}
+	hasReport := false
+	if rep, err := p.reportRepo.GetByVideoID(ctx, videoID); err == nil && rep != nil {
+		hasReport = true
+	}
+	hasCodebook := false
+	if p.codebookSvc != nil {
+		if cb, err := p.codebookSvc.GetByVideoID(ctx, videoID); err == nil && len(cb) > 0 {
+			hasCodebook = true
+		}
+	}
+
+	if p.activityLogger != nil {
+		p.activityLogger.RecordAsync(
+			"business",
+			"video_pipeline",
+			"pipeline_completed",
+			videoID.String(),
+			videoTitle,
+			"researcher",
+			"researcher",
+			"",
+			fmt.Sprintf("Hoàn tất phân tích video: %s (trích xuất %d sự kiện, map %d tiêu chí)", videoTitle, totalEvents, totalMapped),
+			"success",
+			nil,
+			map[string]any{
+				"total_events": totalEvents,
+				"total_mapped": totalMapped,
+				"has_report":   hasReport,
+				"has_codebook": hasCodebook,
+			},
+		)
+	}
+
+	if p.telegramNotifier != nil && p.telegramNotifier.IsEnabled() {
 		if videoObj != nil {
 			stats := &PipelineNotificationStats{
 				TotalEvents: totalEvents,

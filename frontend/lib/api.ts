@@ -607,6 +607,53 @@ export const api = {
     });
   },
 
+  // Activity Logs
+  async getActivityLogs(params?: { category?: string; module?: string; limit?: number; offset?: number }): Promise<{ logs: any[]; total: number }> {
+    const query = new URLSearchParams();
+    if (params?.category && params.category !== 'all') query.set('category', params.category);
+    if (params?.module && params.module !== 'all') query.set('module', params.module);
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.offset) query.set('offset', String(params.offset));
+    const qs = query.toString();
+    return request<{ logs: any[]; total: number }>(`/activity-logs${qs ? `?${qs}` : ''}`);
+  },
+
+  async createActivityLog(logData: {
+    category: string;
+    module: string;
+    action: string;
+    target_id?: string;
+    target_title?: string;
+    summary: string;
+    status?: string;
+    diff?: any;
+    metadata?: any;
+  }): Promise<{ status: string }> {
+    return request<{ status: string }>('/activity-logs', {
+      method: 'POST',
+      body: JSON.stringify(logData),
+    });
+  },
+
+  // Telegram Settings & Test
+  async getTelegramStatus(): Promise<{
+    is_enabled: boolean;
+    has_bot_token: boolean;
+    has_webhook_url: boolean;
+    has_static_chat_id: boolean;
+    active_subscribers: number;
+    bot_username: string;
+  }> {
+    return request('/settings/telegram/status');
+  },
+
+  async sendTelegramTest(message?: string): Promise<{ status: string; recipients: number; message: string }> {
+    return request('/settings/telegram/test', {
+      method: 'POST',
+      body: JSON.stringify({ message: message || '' }),
+    });
+  },
+
   getToken(): string | null {
     if (typeof window === 'undefined') return null;
     return localStorage.getItem('vtr_token');
