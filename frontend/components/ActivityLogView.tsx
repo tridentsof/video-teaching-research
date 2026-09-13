@@ -483,7 +483,25 @@ export const ActivityLogView: React.FC<ActivityLogViewProps> = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredLogs.length === 0 ? (
+              {logs.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ padding: '64px 20px', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <History size={24} color="var(--accent)" />
+                      </div>
+                      <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-main)' }}>
+                        {language === 'vi' ? 'Chưa có nhật ký hoạt động nào' : 'No activity records yet'}
+                      </span>
+                      <p style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '480px', margin: '0 auto', lineHeight: 1.6 }}>
+                        {language === 'vi'
+                          ? 'Dữ liệu mock đã được gỡ bỏ. Tất cả các thao tác thay đổi cấu hình AI Studio, quản lý khóa API Key và tác vụ phân tích video thực tế sẽ được tự động ghi nhận tại đây.'
+                          : 'Mock data removed. Real modifications to AI Studio routing, API Key operations, and video analysis runs will be automatically audited here.'}
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredLogs.length === 0 ? (
                 <tr>
                   <td colSpan={6} style={{ padding: '48px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>

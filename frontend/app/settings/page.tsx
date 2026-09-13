@@ -129,7 +129,7 @@ export default function SettingsPage() {
   const [flowState, setFlowState] = useState<Record<string, { model_id: string; api_key_id?: string; temperature: number; fallback_model_id?: string }>>({});
   const [selectedFlowKey, setSelectedFlowKey] = useState<string>('video_extraction');
   const [activePreset, setActivePreset] = useState<string>('custom');
-  const [activeAdminTab, setActiveAdminTab] = useState<'ai_routing' | 'activity_log' | 'key_vault'>('ai_routing');
+  const [activeAdminTab, setActiveAdminTab] = useState<'admin_center' | 'activity_log'>('admin_center');
 
   // Key Modal State
   const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
@@ -660,15 +660,11 @@ export default function SettingsPage() {
           <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '34px', fontWeight: 500, color: 'var(--accent)', marginBottom: '4px' }}>
             {activeAdminTab === 'activity_log'
               ? t('tabActivityLog')
-              : activeAdminTab === 'key_vault'
-              ? t('tabKeyVault')
-              : t('aiStudioTitle')}
+              : t('tabAdminCenter')}
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
             {activeAdminTab === 'activity_log'
               ? (language === 'vi' ? 'Theo dõi biến động cấu hình hệ thống AI Studio và dấu vết can thiệp phân tích sư phạm' : 'Audit trail tracking both AI Studio configuration adjustments and pedagogical research operations')
-              : activeAdminTab === 'key_vault'
-              ? (language === 'vi' ? 'Quản lý két an toàn API Key và danh mục mô hình AI kích hoạt' : 'Secure API Key vault and active AI model registry')
               : t('aiStudioSubtitle')}
           </p>
         </div>
@@ -692,7 +688,7 @@ export default function SettingsPage() {
             <Key size={15} />
             <span>{t('aiStudioAddKey')}</span>
           </button>
-          {activeAdminTab === 'ai_routing' && (
+          {activeAdminTab === 'admin_center' && (
             <button
               onClick={handleSaveAll}
               disabled={saving || loading}
@@ -715,15 +711,15 @@ export default function SettingsPage() {
         marginBottom: '4px',
       }}>
         <button
-          onClick={() => setActiveAdminTab('ai_routing')}
+          onClick={() => setActiveAdminTab('admin_center')}
           style={{
             padding: '10px 18px',
             fontSize: '13.5px',
             fontWeight: 600,
-            color: activeAdminTab === 'ai_routing' ? 'var(--accent)' : 'var(--text-muted)',
+            color: activeAdminTab === 'admin_center' ? 'var(--accent)' : 'var(--text-muted)',
             backgroundColor: 'transparent',
             border: 'none',
-            borderBottom: activeAdminTab === 'ai_routing' ? '2px solid var(--accent)' : '2px solid transparent',
+            borderBottom: activeAdminTab === 'admin_center' ? '2px solid var(--accent)' : '2px solid transparent',
             cursor: 'pointer',
             display: 'inline-flex',
             alignItems: 'center',
@@ -732,7 +728,7 @@ export default function SettingsPage() {
           }}
         >
           <Sliders size={16} />
-          <span>{t('tabAiRouting')}</span>
+          <span>{t('tabAdminCenter')}</span>
         </button>
 
         <button
@@ -755,27 +751,6 @@ export default function SettingsPage() {
           <History size={16} />
           <span>{t('tabActivityLog')}</span>
         </button>
-
-        <button
-          onClick={() => setActiveAdminTab('key_vault')}
-          style={{
-            padding: '10px 18px',
-            fontSize: '13.5px',
-            fontWeight: 600,
-            color: activeAdminTab === 'key_vault' ? 'var(--accent)' : 'var(--text-muted)',
-            backgroundColor: 'transparent',
-            border: 'none',
-            borderBottom: activeAdminTab === 'key_vault' ? '2px solid var(--accent)' : '2px solid transparent',
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            transition: 'all 0.15s ease',
-          }}
-        >
-          <Key size={16} />
-          <span>{t('tabKeyVault')}</span>
-        </button>
       </div>
 
       {/* Tab 2: Activity Log */}
@@ -783,8 +758,8 @@ export default function SettingsPage() {
         <ActivityLogView onNavigateTab={(tab) => setActiveAdminTab(tab as any)} />
       )}
 
-      {/* Tab 1 & 3: Routing and Key Vault Content */}
-      {activeAdminTab !== 'activity_log' && (
+      {/* Tab 1: Admin Center Content */}
+      {activeAdminTab === 'admin_center' && (
         <>
       {/* Top Vault Strip: Saved Keys */}
       <div style={{

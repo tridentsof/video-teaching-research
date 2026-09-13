@@ -22,7 +22,7 @@ export const translations: TranslationDict = {
   navCodeBook: { en: 'Code Book', vi: 'Sổ Mã Quan Sát' },
   navThemes: { en: 'Teaching Themes', vi: 'Chiến Lược & Chủ Đề' },
   navInterview: { en: 'Interview Studio', vi: 'Bộ Câu Hỏi Phỏng Vấn' },
-  navSettings: { en: 'AI Studio & Routing', vi: 'Cài Đặt AI & Luồng Model' },
+  navSettings: { en: 'Admin Center', vi: 'Admin Center' },
   navApiDocs: { en: 'API Docs', vi: 'Tài Liệu API' },
   language: { en: 'Language', vi: 'Ngôn Ngữ' },
 
@@ -63,9 +63,8 @@ export const translations: TranslationDict = {
   aiStudioKeyStatusActive: { en: 'Active in Flow Routing', vi: 'Kích hoạt sử dụng trong chuỗi' },
 
   // Admin & Settings Tabs
-  tabAiRouting: { en: 'AI Studio & Routing', vi: 'Luồng AI & Định Tuyến' },
+  tabAdminCenter: { en: 'Admin Center', vi: 'Admin Center' },
   tabActivityLog: { en: 'Activity & Audit Trail', vi: 'Nhật Ký Hoạt Động & Kiểm Toán' },
-  tabKeyVault: { en: 'API Vault & Models', vi: 'Kho Khóa API & Models' },
 
   // Common UI Actions & Words
   commonBack: { en: 'Back', vi: 'Quay Lại' },
