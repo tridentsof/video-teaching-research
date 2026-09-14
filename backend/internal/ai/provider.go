@@ -66,42 +66,126 @@ func ExtractJSONFromMarkdown(content string) string {
 	return trimmed
 }
 
+// tryRepairAt cuts jsonStr at cutIndex, strips trailing commas/whitespace,
+// and computes the necessary closing brackets ('}' and ']') to close all open containers.
+func tryRepairAt(jsonStr string, cutIndex int) (string, bool) {
+	if cutIndex <= 0 || cutIndex >= len(jsonStr) {
+		return jsonStr, false
+	}
+
+	candidate := strings.TrimSpace(jsonStr[:cutIndex+1])
+	candidate = strings.TrimRight(candidate, " \t\n\r,")
+	if len(candidate) == 0 {
+		return jsonStr, false
+	}
+
+	var stack []byte
+	inString := false
+
+	for i := 0; i < len(candidate); i++ {
+		c := candidate[i]
+		if inString {
+			if c == '"' {
+				backslashCount := 0
+				for j := i - 1; j >= 0 && candidate[j] == '\\'; j-- {
+					backslashCount++
+				}
+				if backslashCount%2 == 0 {
+					inString = false
+				}
+			}
+			continue
+		}
+
+		switch c {
+		case '"':
+			inString = true
+		case '{':
+			stack = append(stack, '}')
+		case '[':
+			stack = append(stack, ']')
+		case '}':
+			if len(stack) > 0 && stack[len(stack)-1] == '}' {
+				stack = stack[:len(stack)-1]
+			}
+		case ']':
+			if len(stack) > 0 && stack[len(stack)-1] == ']' {
+				stack = stack[:len(stack)-1]
+			}
+		}
+	}
+
+	if inString || len(stack) == 0 {
+		return jsonStr, false
+	}
+
+	var closing strings.Builder
+	for i := len(stack) - 1; i >= 0; i-- {
+		closing.WriteByte(stack[i])
+	}
+
+	return candidate + "\n" + closing.String(), true
+}
+
+// repairTruncatedJSON attempts to salvage truncated JSON (either top-level arrays or
+// objects containing arrays/nested objects) by cutting at the last complete element
+// boundary and closing all unclosed delimiters.
+func repairTruncatedJSON(jsonStr string) (string, bool) {
+	trimmed := strings.TrimSpace(jsonStr)
+	if len(trimmed) == 0 {
+		return jsonStr, false
+	}
+
+	firstChar := trimmed[0]
+	if firstChar != '{' && firstChar != '[' {
+		return jsonStr, false
+	}
+
+	// If already syntactically valid JSON, no repair is needed.
+	var js json.RawMessage
+	if err := json.Unmarshal([]byte(trimmed), &js); err == nil {
+		return jsonStr, false
+	}
+
+	searchPos := len(trimmed)
+	for attempts := 0; attempts < 5; attempts++ {
+		sub := trimmed[:searchPos]
+		lastObj := strings.LastIndex(sub, "}")
+		lastArr := strings.LastIndex(sub, "]")
+		lastCut := lastObj
+		if lastArr > lastCut {
+			lastCut = lastArr
+		}
+		if lastCut <= 0 {
+			break
+		}
+
+		if repaired, ok := tryRepairAt(trimmed, lastCut); ok {
+			var check json.RawMessage
+			if err := json.Unmarshal([]byte(repaired), &check); err == nil {
+				return repaired, true
+			}
+		}
+		searchPos = lastCut
+	}
+
+	return jsonStr, false
+}
+
 // repairTruncatedJSONArray attempts to salvage a truncated JSON array by
 // removing the incomplete trailing element and closing the array bracket.
-// Returns the repaired JSON string and true if repair was applied, or the
-// original string and false if repair was not applicable.
+// Kept for backward compatibility.
 func repairTruncatedJSONArray(jsonStr string) (string, bool) {
 	trimmed := strings.TrimSpace(jsonStr)
 	if !strings.HasPrefix(trimmed, "[") {
 		return jsonStr, false
 	}
-
-	// Already a valid-looking array (ends with ']')
-	if strings.HasSuffix(trimmed, "]") {
-		return jsonStr, false
-	}
-
-	// Find the last complete JSON object boundary "},\n  {" or just "}"
-	lastCompleteObj := strings.LastIndex(trimmed, "}")
-	if lastCompleteObj <= 0 {
-		return jsonStr, false
-	}
-
-	// Take everything up to and including the last complete '}'
-	candidate := strings.TrimSpace(trimmed[:lastCompleteObj+1])
-
-	// Remove any trailing comma after the last complete object
-	candidate = strings.TrimRight(candidate, " \t\n\r,")
-
-	// Close the array
-	candidate += "\n]"
-
-	return candidate, true
+	return repairTruncatedJSON(jsonStr)
 }
 
 // UnmarshalJSONFlexible unwraps markdown code fences before parsing into the target struct.
-// If the initial parse fails and the content looks like a truncated JSON array,
-// it attempts to auto-repair by removing the incomplete trailing element.
+// If the initial parse fails and the content looks like a truncated JSON array or object,
+// it attempts to auto-repair by removing the incomplete trailing element and closing all brackets.
 func UnmarshalJSONFlexible(raw string, target interface{}) error {
 	cleanJSON := ExtractJSONFromMarkdown(raw)
 	err := json.Unmarshal([]byte(cleanJSON), target)
@@ -109,10 +193,10 @@ func UnmarshalJSONFlexible(raw string, target interface{}) error {
 		return nil
 	}
 
-	// Attempt auto-repair for truncated JSON arrays
-	if repaired, ok := repairTruncatedJSONArray(cleanJSON); ok {
+	// Attempt auto-repair for truncated JSON
+	if repaired, ok := repairTruncatedJSON(cleanJSON); ok {
 		if repairErr := json.Unmarshal([]byte(repaired), target); repairErr == nil {
-			log.Printf("[AI JSON Repair] Successfully repaired truncated JSON array (original length: %d, repaired length: %d)", len(cleanJSON), len(repaired))
+			log.Printf("[AI JSON Repair] Successfully repaired truncated JSON (original length: %d, repaired length: %d)", len(cleanJSON), len(repaired))
 			return nil
 		}
 	}

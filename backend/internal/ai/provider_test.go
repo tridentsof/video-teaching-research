@@ -137,6 +137,51 @@ func TestUnmarshalJSONFlexible_TruncatedArray(t *testing.T) {
 	}
 }
 
+func TestUnmarshalJSONFlexible_TruncatedObjectWithArray(t *testing.T) {
+	// Simulates the exact truncated output from the user's checklist mapping error
+	truncatedInput := `{
+  "matches": [
+    {
+      "event_id": "a8cdb29a-1c90-40f7-8ceb-89b71b702e54",
+      "checklist_item_id": "1c0059fc-149c-4ed1-a165-84799a248429",
+      "match_score": 0.85,
+      "match_method": "semantic"
+    },
+    {
+      "event_id": "fc6af514-2b2f-4697-9eae-303eb2c306e2",
+      "checklist_item_id": "82c368ed-27b6-4fba-8241-f0789ae09cac",
+      "match_score": 0.85,
+      "match_method": "semantic"
+    },
+    {
+      "event`
+
+	type Match struct {
+		EventID         string  `json:"event_id"`
+		ChecklistItemID string  `json:"checklist_item_id"`
+		MatchScore      float64 `json:"match_score"`
+		MatchMethod     string  `json:"match_method"`
+	}
+	type Response struct {
+		Matches []Match `json:"matches"`
+	}
+
+	var resp Response
+	err := UnmarshalJSONFlexible(truncatedInput, &resp)
+	if err != nil {
+		t.Fatalf("expected auto-repair to succeed on truncated object with array, got error: %v", err)
+	}
+	if len(resp.Matches) != 2 {
+		t.Fatalf("expected 2 salvaged matches, got %d", len(resp.Matches))
+	}
+	if resp.Matches[0].EventID != "a8cdb29a-1c90-40f7-8ceb-89b71b702e54" {
+		t.Errorf("unexpected first match event_id: %s", resp.Matches[0].EventID)
+	}
+	if resp.Matches[1].EventID != "fc6af514-2b2f-4697-9eae-303eb2c306e2" {
+		t.Errorf("unexpected second match event_id: %s", resp.Matches[1].EventID)
+	}
+}
+
 func TestProviderInterfaces(t *testing.T) {
 	var _ VideoAnalysisProvider = (*GeminiDirectProvider)(nil)
 	var _ TextCompletionProvider = (*GeminiDirectProvider)(nil)
