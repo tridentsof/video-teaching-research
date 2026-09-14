@@ -248,7 +248,8 @@ func (s *ExtractionService) processRawVideo(ctx context.Context, video *model.Vi
 		lastErr = err
 		log.Printf("[Video %s] Raw video extraction attempt %d/%d failed: %v", video.ID, attempt, maxRetries, err)
 		if attempt < maxRetries {
-			backoff := time.Duration(attempt*3) * time.Second
+			// 15s exponential backoff tailored for 5 RPM quota
+			backoff := time.Duration(attempt*15) * time.Second
 			select {
 			case <-time.After(backoff):
 			case <-ctx.Done():
@@ -314,29 +315,45 @@ func (s *ExtractionService) processChunk(ctx context.Context, video *model.Video
 		return nil, fmt.Errorf("chunk blob_path is missing for chunk %s", chunk.ID)
 	}
 
-	tempDir, err := os.MkdirTemp("", fmt.Sprintf("chunk-%s-*", chunk.ID.String()))
-	if err != nil {
-		return nil, err
-	}
-	defer os.RemoveAll(tempDir)
+	// Check if chunk file is already cached locally from Step 1 chunking
+	var localChunkPath string
+	var cleanupFunc func()
 
-	// Download chunk
-	reader, err := s.storage.Download(ctx, *chunk.BlobPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to download chunk %s: %w", *chunk.BlobPath, err)
-	}
-	defer reader.Close()
+	cachedPath := GetLocalChunkPath(video.ID, chunk.ChunkIndex)
+	if stat, err := os.Stat(cachedPath); err == nil && stat.Size() > 0 {
+		log.Printf("[Video %s] Chunk %d: using cached local file %s (skipped blob download)", video.ID, chunk.ChunkIndex, cachedPath)
+		localChunkPath = cachedPath
+		cleanupFunc = func() {} // Retained in pipeline cache dir; cleaned up by pipeline orchestrator
+	} else {
+		log.Printf("[Video %s] Chunk %d: cache miss, downloading from blob storage %s...", video.ID, chunk.ChunkIndex, *chunk.BlobPath)
+		tempDir, err := os.MkdirTemp("", fmt.Sprintf("chunk-%s-*", chunk.ID.String()))
+		if err != nil {
+			return nil, err
+		}
+		cleanupFunc = func() { os.RemoveAll(tempDir) }
 
-	localChunkPath := filepath.Join(tempDir, "chunk.mp4")
-	localFile, err := os.Create(localChunkPath)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := io.Copy(localFile, reader); err != nil {
+		reader, err := s.storage.Download(ctx, *chunk.BlobPath)
+		if err != nil {
+			cleanupFunc()
+			return nil, fmt.Errorf("failed to download chunk %s: %w", *chunk.BlobPath, err)
+		}
+		defer reader.Close()
+
+		downloadedPath := filepath.Join(tempDir, "chunk.mp4")
+		localFile, err := os.Create(downloadedPath)
+		if err != nil {
+			cleanupFunc()
+			return nil, err
+		}
+		if _, err := io.Copy(localFile, reader); err != nil {
+			localFile.Close()
+			cleanupFunc()
+			return nil, err
+		}
 		localFile.Close()
-		return nil, err
+		localChunkPath = downloadedPath
 	}
-	localFile.Close()
+	defer cleanupFunc()
 
 	// Call Gemini Video Analysis
 	aiVideo := s.aiVideo
@@ -354,6 +371,7 @@ func (s *ExtractionService) processChunk(ctx context.Context, video *model.Video
 	}
 	// Call Gemini Video Analysis with retry loop
 	var rawOutput string
+	var err error
 	maxRetries := 3
 	var lastErr error
 	for attempt := 1; attempt <= maxRetries; attempt++ {
@@ -369,7 +387,8 @@ func (s *ExtractionService) processChunk(ctx context.Context, video *model.Video
 		lastErr = err
 		log.Printf("[Video %s] Chunk %d: AI extraction attempt %d/%d failed: %v", video.ID, chunk.ChunkIndex, attempt, maxRetries, err)
 		if attempt < maxRetries {
-			backoff := time.Duration(attempt*3) * time.Second
+			// 15s exponential backoff tailored for 5 RPM quota
+			backoff := time.Duration(attempt*15) * time.Second
 			select {
 			case <-time.After(backoff):
 			case <-ctx.Done():

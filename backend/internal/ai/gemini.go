@@ -316,6 +316,8 @@ func (g *GeminiDirectProvider) AnalyzeVideoChunk(ctx context.Context, videoFileP
 		return "", fmt.Errorf("gemini API key is not configured")
 	}
 
+	analysisStart := time.Now()
+
 	// 1. Upload video to Gemini File API
 	geminiFile, err := g.uploadFileToGemini(ctx, videoFilePath)
 	if err != nil {
@@ -402,7 +404,7 @@ func (g *GeminiDirectProvider) AnalyzeVideoChunk(ctx context.Context, videoFileP
 		if resp.StatusCode == http.StatusTooManyRequests || (resp.StatusCode >= 500 && resp.StatusCode <= 599) {
 			sleepDuration := backoff
 			if resp.StatusCode == http.StatusTooManyRequests {
-				sleepDuration = 16 * time.Second
+				sleepDuration = 20 * time.Second
 			}
 			log.Printf("[Gemini AnalyzeVideo] rate limit or server error %d, retrying in %v...", resp.StatusCode, sleepDuration)
 			if attempt == maxRetries {
@@ -437,6 +439,7 @@ func (g *GeminiDirectProvider) AnalyzeVideoChunk(ctx context.Context, videoFileP
 			return "", fmt.Errorf("gemini returned empty response (finishReason: %s)", finishReason)
 		}
 
+		log.Printf("[Gemini AnalyzeVideo] chunk (%s) processed successfully in %v", filepath.Base(videoFilePath), time.Since(analysisStart))
 		return genResp.Candidates[0].Content.Parts[0].Text, nil
 	}
 

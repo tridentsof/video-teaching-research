@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -320,12 +321,37 @@ func (p *PipelineOrchestrator) CancelPipeline(videoID uuid.UUID) error {
 	p.mu.Unlock()
 
 	ctx := context.Background()
-	_ = p.chunkRepo.CancelRunningJobs(ctx, videoID)
-	if err := p.videoRepo.UpdateStatus(ctx, videoID, "cancelled", nil); err != nil {
-		return fmt.Errorf("failed to update video status: %w", err)
+
+	// Detect which step was running at the time of cancellation so the frontend
+	// can resume from exactly this step rather than restarting from scratch.
+	var cancelledStep *string
+	jobs, err := p.chunkRepo.GetLatestJobsByVideoID(ctx, videoID)
+	if err == nil {
+		for _, j := range jobs {
+			if j.Status == "running" {
+				step := j.Step
+				cancelledStep = &step
+				break
+			}
+		}
 	}
 
-	log.Printf("Successfully requested cancellation for video pipeline %s", videoID)
+	_ = p.chunkRepo.CancelRunningJobs(ctx, videoID)
+
+	// Persist cancelled status together with the step that was interrupted.
+	// Using UpdateStatusWithError allows frontend to read failed_step and offer
+	// "Resume from <step>" correctly for cancelled pipelines, just like failures.
+	if cancelledStep != nil {
+		if err := p.videoRepo.UpdateStatusWithError(ctx, videoID, "cancelled", cancelledStep, nil, nil); err != nil {
+			return fmt.Errorf("failed to update video status: %w", err)
+		}
+	} else {
+		if err := p.videoRepo.UpdateStatus(ctx, videoID, "cancelled", nil); err != nil {
+			return fmt.Errorf("failed to update video status: %w", err)
+		}
+	}
+
+	log.Printf("Successfully requested cancellation for video pipeline %s (cancelled at step: %v)", videoID, cancelledStep)
 	return nil
 }
 
@@ -352,12 +378,25 @@ func (p *PipelineOrchestrator) runPipeline(ctx context.Context, videoID uuid.UUI
 		return ctx.Err()
 	}
 
+	pipelineStart := time.Now()
+	var step1Duration, step2Duration, step3Duration, step4Duration, step5Duration time.Duration
+
+	// Setup pipeline cache directory and clean up when pipeline finishes (success or failure)
+	pipelineCacheDir := GetPipelineCacheDir(videoID)
+	_ = os.MkdirAll(pipelineCacheDir, 0755)
+	defer func() {
+		if err := os.RemoveAll(pipelineCacheDir); err != nil {
+			log.Printf("[Pipeline Video %s] Warning: failed to clean pipeline cache dir %s: %v", videoID, pipelineCacheDir, err)
+		}
+	}()
+
 	completedSteps := p.getCompletedJobSteps(ctx, videoID)
 	isResume := mode == "resume"
 
 	// -------------------------------------------------------------
 	// Step 1: Chunking / Segment Preparation
 	// -------------------------------------------------------------
+	step1Start := time.Now()
 	if enableChunking {
 		step1Done := false
 		if isResume && completedSteps["chunking"] {
@@ -392,6 +431,7 @@ func (p *PipelineOrchestrator) runPipeline(ctx context.Context, videoID uuid.UUI
 			})
 		}
 	}
+	step1Duration = time.Since(step1Start)
 
 	if ctx.Err() != nil {
 		return ctx.Err()
@@ -400,6 +440,7 @@ func (p *PipelineOrchestrator) runPipeline(ctx context.Context, videoID uuid.UUI
 	// -------------------------------------------------------------
 	// Step 2: Event Extraction (Gemini Multimodal)
 	// -------------------------------------------------------------
+	step2Start := time.Now()
 	step2Done := false
 	if isResume && completedSteps["event_extraction"] {
 		existingEvents, err := p.rawEventRepo.ListByVideoID(ctx, videoID, false)
@@ -431,6 +472,7 @@ func (p *PipelineOrchestrator) runPipeline(ctx context.Context, videoID uuid.UUI
 		}
 		log.Printf("[Video %s] Step 2 finished (%d raw events)", videoID, len(events))
 	}
+	step2Duration = time.Since(step2Start)
 
 	if ctx.Err() != nil {
 		return ctx.Err()
@@ -442,6 +484,7 @@ func (p *PipelineOrchestrator) runPipeline(ctx context.Context, videoID uuid.UUI
 	// -------------------------------------------------------------
 	// Step 3: Checklist Mapping (Claude 3.5 Sonnet / Semantic)
 	// -------------------------------------------------------------
+	step3Start := time.Now()
 	step3Done := false
 	if isResume && step2Done && completedSteps["mapping"] {
 		existingMappings, err := p.mappingRepo.ListDetailsByVideoID(ctx, videoID)
@@ -459,6 +502,7 @@ func (p *PipelineOrchestrator) runPipeline(ctx context.Context, videoID uuid.UUI
 		}
 		log.Printf("[Video %s] Step 3 finished (%d mappings)", videoID, len(mappings))
 	}
+	step3Duration = time.Since(step3Start)
 
 	if ctx.Err() != nil {
 		return ctx.Err()
@@ -467,6 +511,7 @@ func (p *PipelineOrchestrator) runPipeline(ctx context.Context, videoID uuid.UUI
 	// -------------------------------------------------------------
 	// Step 4: Statistics & Report Generation
 	// -------------------------------------------------------------
+	step4Start := time.Now()
 	step4Done := false
 	if isResume && step2Done && step3Done && completedSteps["report"] {
 		existingReport, err := p.reportRepo.GetByVideoID(ctx, videoID)
@@ -484,10 +529,12 @@ func (p *PipelineOrchestrator) runPipeline(ctx context.Context, videoID uuid.UUI
 		}
 		log.Printf("[Video %s] Step 4 finished (Report ID: %s)", videoID, report.ID)
 	}
+	step4Duration = time.Since(step4Start)
 
 	// -------------------------------------------------------------
 	// Step 5: Automated AI Code Book Generation
 	// -------------------------------------------------------------
+	step5Start := time.Now()
 	if p.codebookSvc != nil {
 		step5Done := false
 		if isResume && completedSteps["codebook"] {
@@ -504,8 +551,18 @@ func (p *PipelineOrchestrator) runPipeline(ctx context.Context, videoID uuid.UUI
 			}
 		}
 	}
+	step5Duration = time.Since(step5Start)
 
-	log.Printf("[Video %s] Pipeline COMPLETE!", videoID)
+	totalDuration := time.Since(pipelineStart)
+	log.Printf("[Pipeline Video %s] PIPELINE COMPLETED in %v (Step 1 Chunking: %v | Step 2 Extraction: %v | Step 3 Mapping: %v | Step 4 Report: %v | Step 5 Codebook: %v)",
+		videoID,
+		totalDuration.Round(10*time.Millisecond),
+		step1Duration.Round(10*time.Millisecond),
+		step2Duration.Round(10*time.Millisecond),
+		step3Duration.Round(10*time.Millisecond),
+		step4Duration.Round(10*time.Millisecond),
+		step5Duration.Round(10*time.Millisecond),
+	)
 
 	videoObj, _ := p.videoRepo.GetByID(ctx, videoID)
 	videoTitle := "Video"

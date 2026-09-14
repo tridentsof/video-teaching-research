@@ -106,24 +106,28 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
   const statusOrder = isChunked ? chunkedStatusOrder : fullVideoStatusOrder;
   const stepNameToIndex = isChunked ? chunkedStepNameToIndex : fullVideoStepNameToIndex;
   
-  // Calculate failure step index
-  let errorStepIndex = isChunked ? 1 : 1;
+  // Calculate halted step index (used for both failed and cancelled states)
+  let haltedStepIndex = isChunked ? 1 : 1;
   if (failedStep && stepNameToIndex[failedStep] !== undefined) {
-    errorStepIndex = stepNameToIndex[failedStep];
+    // Backend always provides failed_step for both failed and cancelled states (after fix)
+    haltedStepIndex = stepNameToIndex[failedStep];
   } else {
-    // Check if any job is failed
-    const failedJob = jobs.find((j) => j.status === 'failed' || j.status === 'error');
-    if (failedJob && stepNameToIndex[failedJob.step] !== undefined) {
-      errorStepIndex = stepNameToIndex[failedJob.step];
+    // Fallback: scan jobs for any failed or cancelled job to determine which step was halted
+    const haltedJob = jobs.find(
+      (j) => j.status === 'failed' || j.status === 'error' || j.status === 'cancelled'
+    );
+    if (haltedJob && stepNameToIndex[haltedJob.step] !== undefined) {
+      haltedStepIndex = stepNameToIndex[haltedJob.step];
     }
   }
 
   const maxIndex = steps.length - 1;
-  const currentStepIndex = isError
-    ? errorStepIndex
-    : isUploading
-    ? 0
-    : (statusOrder[status] ?? 0);
+  const currentStepIndex =
+    isError || isCancelled
+      ? haltedStepIndex
+      : isUploading
+      ? 0
+      : (statusOrder[status] ?? 0);
   const isRunning =
     !isError &&
     !isCancelled &&
@@ -183,7 +187,8 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
           (!isError && !isCancelled && !isUploading && currentStepIndex === idx && !isRunning && idx === maxIndex);
         const isActive = !isError && !isCancelled && currentStepIndex === idx;
         const isFailedNode = isError && currentStepIndex === idx;
-        const isCancelledNode = isCancelled && currentStepIndex === idx;
+        // A step is cancelled only if it was the step that got interrupted (haltedStepIndex)
+        const isCancelledNode = isCancelled && idx === haltedStepIndex;
 
         let badgeBg = '#F4EFE6';
         let badgeColor = 'var(--text-muted)';

@@ -9,8 +9,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -179,16 +181,15 @@ func (s *ChunkingService) ProcessVideoChunks(ctx context.Context, videoID uuid.U
 	// Clean up any previously created chunks for re-runs
 	_ = s.chunkRepo.DeleteByVideoID(ctx, videoID)
 
-	// Setup working temp directory
-	tempDir, err := os.MkdirTemp("", fmt.Sprintf("chunking-%s-*", videoID.String()))
-	if err != nil {
+	// Setup working pipeline cache directory (shared across pipeline steps)
+	pipelineCacheDir := GetPipelineCacheDir(videoID)
+	if err := os.MkdirAll(pipelineCacheDir, 0755); err != nil {
 		errMsg := err.Error()
 		failedStep := "chunking"
 		_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
 		_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
-		return nil, fmt.Errorf("failed to create temp dir: %w", err)
+		return nil, fmt.Errorf("failed to create pipeline cache dir: %w", err)
 	}
-	defer os.RemoveAll(tempDir)
 
 	// Download original video from BlobStorage
 	if video.BlobURL == nil {
@@ -212,7 +213,13 @@ func (s *ChunkingService) ProcessVideoChunks(ctx context.Context, videoID uuid.U
 	}
 	defer reader.Close()
 
-	localInputPath := filepath.Join(tempDir, "input.mp4")
+	localInputPath := filepath.Join(pipelineCacheDir, "input.mp4")
+	// Clean up local input video after chunking completes to save disk space,
+	// but KEEP chunk files in pipelineCacheDir for Step 2 extraction!
+	defer func() {
+		_ = os.Remove(localInputPath)
+	}()
+
 	localInputFile, err := os.Create(localInputPath)
 	if err != nil {
 		errMsg := err.Error()
@@ -262,99 +269,153 @@ func (s *ChunkingService) ProcessVideoChunks(ctx context.Context, videoID uuid.U
 		}
 	}
 
-	var createdChunks []model.VideoChunk
-	for _, interval := range intervals {
-		chunkID := uuid.New()
-		chunkOutPath := filepath.Join(tempDir, fmt.Sprintf("chunk_%d.mp4", interval.Index))
-
-		if enableChunking && len(intervals) > 1 {
-			// FFmpeg slice command with frame-accurate seeking (-ss after -i)
-			duration := interval.EndSec - interval.StartSec
-			cmd := exec.CommandContext(ctx, s.ffmpegPath,
-				"-y",
-				"-i", localInputPath,
-				"-ss", strconv.Itoa(interval.StartSec),
-				"-t", strconv.Itoa(duration),
-				"-c:v", "libx264",
-				"-preset", "fast",
-				"-crf", "23",
-				"-c:a", "aac",
-				"-reset_timestamps", "1",
-				"-avoid_negative_ts", "make_zero",
-				chunkOutPath,
-			)
-
-			var errBuf bytes.Buffer
-			cmd.Stderr = &errBuf
-			if err := cmd.Run(); err != nil {
-				errMsg := fmt.Sprintf("ffmpeg chunk %d failed: %v, log: %s", interval.Index, err, errBuf.String())
-				failedStep := "chunking"
-				_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
-				_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
-				return nil, fmt.Errorf("%s", errMsg)
-			}
-		} else {
-			// Single full video mode: copy input file directly as chunk 0
-			inputData, err := os.ReadFile(localInputPath)
-			if err != nil {
-				errMsg := err.Error()
-				failedStep := "chunking"
-				_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
-				_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
-				return nil, fmt.Errorf("failed to read input file for full video chunk: %w", err)
-			}
-			if err := os.WriteFile(chunkOutPath, inputData, 0644); err != nil {
-				errMsg := err.Error()
-				failedStep := "chunking"
-				_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
-				_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
-				return nil, fmt.Errorf("failed to write full video chunk file: %w", err)
-			}
-		}
-
-		// Upload chunk to storage
-		chunkFile, err := os.Open(chunkOutPath)
-		if err != nil {
-			errMsg := err.Error()
-			failedStep := "chunking"
-			_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
-			_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
-			return nil, fmt.Errorf("failed to open chunk file: %w", err)
-		}
-
-		chunkBlobPath := fmt.Sprintf("chunks/%s/chunk_%d.mp4", videoID.String(), interval.Index)
-		_, err = s.storage.Upload(ctx, chunkBlobPath, chunkFile)
-		chunkFile.Close()
-		if err != nil {
-			errMsg := fmt.Sprintf("failed to upload chunk %d: %v", interval.Index, err)
-			failedStep := "chunking"
-			_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
-			_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
-			return nil, fmt.Errorf("%s", errMsg)
-		}
-
-		// Save record in DB
-		chunkModel := model.VideoChunk{
-			ID:            chunkID,
-			VideoID:       videoID,
-			ChunkIndex:    interval.Index,
-			ChunkStartSec: interval.StartSec,
-			ChunkEndSec:   interval.EndSec,
-			BlobPath:      &chunkBlobPath,
-			Status:        "uploaded",
-			CreatedAt:     time.Now(),
-		}
-
-		if err := s.chunkRepo.CreateChunk(ctx, &chunkModel); err != nil {
-			errMsg := fmt.Sprintf("failed to persist chunk record %d: %v", interval.Index, err)
-			failedStep := "chunking"
-			_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
-			_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
-			return nil, fmt.Errorf("%s", errMsg)
-		}
-
-		createdChunks = append(createdChunks, chunkModel)
+	// Process chunks concurrently with worker pool
+	chunkWorkerConcurrency := 4
+	if len(intervals) < chunkWorkerConcurrency {
+		chunkWorkerConcurrency = len(intervals)
 	}
+	sem := make(chan struct{}, chunkWorkerConcurrency)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var chunkErrors []error
+	var createdChunks []model.VideoChunk
+
+	for _, interval := range intervals {
+		wg.Add(1)
+		go func(inter ChunkInterval) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			chunkID := uuid.New()
+			chunkOutPath := GetLocalChunkPath(videoID, inter.Index)
+
+			if enableChunking && len(intervals) > 1 {
+				duration := inter.EndSec - inter.StartSec
+				// Fast stream copy: -ss before -i, -c copy, -avoid_negative_ts make_zero
+				cmd := exec.CommandContext(ctx, s.ffmpegPath,
+					"-y",
+					"-ss", strconv.Itoa(inter.StartSec),
+					"-i", localInputPath,
+					"-t", strconv.Itoa(duration),
+					"-c", "copy",
+					"-avoid_negative_ts", "make_zero",
+					chunkOutPath,
+				)
+
+				var errBuf bytes.Buffer
+				cmd.Stderr = &errBuf
+				if err := cmd.Run(); err != nil {
+					log.Printf("FFmpeg stream copy chunk %d failed (%v), falling back to re-encode: %s", inter.Index, err, errBuf.String())
+					// Fallback to re-encoding if stream copy fails on edge case container
+					fallbackCmd := exec.CommandContext(ctx, s.ffmpegPath,
+						"-y",
+						"-ss", strconv.Itoa(inter.StartSec),
+						"-i", localInputPath,
+						"-t", strconv.Itoa(duration),
+						"-c:v", "libx264",
+						"-preset", "fast",
+						"-crf", "23",
+						"-c:a", "aac",
+						"-reset_timestamps", "1",
+						"-avoid_negative_ts", "make_zero",
+						chunkOutPath,
+					)
+					var fallbackErrBuf bytes.Buffer
+					fallbackCmd.Stderr = &fallbackErrBuf
+					if err := fallbackCmd.Run(); err != nil {
+						mu.Lock()
+						chunkErrors = append(chunkErrors, fmt.Errorf("ffmpeg chunk %d failed: %v, log: %s", inter.Index, err, fallbackErrBuf.String()))
+						mu.Unlock()
+						return
+					}
+				}
+			} else {
+				// Single full video mode: stream copy input file to chunk 0 via io.Copy (constant RAM)
+				srcFile, err := os.Open(localInputPath)
+				if err != nil {
+					mu.Lock()
+					chunkErrors = append(chunkErrors, fmt.Errorf("failed to open input file for full video chunk: %w", err))
+					mu.Unlock()
+					return
+				}
+				defer srcFile.Close()
+
+				dstFile, err := os.Create(chunkOutPath)
+				if err != nil {
+					mu.Lock()
+					chunkErrors = append(chunkErrors, fmt.Errorf("failed to create full video chunk file: %w", err))
+					mu.Unlock()
+					return
+				}
+				defer dstFile.Close()
+
+				if _, err := io.Copy(dstFile, srcFile); err != nil {
+					mu.Lock()
+					chunkErrors = append(chunkErrors, fmt.Errorf("failed to copy full video chunk file: %w", err))
+					mu.Unlock()
+					return
+				}
+			}
+
+			// Upload chunk to storage
+			chunkFile, err := os.Open(chunkOutPath)
+			if err != nil {
+				mu.Lock()
+				chunkErrors = append(chunkErrors, fmt.Errorf("failed to open chunk file: %w", err))
+				mu.Unlock()
+				return
+			}
+
+			chunkBlobPath := fmt.Sprintf("chunks/%s/chunk_%d.mp4", videoID.String(), inter.Index)
+			_, err = s.storage.Upload(ctx, chunkBlobPath, chunkFile)
+			chunkFile.Close()
+			if err != nil {
+				mu.Lock()
+				chunkErrors = append(chunkErrors, fmt.Errorf("failed to upload chunk %d: %w", inter.Index, err))
+				mu.Unlock()
+				return
+			}
+
+			// Save record in DB
+			chunkModel := model.VideoChunk{
+				ID:            chunkID,
+				VideoID:       videoID,
+				ChunkIndex:    inter.Index,
+				ChunkStartSec: inter.StartSec,
+				ChunkEndSec:   inter.EndSec,
+				BlobPath:      &chunkBlobPath,
+				Status:        "uploaded",
+				CreatedAt:     time.Now(),
+			}
+
+			if err := s.chunkRepo.CreateChunk(ctx, &chunkModel); err != nil {
+				mu.Lock()
+				chunkErrors = append(chunkErrors, fmt.Errorf("failed to persist chunk record %d: %w", inter.Index, err))
+				mu.Unlock()
+				return
+			}
+
+			mu.Lock()
+			createdChunks = append(createdChunks, chunkModel)
+			mu.Unlock()
+		}(interval)
+	}
+
+	wg.Wait()
+
+	if len(chunkErrors) > 0 {
+		errMsg := fmt.Sprintf("chunking failed: %v", chunkErrors[0])
+		failedStep := "chunking"
+		_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+		_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
+		return nil, chunkErrors[0]
+	}
+
+	// Sort chunks by ChunkIndex
+	sort.Slice(createdChunks, func(i, j int) bool {
+		return createdChunks[i].ChunkIndex < createdChunks[j].ChunkIndex
+	})
 
 	// Update video record
 	_ = s.videoRepo.UpdateStatus(ctx, videoID, "chunked", &totalDurationSec)
@@ -362,6 +423,16 @@ func (s *ChunkingService) ProcessVideoChunks(ctx context.Context, videoID uuid.U
 
 	log.Printf("Successfully created %d chunks for video %s", len(createdChunks), videoID)
 	return createdChunks, nil
+}
+
+// GetPipelineCacheDir returns the pipeline-wide cache directory for a given video ID.
+func GetPipelineCacheDir(videoID uuid.UUID) string {
+	return filepath.Join(os.TempDir(), "vtr-pipeline", videoID.String())
+}
+
+// GetLocalChunkPath returns the expected local path for a video chunk in the pipeline cache.
+func GetLocalChunkPath(videoID uuid.UUID, chunkIndex int) string {
+	return filepath.Join(GetPipelineCacheDir(videoID), fmt.Sprintf("chunk_%d.mp4", chunkIndex))
 }
 
 // extractBlobPath resolves the relative blob path from a full or relative BlobURL.

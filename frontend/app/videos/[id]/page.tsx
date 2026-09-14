@@ -317,13 +317,13 @@ export default function VideoDetailPage() {
         const hasStep = prev.some((j) => j.step === startingStep);
         if (hasStep) {
           return prev.map((j) =>
-            j.step === startingStep || j.status === 'failed' || j.status === 'error'
+            j.step === startingStep || j.status === 'failed' || j.status === 'error' || j.status === 'cancelled'
               ? { ...j, status: 'running' as const, started_at: nowIso, finished_at: undefined, error_msg: undefined }
               : j
           );
         }
         return [
-          ...prev.filter((j) => j.status !== 'failed' && j.status !== 'error'),
+          ...prev.filter((j) => j.status !== 'failed' && j.status !== 'error' && j.status !== 'cancelled'),
           {
             id: 'temp-' + Date.now(),
             video_id: id,
@@ -451,8 +451,24 @@ export default function VideoDetailPage() {
     !isRunning &&
     !retrying &&
     (video?.status === 'error' || video?.status === 'failed' || jobs.some((j) => j.status === 'failed' || j.status === 'error'));
-  const failedJob = isVideoFailed ? jobs.find((j) => j.status === 'failed' || j.status === 'error') || null : null;
-  const failedStepName = video?.failed_step || failedJob?.step || (isVideoFailed ? (isChunkedMode ? 'chunking' : 'event_extraction') : undefined);
+
+  // Cancelled is also a "halted" state that supports Resume (just like failed)
+  const isVideoCancelled =
+    !isRunning &&
+    !retrying &&
+    video?.status === 'cancelled';
+
+  // Unified: video is in a recoverable halted state (failed OR cancelled) — both support Resume
+  const isVideoHalted = isVideoFailed || isVideoCancelled;
+
+  const failedJob = isVideoHalted
+    ? jobs.find((j) => j.status === 'failed' || j.status === 'error' || j.status === 'cancelled') || null
+    : null;
+  // For cancelled: backend now stores the interrupted step in failed_step
+  const failedStepName =
+    video?.failed_step ||
+    failedJob?.step ||
+    (isVideoHalted ? (isChunkedMode ? 'chunking' : 'event_extraction') : undefined);
 
   if (!video && loading) {
     return (
@@ -497,6 +513,8 @@ export default function VideoDetailPage() {
               style={
                 isVideoFailed
                   ? { backgroundColor: '#FEE2E2', color: '#DC2626', border: '1px solid #FECACA' }
+                  : isVideoCancelled
+                  ? { backgroundColor: '#FEF3C7', color: '#B45309', border: '1px solid #FDE68A' }
                   : isRunning
                   ? { backgroundColor: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE' }
                   : video?.status === 'cancelled'
@@ -886,7 +904,7 @@ export default function VideoDetailPage() {
           )}
 
           <button
-            onClick={() => handleRerun(isVideoFailed && !isModeChanged ? 'resume' : 'restart')}
+            onClick={() => handleRerun(isVideoHalted && !isModeChanged ? 'resume' : 'restart')}
             disabled={retrying || isRunning}
             className="btn btn-primary btn-sm"
           >
@@ -898,6 +916,8 @@ export default function VideoDetailPage() {
                 ? `${t('rerunPipeline')} (Từ Đầu)`
                 : isVideoFailed
                 ? 'Resume Analysis'
+                : isVideoCancelled
+                ? 'Resume from Checkpoint'
                 : t('rerunPipeline')}
             </span>
           </button>
@@ -1188,7 +1208,7 @@ export default function VideoDetailPage() {
         </div>
       )}
 
-      {/* Error Alert Card (Visible when video status is error) */}
+      {/* Error Alert Card (Visible when video status is failed/error) */}
       {isVideoFailed && (
         <div
           style={{
@@ -1336,6 +1356,108 @@ export default function VideoDetailPage() {
           )}
         </div>
       )}
+
+      {/* Cancelled Alert Card (Visible when pipeline was manually stopped) */}
+      {isVideoCancelled && (
+        <div
+          style={{
+            backgroundColor: '#FFFBEB',
+            border: '1px solid #FDE68A',
+            borderRadius: 'var(--radius-md)',
+            padding: '22px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '14px',
+            boxShadow: 'var(--shadow-sm)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+              <div
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '50%',
+                  backgroundColor: '#FEF3C7',
+                  border: '1px solid #FCD34D',
+                  color: '#D97706',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <AlertTriangle size={18} />
+              </div>
+              <div>
+                <h4 style={{ fontSize: '16px', fontWeight: 700, color: '#92400E' }}>
+                  Phân tích bị dừng {failedStepName ? `tại ${failedStepName}` : ''}
+                </h4>
+                <p style={{ fontSize: '13px', color: '#78350F', marginTop: '4px' }}>
+                  Bạn đã dừng pipeline. Các bước đã hoàn thành vẫn được lưu — bạn có thể tiếp tục từ chỗ dừng mà không tốn thêm token.
+                </p>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '6px', padding: '3px 8px', borderRadius: '4px', backgroundColor: 'rgba(217, 119, 6, 0.08)', color: '#92400E', fontSize: '11px', fontWeight: 600 }}>
+                  <Sparkles size={12} color="#D97706" />
+                  <span>Smart Resume: tiếp tục từ checkpoint, không phải chạy lại từ đầu.</span>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              {!isModeChanged ? (
+                <button
+                  onClick={() => handleRerun('resume')}
+                  disabled={retrying}
+                  className="btn btn-primary btn-sm"
+                  title="Tiếp tục pipeline từ bước bị dừng, tái sử dụng checkpoint đã có"
+                  style={{
+                    backgroundColor: '#D97706',
+                    borderColor: '#B45309',
+                    color: '#FFFFFF',
+                    padding: '8px 16px',
+                  }}
+                >
+                  {retrying ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                  <span>Tiếp tục từ {failedStepName || 'Checkpoint'}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleRerun('restart')}
+                  disabled={retrying}
+                  className="btn btn-primary btn-sm"
+                  title="Chế độ phân tích đã đổi — phân tích lại sạch từ Step 1"
+                  style={{
+                    backgroundColor: '#D97706',
+                    borderColor: '#B45309',
+                    color: '#FFFFFF',
+                    padding: '8px 16px',
+                  }}
+                >
+                  {retrying ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                  <span>Chạy lại từ đầu ({rerunChunking ? '10-min Segments' : 'Full Video'})</span>
+                </button>
+              )}
+
+              <button
+                onClick={() => handleRerun('restart')}
+                disabled={retrying}
+                className="btn btn-secondary btn-sm"
+                title="Xóa toàn bộ checkpoint và chạy lại pipeline từ Step 1"
+                style={{
+                  padding: '8px 14px',
+                  color: '#92400E',
+                  borderColor: '#FCD34D',
+                  backgroundColor: '#FFFFFF',
+                }}
+              >
+                <RotateCcw size={14} />
+                <span>Chạy lại từ đầu</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* Stepper Card */}
       <div style={{

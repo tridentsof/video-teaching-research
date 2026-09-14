@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -125,52 +126,92 @@ func (s *MappingService) MapEventsForVideo(ctx context.Context, videoID uuid.UUI
 	}
 	checklistFormatted := checklistSB.String()
 
-	// Batch events in groups of 10
-	batchSize := 10
-	var allMappings []model.EventMapping
-	now := time.Now()
+	// Resolve active AI provider & model once before the batch loop to avoid repetitive DB queries
+	activeProvider := s.aiText
+	activeModelName := s.modelName
+	if s.aiRouter != nil {
+		if rProvider, rModel, err := s.aiRouter.GetTextProviderForFlow(ctx, "checklist_mapping"); err == nil && rProvider != nil {
+			activeProvider = rProvider
+			if rModel != "" {
+				activeModelName = rModel
+			}
+		}
+	}
+	if activeProvider == nil {
+		errMsg := "no AI text provider configured for flow 'checklist_mapping'"
+		failedStep := "mapping"
+		_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+		_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
+		return nil, fmt.Errorf("%s", errMsg)
+	}
 
+	// Batch events in groups of 30 (reduced from 10 to minimize LLM roundtrips)
+	batchSize := 30
+	var batches [][]model.RawEvent
 	for i := 0; i < len(events); i += batchSize {
 		end := i + batchSize
 		if end > len(events) {
 			end = len(events)
 		}
-		batch := events[i:end]
+		batches = append(batches, events[i:end])
+	}
 
-		matches, err := s.processEventBatch(ctx, batch, checklistFormatted)
-		if err != nil {
-			errMsg := fmt.Sprintf("checklist mapping failed: %v", err)
-			failedStep := "mapping"
-			_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
-			_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
-			return nil, fmt.Errorf("%s", errMsg)
-		}
+	// Process batches concurrently with worker pool
+	concurrency := 3
+	if len(batches) < concurrency {
+		concurrency = len(batches)
+	}
+	sem := make(chan struct{}, concurrency)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var batchErrors []error
+	var allMappings []model.EventMapping
+	now := time.Now()
 
-		activeModelName := s.modelName
-		if s.aiRouter != nil {
-			if _, rModel, err := s.aiRouter.GetTextProviderForFlow(ctx, "checklist_mapping"); err == nil && rModel != "" {
-				activeModelName = rModel
+	for batchIdx, b := range batches {
+		wg.Add(1)
+		go func(idx int, batch []model.RawEvent) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			matches, err := s.processEventBatchWithProvider(ctx, batch, checklistFormatted, activeProvider, activeModelName)
+			mu.Lock()
+			defer mu.Unlock()
+			if err != nil {
+				batchErrors = append(batchErrors, fmt.Errorf("batch %d error: %w", idx, err))
+				return
 			}
-		}
 
-		for _, m := range matches {
-			rawEvtUUID, err1 := uuid.Parse(m.EventID)
-			itemUUID, err2 := uuid.Parse(m.ChecklistItemID)
-			if err1 != nil || err2 != nil {
-				continue
+			for _, m := range matches {
+				rawEvtUUID, err1 := uuid.Parse(m.EventID)
+				itemUUID, err2 := uuid.Parse(m.ChecklistItemID)
+				if err1 != nil || err2 != nil {
+					continue
+				}
+
+				modelNameCopy := activeModelName
+				allMappings = append(allMappings, model.EventMapping{
+					ID:              uuid.New(),
+					RawEventID:      rawEvtUUID,
+					ChecklistItemID: itemUUID,
+					MatchScore:      m.MatchScore,
+					MatchMethod:     m.MatchMethod,
+					MatchedByModel:  &modelNameCopy,
+					CreatedAt:       now,
+				})
 			}
+		}(batchIdx, b)
+	}
 
-			modelNameCopy := activeModelName
-			allMappings = append(allMappings, model.EventMapping{
-				ID:              uuid.New(),
-				RawEventID:      rawEvtUUID,
-				ChecklistItemID: itemUUID,
-				MatchScore:      m.MatchScore,
-				MatchMethod:     m.MatchMethod,
-				MatchedByModel:  &modelNameCopy,
-				CreatedAt:       now,
-			})
-		}
+	wg.Wait()
+
+	if len(batchErrors) > 0 {
+		errMsg := fmt.Sprintf("checklist mapping failed: %v", batchErrors[0])
+		failedStep := "mapping"
+		_ = s.chunkRepo.UpdateJob(ctx, jobID, "failed", &errMsg)
+		_ = s.videoRepo.UpdateStatusWithError(ctx, videoID, "failed", &failedStep, &errMsg, nil)
+		return nil, batchErrors[0]
 	}
 
 	if err := s.mappingRepo.CreateBatch(ctx, allMappings); err != nil {
@@ -200,6 +241,10 @@ func (s *MappingService) processEventBatch(ctx context.Context, batch []model.Ra
 		modelName = rModel
 	}
 
+	return s.processEventBatchWithProvider(ctx, batch, checklistFormatted, aiText, modelName)
+}
+
+func (s *MappingService) processEventBatchWithProvider(ctx context.Context, batch []model.RawEvent, checklistFormatted string, aiText ai.TextCompletionProvider, modelName string) ([]singleMatchOutput, error) {
 	if aiText == nil {
 		return nil, fmt.Errorf("AI text provider not configured for flow 'checklist_mapping'")
 	}
