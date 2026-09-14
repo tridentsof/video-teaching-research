@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -146,6 +147,9 @@ func (s *ExtractionService) ExtractEventsForVideo(ctx context.Context, videoID u
 			videoID, len(chunks), len(chunks)-len(chunksToProcess), len(chunksToProcess))
 
 		if len(chunksToProcess) > 0 {
+			extractCtx, cancelExtract := context.WithCancel(ctx)
+			defer cancelExtract()
+
 			// Process chunks concurrently with worker pool
 			sem := make(chan struct{}, s.maxConcurrentChunks)
 			var wg sync.WaitGroup
@@ -153,18 +157,29 @@ func (s *ExtractionService) ExtractEventsForVideo(ctx context.Context, videoID u
 			var extractionErrors []error
 
 			for _, ch := range chunksToProcess {
+				if extractCtx.Err() != nil {
+					break
+				}
 				wg.Add(1)
 				go func(chunk model.VideoChunk) {
 					defer wg.Done()
-					sem <- struct{}{}
-					defer func() { <-sem }()
+					select {
+					case sem <- struct{}{}:
+						defer func() { <-sem }()
+					case <-extractCtx.Done():
+						return
+					}
 
-					events, err := s.processChunk(ctx, video, chunk)
+					events, err := s.processChunk(extractCtx, video, chunk)
 					mu.Lock()
 					defer mu.Unlock()
 					if err != nil {
 						log.Printf("Error extracting chunk %d (%s): %v", chunk.ChunkIndex, chunk.ID, err)
 						extractionErrors = append(extractionErrors, fmt.Errorf("chunk %d error: %w", chunk.ChunkIndex, err))
+						// If permanent daily quota is exceeded, fail-fast and stop remaining chunks
+						if strings.Contains(err.Error(), "permanent quota") || strings.Contains(err.Error(), "quota per day") {
+							cancelExtract()
+						}
 					} else {
 						allEvents = append(allEvents, events...)
 					}

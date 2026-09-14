@@ -401,25 +401,25 @@ func (g *GeminiDirectProvider) AnalyzeVideoChunk(ctx context.Context, videoFileP
 			continue
 		}
 
-		if resp.StatusCode == http.StatusTooManyRequests || (resp.StatusCode >= 500 && resp.StatusCode <= 599) {
-			sleepDuration := backoff
-			if resp.StatusCode == http.StatusTooManyRequests {
-				sleepDuration = 20 * time.Second
+		if resp.StatusCode != http.StatusOK {
+			decision := ExtractGeminiRetryInfo(resp.StatusCode, resp.Header, body, backoff)
+			if decision.IsPermanentQuota {
+				return "", fmt.Errorf("gemini permanent quota exceeded: %s", decision.Reason)
 			}
-			log.Printf("[Gemini AnalyzeVideo] rate limit or server error %d, retrying in %v...", resp.StatusCode, sleepDuration)
+			if !decision.ShouldRetry {
+				return "", fmt.Errorf("gemini error (%d): %s", resp.StatusCode, string(body))
+			}
 			if attempt == maxRetries {
-				return "", fmt.Errorf("gemini failed with status %d: %s", resp.StatusCode, string(body))
+				return "", fmt.Errorf("gemini failed after %d retries (%d): %s", maxRetries+1, resp.StatusCode, string(body))
 			}
+			log.Printf("[Gemini AnalyzeVideo] %s (attempt %d/%d)", decision.Reason, attempt+1, maxRetries+1)
 			select {
 			case <-ctx.Done():
 				return "", ctx.Err()
-			case <-time.After(sleepDuration):
+			case <-time.After(decision.Delay):
 			}
+			backoff = decision.Delay * 2
 			continue
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			return "", fmt.Errorf("gemini error (%d): %s", resp.StatusCode, string(body))
 		}
 
 		var genResp geminiGenerateContentResponse
@@ -524,16 +524,25 @@ func (g *GeminiDirectProvider) CompleteText(ctx context.Context, model string, s
 			return "", fmt.Errorf("failed to read gemini response: %w", err)
 		}
 
-		if resp.StatusCode == http.StatusTooManyRequests || (resp.StatusCode >= 500 && resp.StatusCode <= 599) {
-			if attempt == maxRetries {
-				return "", fmt.Errorf("gemini failed with status %d: %s", resp.StatusCode, string(body))
-			}
-			log.Printf("Gemini rate limit or server error %d, retrying in %v...", resp.StatusCode, backoff)
-			continue
-		}
-
 		if resp.StatusCode != http.StatusOK {
-			return "", fmt.Errorf("gemini error (%d): %s", resp.StatusCode, string(body))
+			decision := ExtractGeminiRetryInfo(resp.StatusCode, resp.Header, body, backoff)
+			if decision.IsPermanentQuota {
+				return "", fmt.Errorf("gemini permanent quota exceeded: %s", decision.Reason)
+			}
+			if !decision.ShouldRetry {
+				return "", fmt.Errorf("gemini error (%d): %s", resp.StatusCode, string(body))
+			}
+			if attempt == maxRetries {
+				return "", fmt.Errorf("gemini text completion failed after %d retries: %s", maxRetries+1, string(body))
+			}
+			log.Printf("[Gemini CompleteText] %s (attempt %d/%d)", decision.Reason, attempt+1, maxRetries+1)
+			select {
+			case <-ctx.Done():
+				return "", ctx.Err()
+			case <-time.After(decision.Delay):
+			}
+			backoff = decision.Delay * 2
+			continue
 		}
 
 		var genResp geminiGenerateContentResponse
