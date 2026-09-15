@@ -21,6 +21,7 @@ import {
   PanelLeftClose,
   PanelLeft,
   Sliders,
+  LineChart,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -40,6 +41,7 @@ export const Sidebar: React.FC = () => {
     { href: '/upload', label: t('navUpload'), icon: UploadCloud },
     { href: '/checklists', label: t('navChecklists'), icon: CheckSquare },
     { href: '/reports', label: t('navReports'), icon: FileText },
+    { href: '/analytics', label: t('navAnalytics'), icon: LineChart },
     { href: '/codebook', label: t('navCodeBook'), icon: BookMarked },
     { href: '/themes', label: t('navThemes'), icon: Network },
     { href: '/interview', label: t('navInterview'), icon: Mic },

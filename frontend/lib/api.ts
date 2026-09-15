@@ -120,6 +120,61 @@ export interface TeacherAnalysis {
   markdown_content?: string;
 }
 
+export interface LessonTrendPoint {
+  lesson: string;
+  video_id: string;
+  teacher_id: string;
+  scaffolding: number;
+  waitTime: number;
+  praise: number;
+  agency: number;
+}
+
+export interface TeacherQuadrantPoint {
+  id: string;
+  label: string;
+  agency: number;
+  scaffolding: number;
+  total_events: number;
+}
+
+export interface RadarDimensionPoint {
+  key: string;
+  label: string;
+  score: number;
+  count: number;
+}
+
+export interface TemporalBinPoint {
+  bin: string;
+  warmup: number;
+  scaffolding: number;
+  studentTurns: number;
+  praise: number;
+}
+
+export interface OutlierEvidencePoint {
+  teacher_id: string;
+  lesson: string;
+  timestamp_str: string;
+  quote: string;
+  context: string;
+}
+
+export interface PedagogicalAnalyticsData {
+  total_events: number;
+  total_videos: number;
+  total_hours: number;
+  avg_wait_time: number;
+  scaffolding_ratio: number;
+  ai_confidence: number;
+  lessons: LessonTrendPoint[];
+  teachers: TeacherQuadrantPoint[];
+  radar: RadarDimensionPoint[];
+  temporal_stream: TemporalBinPoint[];
+  outlier_evidence: OutlierEvidencePoint;
+}
+
 export interface User {
   id: string;
   username: string;
@@ -652,6 +707,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ message: message || '' }),
     });
+  },
+
+  // Research Analytics
+  async getPedagogicalAnalytics(): Promise<PedagogicalAnalyticsData> {
+    return request<PedagogicalAnalyticsData>('/analytics/pedagogical');
   },
 
   getToken(): string | null {

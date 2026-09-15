@@ -55,6 +55,7 @@ func main() {
 	var codebookHandler *handler.CodebookHandler
 	var settingsHandler *handler.SettingsHandler
 	var activityLogHandler *handler.ActivityLogHandler
+	var analyticsHandler *handler.AnalyticsHandler
 
 	// Initialize Blob Storage (Azure if credentials set, else Local fallback)
 	var blobStorage service.BlobStorage
@@ -166,6 +167,9 @@ func main() {
 		pipelineHandler = handler.NewPipelineHandler(orchestrator, rawEventRepo)
 		reportHandler = handler.NewReportHandler(reportSvc)
 		analysisHandler = handler.NewAnalysisHandler(analysisSvc)
+
+		analyticsRepo := repository.NewAnalyticsRepository(db)
+		analyticsHandler = handler.NewAnalyticsHandler(analyticsRepo)
 	}
 
 	// Set Gin mode
@@ -252,6 +256,14 @@ func main() {
 						reports.GET("/video/:video_id", reportHandler.GetByVideoID)
 						reports.DELETE("/video/:video_id", reportHandler.Delete)
 						reports.GET("/video/:video_id/export.md", reportHandler.ExportMarkdown)
+					}
+				}
+
+				// Analytics routes — Real database research metrics
+				if analyticsHandler != nil {
+					analytics := protected.Group("/analytics")
+					{
+						analytics.GET("/pedagogical", analyticsHandler.GetPedagogical)
 					}
 				}
 
