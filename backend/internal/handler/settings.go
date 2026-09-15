@@ -180,9 +180,10 @@ func (h *SettingsHandler) CreateModel(c *gin.Context) {
 // UpdateModel updates properties of an existing model.
 // PUT /api/settings/models/*id
 func (h *SettingsHandler) UpdateModel(c *gin.Context) {
-	id := strings.TrimPrefix(c.Param("id"), "/")
-	if id == "" {
-		RespondError(c, http.StatusBadRequest, "model ID is required")
+	idStr := strings.TrimPrefix(c.Param("id"), "/")
+	modelUUID, err := uuid.Parse(idStr)
+	if err != nil {
+		RespondError(c, http.StatusBadRequest, "invalid model UUID: "+err.Error())
 		return
 	}
 
@@ -192,7 +193,7 @@ func (h *SettingsHandler) UpdateModel(c *gin.Context) {
 		return
 	}
 
-	m, err := h.routerSvc.UpdateAIModel(c.Request.Context(), id, req)
+	m, err := h.routerSvc.UpdateAIModel(c.Request.Context(), modelUUID, req)
 	if err != nil {
 		RespondError(c, http.StatusBadRequest, err.Error())
 		return
@@ -204,18 +205,19 @@ func (h *SettingsHandler) UpdateModel(c *gin.Context) {
 // DeleteModel removes a model from the catalog if not in use.
 // DELETE /api/settings/models/*id
 func (h *SettingsHandler) DeleteModel(c *gin.Context) {
-	id := strings.TrimPrefix(c.Param("id"), "/")
-	if id == "" {
-		RespondError(c, http.StatusBadRequest, "model ID is required")
+	idStr := strings.TrimPrefix(c.Param("id"), "/")
+	modelUUID, err := uuid.Parse(idStr)
+	if err != nil {
+		RespondError(c, http.StatusBadRequest, "invalid model UUID: "+err.Error())
 		return
 	}
 
-	if err := h.routerSvc.DeleteAIModel(c.Request.Context(), id); err != nil {
+	if err := h.routerSvc.DeleteAIModel(c.Request.Context(), modelUUID); err != nil {
 		RespondError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	RespondSuccess(c, gin.H{"status": "deleted", "id": id})
+	RespondSuccess(c, gin.H{"status": "deleted", "id": idStr})
 }
 
 // GetTelegramStatus returns current bot and subscriber information.

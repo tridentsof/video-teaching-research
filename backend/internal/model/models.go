@@ -227,34 +227,44 @@ type CodebookEntry struct {
 	UpdatedAt          time.Time `json:"updated_at" db:"updated_at"`
 }
 
+// APIKeyMetadata stores provider-specific extra configuration (e.g. GCP Vertex AI).
+type APIKeyMetadata struct {
+	ProjectID string `json:"project_id,omitempty"` // GCP Project ID (vertex_ai only)
+	Region    string `json:"region,omitempty"`     // GCP Region/Location (vertex_ai only)
+	GCSBucket string `json:"gcs_bucket,omitempty"` // GCS Bucket for video uploads (vertex_ai only)
+}
+
 // APIKey represents an AI provider credential stored in the database vault.
 type APIKey struct {
-	ID         uuid.UUID `json:"id" db:"id"`
-	Provider   string    `json:"provider" db:"provider"` // gemini | openrouter | anthropic | openai
-	Label      string    `json:"label" db:"label"`
-	KeySecret  string    `json:"key_secret" db:"key_secret"`
-	IsDefault  bool      `json:"is_default" db:"is_default"`
-	Status     string    `json:"status" db:"status"` // active | rate_limited | disabled
-	CreatedAt  time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`
+	ID         uuid.UUID       `json:"id" db:"id"`
+	Provider   string          `json:"provider" db:"provider"` // gemini | openrouter | vertex_ai
+	Label      string          `json:"label" db:"label"`
+	KeySecret  string          `json:"key_secret" db:"key_secret"`
+	IsDefault  bool            `json:"is_default" db:"is_default"`
+	Status     string          `json:"status" db:"status"` // active | rate_limited | disabled
+	Metadata   *APIKeyMetadata `json:"metadata,omitempty"`
+	CreatedAt  time.Time       `json:"created_at" db:"created_at"`
+	UpdatedAt  time.Time       `json:"updated_at" db:"updated_at"`
 }
 
 // APIKeyResponse masks the secret key for client safety.
 type APIKeyResponse struct {
-	ID        uuid.UUID `json:"id"`
-	Provider  string    `json:"provider"`
-	Label     string    `json:"label"`
-	MaskedKey string    `json:"masked_key"`
-	IsDefault bool      `json:"is_default"`
-	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        uuid.UUID       `json:"id"`
+	Provider  string          `json:"provider"`
+	Label     string          `json:"label"`
+	MaskedKey string          `json:"masked_key"`
+	IsDefault bool            `json:"is_default"`
+	Status    string          `json:"status"`
+	Metadata  *APIKeyMetadata `json:"metadata,omitempty"`
+	CreatedAt time.Time       `json:"created_at"`
+	UpdatedAt time.Time       `json:"updated_at"`
 }
 
 // AIModelInfo represents an AI model in the catalog.
 type AIModelInfo struct {
-	ID                 string    `json:"id" db:"id"`
+	ID                 uuid.UUID `json:"id" db:"id"`
 	Provider           string    `json:"provider" db:"provider"`
+	ModelID            string    `json:"model_id" db:"model_id"`
 	DisplayName        string    `json:"display_name" db:"display_name"`
 	ContextTokens      int       `json:"context_tokens" db:"context_tokens"`
 	SupportsMultimodal bool      `json:"supports_multimodal" db:"supports_multimodal"`
@@ -266,24 +276,25 @@ type AIModelInfo struct {
 
 // FlowConfig represents routing rules for a pipeline flow.
 type FlowConfig struct {
-	FlowKey         string     `json:"flow_key" db:"flow_key"`
-	ModelID         string     `json:"model_id" db:"model_id"`
-	APIKeyID        *uuid.UUID `json:"api_key_id,omitempty" db:"api_key_id"`
-	Temperature     float64    `json:"temperature" db:"temperature"`
-	FallbackModelID *string    `json:"fallback_model_id,omitempty" db:"fallback_model_id"`
-	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
+	FlowKey                string     `json:"flow_key" db:"flow_key"`
+	ModelCatalogID         uuid.UUID  `json:"model_catalog_id" db:"model_catalog_id"`
+	APIKeyID               *uuid.UUID `json:"api_key_id,omitempty" db:"api_key_id"`
+	Temperature            float64    `json:"temperature" db:"temperature"`
+	FallbackModelCatalogID *uuid.UUID `json:"fallback_model_catalog_id,omitempty" db:"fallback_model_catalog_id"`
+	UpdatedAt              time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 // FlowConfigResponse includes nested model & key details for UI presentation.
 type FlowConfigResponse struct {
-	FlowKey         string           `json:"flow_key"`
-	ModelID         string           `json:"model_id"`
-	ModelInfo       *AIModelInfo     `json:"model_info,omitempty"`
-	APIKeyID        *uuid.UUID       `json:"api_key_id,omitempty"`
-	APIKeyInfo      *APIKeyResponse  `json:"api_key_info,omitempty"`
-	Temperature     float64          `json:"temperature"`
-	FallbackModelID *string          `json:"fallback_model_id,omitempty"`
-	UpdatedAt       time.Time        `json:"updated_at"`
+	FlowKey                string           `json:"flow_key"`
+	ModelCatalogID         uuid.UUID        `json:"model_catalog_id"`
+	ModelInfo              *AIModelInfo     `json:"model_info,omitempty"`
+	APIKeyID               *uuid.UUID       `json:"api_key_id,omitempty"`
+	APIKeyInfo             *APIKeyResponse  `json:"api_key_info,omitempty"`
+	Temperature            float64          `json:"temperature"`
+	FallbackModelCatalogID *uuid.UUID       `json:"fallback_model_catalog_id,omitempty"`
+	FallbackModelInfo      *AIModelInfo     `json:"fallback_model_info,omitempty"`
+	UpdatedAt              time.Time        `json:"updated_at"`
 }
 
 // AIFlowsSettingsResponse returns the complete state for the AI Studio page.
@@ -295,11 +306,11 @@ type AIFlowsSettingsResponse struct {
 
 // UpdateFlowConfigRequestItem is one item in a bulk update request.
 type UpdateFlowConfigRequestItem struct {
-	FlowKey         string     `json:"flow_key" binding:"required"`
-	ModelID         string     `json:"model_id" binding:"required"`
-	APIKeyID        *uuid.UUID `json:"api_key_id"`
-	Temperature     float64    `json:"temperature"`
-	FallbackModelID *string    `json:"fallback_model_id"`
+	FlowKey                string     `json:"flow_key" binding:"required"`
+	ModelCatalogID         uuid.UUID  `json:"model_catalog_id" binding:"required"`
+	APIKeyID               *uuid.UUID `json:"api_key_id"`
+	Temperature            float64    `json:"temperature"`
+	FallbackModelCatalogID *uuid.UUID `json:"fallback_model_catalog_id"`
 }
 
 // UpdateFlowConfigsRequest is the payload for PUT /settings/ai-flows.
@@ -309,18 +320,20 @@ type UpdateFlowConfigsRequest struct {
 
 // CreateAPIKeyRequest is the payload for POST /settings/api-keys.
 type CreateAPIKeyRequest struct {
-	Provider  string `json:"provider" binding:"required"`
-	Label     string `json:"label" binding:"required"`
-	KeySecret string `json:"key_secret" binding:"required"`
-	IsDefault bool   `json:"is_default"`
+	Provider  string          `json:"provider" binding:"required"`
+	Label     string          `json:"label" binding:"required"`
+	KeySecret string          `json:"key_secret" binding:"required"`
+	IsDefault bool            `json:"is_default"`
+	Metadata  *APIKeyMetadata `json:"metadata,omitempty"`
 }
 
 // UpdateAPIKeyRequest is the payload for PUT /settings/api-keys/:id.
 type UpdateAPIKeyRequest struct {
-	Label     string  `json:"label" binding:"required"`
-	KeySecret *string `json:"key_secret"` // Optional: only overwrites if provided and non-empty
-	IsDefault bool    `json:"is_default"`
-	Status    string  `json:"status"`
+	Label     string          `json:"label" binding:"required"`
+	KeySecret *string         `json:"key_secret"` // Optional: only overwrites if provided and non-empty
+	IsDefault bool            `json:"is_default"`
+	Status    string          `json:"status"`
+	Metadata  *APIKeyMetadata `json:"metadata,omitempty"`
 }
 
 // TestPingRequest is the payload for POST /settings/test-ping.
@@ -340,8 +353,8 @@ type TestPingResponse struct {
 
 // CreateAIModelRequest is the payload for POST /settings/models.
 type CreateAIModelRequest struct {
-	ID                 string `json:"id" binding:"required"`
 	Provider           string `json:"provider" binding:"required"`
+	ModelID            string `json:"model_id" binding:"required"`
 	DisplayName        string `json:"display_name" binding:"required"`
 	ContextTokens      int    `json:"context_tokens"`
 	SupportsMultimodal bool   `json:"supports_multimodal"`
@@ -353,6 +366,7 @@ type CreateAIModelRequest struct {
 // UpdateAIModelRequest is the payload for PUT /settings/models/:id.
 type UpdateAIModelRequest struct {
 	DisplayName        string `json:"display_name" binding:"required"`
+	ModelID            string `json:"model_id"`
 	ContextTokens      int    `json:"context_tokens"`
 	SupportsMultimodal bool   `json:"supports_multimodal"`
 	SupportsReasoning  bool   `json:"supports_reasoning"`

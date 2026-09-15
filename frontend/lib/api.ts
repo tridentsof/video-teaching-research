@@ -202,11 +202,18 @@ export interface CodebookEntry {
   updated_at?: string;
 }
 
+export interface APIKeyMetadata {
+  project_id?: string;
+  region?: string;
+  gcs_bucket?: string;
+}
+
 export interface APIKeyItem {
   id: string;
   provider: string;
   label: string;
   masked_key: string;
+  metadata?: APIKeyMetadata;
   is_default: boolean;
   status: string;
   created_at: string;
@@ -216,6 +223,7 @@ export interface APIKeyItem {
 export interface AIModelItem {
   id: string;
   provider: string;
+  model_id: string;
   display_name: string;
   context_tokens: number;
   supports_multimodal: boolean;
@@ -227,12 +235,13 @@ export interface AIModelItem {
 
 export interface FlowConfigItem {
   flow_key: string;
-  model_id: string;
+  model_catalog_id: string;
   model_info?: AIModelItem;
   api_key_id?: string;
   api_key_info?: APIKeyItem;
   temperature: number;
-  fallback_model_id?: string;
+  fallback_model_catalog_id?: string;
+  fallback_model_info?: AIModelItem;
   updated_at: string;
 }
 
@@ -575,7 +584,7 @@ export const api = {
     return request<AIFlowsSettingsData>('/settings/ai-flows');
   },
 
-  async updateAIFlowsSettings(flows: Array<{ flow_key: string; model_id: string; api_key_id?: string; temperature: number; fallback_model_id?: string }>): Promise<AIFlowsSettingsData> {
+  async updateAIFlowsSettings(flows: Array<{ flow_key: string; model_catalog_id: string; api_key_id?: string; temperature: number; fallback_model_catalog_id?: string }>): Promise<AIFlowsSettingsData> {
     return request<AIFlowsSettingsData>('/settings/ai-flows', {
       method: 'PUT',
       body: JSON.stringify({ flows }),
@@ -587,16 +596,16 @@ export const api = {
     return data.api_keys || [];
   },
 
-  async createAPIKey(provider: string, label: string, key_secret: string, is_default = false): Promise<APIKeyItem> {
+  async createAPIKey(provider: string, label: string, key_secret: string, is_default = false, metadata?: APIKeyMetadata): Promise<APIKeyItem> {
     return request<APIKeyItem>('/settings/api-keys', {
       method: 'POST',
-      body: JSON.stringify({ provider, label, key_secret, is_default }),
+      body: JSON.stringify({ provider, label, key_secret, is_default, metadata }),
     });
   },
 
   async updateAPIKey(
     id: string,
-    keyData: { label: string; key_secret?: string; is_default?: boolean; status?: string }
+    keyData: { label: string; key_secret?: string; is_default?: boolean; status?: string; metadata?: APIKeyMetadata }
   ): Promise<APIKeyItem> {
     return request<APIKeyItem>(`/settings/api-keys/${id}`, {
       method: 'PUT',
@@ -624,8 +633,8 @@ export const api = {
   },
 
   async createAIModel(modelData: {
-    id: string;
     provider: string;
+    model_id: string;
     display_name: string;
     context_tokens?: number;
     supports_multimodal?: boolean;
@@ -643,6 +652,7 @@ export const api = {
     id: string,
     modelData: {
       display_name: string;
+      model_id?: string;
       context_tokens?: number;
       supports_multimodal?: boolean;
       supports_reasoning?: boolean;

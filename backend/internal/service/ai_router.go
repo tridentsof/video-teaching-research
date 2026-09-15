@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -24,6 +25,7 @@ type AIRouterService struct {
 	// Cached provider instances by key secret
 	geminiProviders     map[string]*ai.GeminiDirectProvider
 	openRouterProviders map[string]*ai.OpenRouterProvider
+	vertexProviders     map[string]*ai.VertexAIProvider
 	mu                  sync.RWMutex
 }
 
@@ -50,6 +52,7 @@ func NewAIRouterService(
 		defaultOpenRouterModel: defaultOpenRouterModel,
 		geminiProviders:     make(map[string]*ai.GeminiDirectProvider),
 		openRouterProviders: make(map[string]*ai.OpenRouterProvider),
+		vertexProviders:     make(map[string]*ai.VertexAIProvider),
 	}
 }
 
@@ -100,68 +103,83 @@ func (s *AIRouterService) getOpenRouterProvider(apiKey string) *ai.OpenRouterPro
 	return p
 }
 
+// getVertexProvider returns or creates a cached VertexAIProvider for a specific project/region/model combo.
+func (s *AIRouterService) getVertexProvider(saJSON, projectID, region, gcsBucket, modelName string) *ai.VertexAIProvider {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	cacheKey := projectID + ":" + region + ":" + modelName
+	if p, ok := s.vertexProviders[cacheKey]; ok {
+		return p
+	}
+	p := ai.NewVertexAIProvider(saJSON, projectID, region, gcsBucket, modelName)
+	s.vertexProviders[cacheKey] = p
+	return p
+}
+
 // ResolveFlowConfig retrieves the active model, provider, and API key for a given pipeline flow.
 // Enforces a strict SINGLE SOURCE OF TRUTH: Configuration MUST exist in DB/UI.
 // No fallbacks to environment variables or cross-provider substitutions are permitted.
-func (s *AIRouterService) ResolveFlowConfig(ctx context.Context, flowKey string) (providerType string, modelName string, apiKeySecret string, temperature float64, err error) {
+func (s *AIRouterService) ResolveFlowConfig(ctx context.Context, flowKey string) (providerType string, modelName string, apiKeySecret string, temperature float64, metadata *model.APIKeyMetadata, err error) {
 	if s.repo == nil {
-		return "", "", "", 0, fmt.Errorf("settings repository is not configured")
+		return "", "", "", 0, nil, fmt.Errorf("settings repository is not configured")
 	}
 
 	// 1. Fetch flow configuration from database
 	cfg, err := s.repo.GetFlowConfig(ctx, flowKey)
 	if err != nil {
-		return "", "", "", 0, fmt.Errorf("failed to load flow config for '%s' from database: %w", flowKey, err)
+		return "", "", "", 0, nil, fmt.Errorf("failed to load flow config for '%s' from database: %w", flowKey, err)
 	}
-	if cfg == nil || strings.TrimSpace(cfg.ModelID) == "" {
-		return "", "", "", 0, fmt.Errorf("flow '%s' is not configured in database; please configure model and API key in Settings UI", flowKey)
+	if cfg == nil || cfg.ModelCatalogID == uuid.Nil {
+		return "", "", "", 0, nil, fmt.Errorf("flow '%s' is not configured in database; please configure model and API key in Settings UI", flowKey)
 	}
 
-	modelName = strings.TrimSpace(cfg.ModelID)
 	temperature = cfg.Temperature
 
 	// 2. Validate model in model catalog
-	mInfo, err := s.repo.GetAIModelByID(ctx, modelName)
+	mInfo, err := s.repo.GetAIModelByID(ctx, cfg.ModelCatalogID)
 	if err != nil || mInfo == nil {
-		return "", "", "", 0, fmt.Errorf("model '%s' configured for flow '%s' does not exist in model catalog", modelName, flowKey)
+		return "", "", "", 0, nil, fmt.Errorf("model catalog entry '%s' configured for flow '%s' does not exist in model catalog", cfg.ModelCatalogID.String(), flowKey)
 	}
 	if !mInfo.IsActive {
-		return "", "", "", 0, fmt.Errorf("model '%s' configured for flow '%s' is deactivated", modelName, flowKey)
+		return "", "", "", 0, nil, fmt.Errorf("model '%s' (%s) configured for flow '%s' is deactivated", mInfo.DisplayName, mInfo.ModelID, flowKey)
 	}
 	providerType = mInfo.Provider
+	modelName = mInfo.ModelID
 
 	// 3. Strictly validate assigned API key (NO fallback to default or environment)
 	if cfg.APIKeyID == nil || *cfg.APIKeyID == uuid.Nil {
-		return "", "", "", 0, fmt.Errorf("flow '%s' has no API key assigned; please assign a valid API key in Settings UI", flowKey)
+		return "", "", "", 0, nil, fmt.Errorf("flow '%s' has no API key assigned; please assign a valid API key in Settings UI", flowKey)
 	}
 
 	keyObj, err := s.repo.GetAPIKeyByID(ctx, *cfg.APIKeyID)
 	if err != nil || keyObj == nil {
-		return "", "", "", 0, fmt.Errorf("API key configured for flow '%s' (ID: %s) was not found in key vault", flowKey, cfg.APIKeyID.String())
+		return "", "", "", 0, nil, fmt.Errorf("API key configured for flow '%s' (ID: %s) was not found in key vault", flowKey, cfg.APIKeyID.String())
 	}
 
 	if keyObj.Status != "active" {
-		return "", "", "", 0, fmt.Errorf("API key '%s' assigned to flow '%s' is %s (must be active)", keyObj.Label, flowKey, keyObj.Status)
+		return "", "", "", 0, nil, fmt.Errorf("API key '%s' assigned to flow '%s' is %s (must be active)", keyObj.Label, flowKey, keyObj.Status)
 	}
 
 	apiKeySecret = strings.TrimSpace(keyObj.KeySecret)
 	if apiKeySecret == "" {
-		return "", "", "", 0, fmt.Errorf("API key '%s' assigned to flow '%s' has an empty key secret", keyObj.Label, flowKey)
+		return "", "", "", 0, nil, fmt.Errorf("API key '%s' assigned to flow '%s' has an empty key secret", keyObj.Label, flowKey)
 	}
 
 	// 4. Ensure provider compatibility
 	if keyObj.Provider != providerType {
-		return "", "", "", 0, fmt.Errorf("provider mismatch for flow '%s': model '%s' requires '%s', but assigned key '%s' is for '%s'",
+		return "", "", "", 0, nil, fmt.Errorf("provider mismatch for flow '%s': model '%s' requires '%s', but assigned key '%s' is for '%s'",
 			flowKey, modelName, providerType, keyObj.Label, keyObj.Provider)
 	}
 
-	return providerType, modelName, apiKeySecret, temperature, nil
+	metadata = keyObj.Metadata
+	return providerType, modelName, apiKeySecret, temperature, metadata, nil
 }
 
 // GetTextProviderForFlow dynamically resolves and returns the TextCompletionProvider for a given flow.
 // Fails immediately if configuration or key is missing or invalid.
 func (s *AIRouterService) GetTextProviderForFlow(ctx context.Context, flowKey string) (ai.TextCompletionProvider, string, error) {
-	providerType, modelName, apiKeySecret, _, err := s.ResolveFlowConfig(ctx, flowKey)
+	providerType, modelName, apiKeySecret, _, metadata, err := s.ResolveFlowConfig(ctx, flowKey)
 	if err != nil {
 		return nil, "", fmt.Errorf("flow '%s' configuration error: %w", flowKey, err)
 	}
@@ -171,24 +189,45 @@ func (s *AIRouterService) GetTextProviderForFlow(ctx context.Context, flowKey st
 		return s.getOpenRouterProvider(apiKeySecret), modelName, nil
 	case "gemini":
 		return s.getGeminiProvider(apiKeySecret, modelName), modelName, nil
+	case "vertex_ai":
+		projectID, region, gcsBucket := "", "", ""
+		if metadata != nil {
+			projectID = metadata.ProjectID
+			region = metadata.Region
+			gcsBucket = metadata.GCSBucket
+		}
+		return s.getVertexProvider(apiKeySecret, projectID, region, gcsBucket, modelName), modelName, nil
 	default:
 		return nil, "", fmt.Errorf("unsupported AI provider '%s' for flow '%s'", providerType, flowKey)
 	}
 }
 
 // GetVideoProviderForFlow dynamically resolves and returns the VideoAnalysisProvider for video extraction.
+// Supports both Gemini (AI Studio) and Vertex AI providers for multimodal video analysis.
 // Fails immediately if configuration or key is missing or invalid.
 func (s *AIRouterService) GetVideoProviderForFlow(ctx context.Context, flowKey string) (ai.VideoAnalysisProvider, string, error) {
-	providerType, modelName, apiKeySecret, _, err := s.ResolveFlowConfig(ctx, flowKey)
+	providerType, modelName, apiKeySecret, _, metadata, err := s.ResolveFlowConfig(ctx, flowKey)
 	if err != nil {
 		return nil, "", fmt.Errorf("flow '%s' configuration error: %w", flowKey, err)
 	}
 
-	if providerType != "gemini" {
-		return nil, "", fmt.Errorf("video extraction flow '%s' requires a multimodal video provider (gemini), but '%s' was configured", flowKey, providerType)
+	switch providerType {
+	case "gemini":
+		return s.getGeminiProvider(apiKeySecret, modelName), modelName, nil
+	case "vertex_ai":
+		projectID, region, gcsBucket := "", "", ""
+		if metadata != nil {
+			projectID = metadata.ProjectID
+			region = metadata.Region
+			gcsBucket = metadata.GCSBucket
+		}
+		if gcsBucket == "" {
+			return nil, "", fmt.Errorf("vertex AI video extraction requires a GCS Bucket configured in the API key metadata")
+		}
+		return s.getVertexProvider(apiKeySecret, projectID, region, gcsBucket, modelName), modelName, nil
+	default:
+		return nil, "", fmt.Errorf("video extraction flow '%s' requires a multimodal video provider (gemini or vertex_ai), but '%s' was configured", flowKey, providerType)
 	}
-
-	return s.getGeminiProvider(apiKeySecret, modelName), modelName, nil
 }
 
 // GetCompleteSettings aggregates all flows, active models, and saved API keys for the UI.
@@ -206,7 +245,7 @@ func (s *AIRouterService) GetCompleteSettings(ctx context.Context) (*model.AIFlo
 	if rawModels != nil {
 		models = rawModels
 	}
-	modelMap := make(map[string]model.AIModelInfo)
+	modelMap := make(map[uuid.UUID]model.AIModelInfo)
 	for _, m := range models {
 		modelMap[m.ID] = m
 	}
@@ -226,6 +265,7 @@ func (s *AIRouterService) GetCompleteSettings(ctx context.Context) (*model.AIFlo
 			MaskedKey: MaskKey(k.KeySecret),
 			IsDefault: k.IsDefault,
 			Status:    k.Status,
+			Metadata:  k.Metadata,
 			CreatedAt: k.CreatedAt,
 			UpdatedAt: k.UpdatedAt,
 		}
@@ -242,8 +282,20 @@ func (s *AIRouterService) GetCompleteSettings(ctx context.Context) (*model.AIFlo
 	flows := make([]model.FlowConfigResponse, 0)
 	for _, fc := range flowConfigs {
 		var mInfo *model.AIModelInfo
-		if m, ok := modelMap[fc.ModelID]; ok {
-			mInfo = &m
+		for i := range models {
+			if models[i].ID == fc.ModelCatalogID {
+				mInfo = &models[i]
+				break
+			}
+		}
+		var fallbackMInfo *model.AIModelInfo
+		if fc.FallbackModelCatalogID != nil {
+			for i := range models {
+				if models[i].ID == *fc.FallbackModelCatalogID {
+					fallbackMInfo = &models[i]
+					break
+				}
+			}
 		}
 		var kInfo *model.APIKeyResponse
 		if fc.APIKeyID != nil {
@@ -253,14 +305,15 @@ func (s *AIRouterService) GetCompleteSettings(ctx context.Context) (*model.AIFlo
 		}
 
 		flows = append(flows, model.FlowConfigResponse{
-			FlowKey:         fc.FlowKey,
-			ModelID:         fc.ModelID,
-			ModelInfo:       mInfo,
-			APIKeyID:        fc.APIKeyID,
-			APIKeyInfo:      kInfo,
-			Temperature:     fc.Temperature,
-			FallbackModelID: fc.FallbackModelID,
-			UpdatedAt:       fc.UpdatedAt,
+			FlowKey:                fc.FlowKey,
+			ModelCatalogID:         fc.ModelCatalogID,
+			ModelInfo:              mInfo,
+			APIKeyID:               fc.APIKeyID,
+			APIKeyInfo:             kInfo,
+			Temperature:            fc.Temperature,
+			FallbackModelCatalogID: fc.FallbackModelCatalogID,
+			FallbackModelInfo:      fallbackMInfo,
+			UpdatedAt:              fc.UpdatedAt,
 		})
 	}
 
@@ -280,11 +333,11 @@ func (s *AIRouterService) UpdateFlowConfigs(ctx context.Context, req model.Updat
 	var configs []model.FlowConfig
 	for _, item := range req.Flows {
 		configs = append(configs, model.FlowConfig{
-			FlowKey:         item.FlowKey,
-			ModelID:         item.ModelID,
-			APIKeyID:        item.APIKeyID,
-			Temperature:     item.Temperature,
-			FallbackModelID: item.FallbackModelID,
+			FlowKey:                item.FlowKey,
+			ModelCatalogID:         item.ModelCatalogID,
+			APIKeyID:               item.APIKeyID,
+			Temperature:            item.Temperature,
+			FallbackModelCatalogID: item.FallbackModelCatalogID,
 		})
 	}
 
@@ -311,6 +364,7 @@ func (s *AIRouterService) ListAPIKeys(ctx context.Context) ([]model.APIKeyRespon
 			MaskedKey: MaskKey(k.KeySecret),
 			IsDefault: k.IsDefault,
 			Status:    k.Status,
+			Metadata:  k.Metadata,
 			CreatedAt: k.CreatedAt,
 			UpdatedAt: k.UpdatedAt,
 		})
@@ -331,6 +385,24 @@ func (s *AIRouterService) CreateAPIKey(ctx context.Context, req model.CreateAPIK
 		KeySecret: strings.TrimSpace(req.KeySecret),
 		IsDefault: req.IsDefault,
 		Status:    "active",
+		Metadata:  req.Metadata,
+	}
+
+	// Auto-extract ProjectID from Service Account JSON if provider is vertex_ai and ProjectID is missing
+	if keyObj.Provider == "vertex_ai" {
+		var sa struct {
+			ProjectID string `json:"project_id"`
+		}
+		if err := json.Unmarshal([]byte(keyObj.KeySecret), &sa); err == nil && sa.ProjectID != "" {
+			if keyObj.Metadata == nil {
+				keyObj.Metadata = &model.APIKeyMetadata{
+					ProjectID: sa.ProjectID,
+					Region:    "us-central1",
+				}
+			} else if keyObj.Metadata.ProjectID == "" {
+				keyObj.Metadata.ProjectID = sa.ProjectID
+			}
+		}
 	}
 
 	if err := s.repo.CreateAPIKey(ctx, keyObj); err != nil {
@@ -344,6 +416,7 @@ func (s *AIRouterService) CreateAPIKey(ctx context.Context, req model.CreateAPIK
 		MaskedKey: MaskKey(keyObj.KeySecret),
 		IsDefault: keyObj.IsDefault,
 		Status:    keyObj.Status,
+		Metadata:  keyObj.Metadata,
 		CreatedAt: keyObj.CreatedAt,
 		UpdatedAt: keyObj.UpdatedAt,
 	}, nil
@@ -360,6 +433,23 @@ func (s *AIRouterService) UpdateAPIKey(ctx context.Context, id uuid.UUID, req mo
 		return nil, fmt.Errorf("label is required")
 	}
 
+	// Auto-extract ProjectID from Service Account JSON if new key_secret provided and ProjectID is missing
+	if req.KeySecret != nil && strings.TrimSpace(*req.KeySecret) != "" {
+		var sa struct {
+			ProjectID string `json:"project_id"`
+		}
+		if err := json.Unmarshal([]byte(*req.KeySecret), &sa); err == nil && sa.ProjectID != "" {
+			if req.Metadata == nil {
+				req.Metadata = &model.APIKeyMetadata{
+					ProjectID: sa.ProjectID,
+					Region:    "us-central1",
+				}
+			} else if req.Metadata.ProjectID == "" {
+				req.Metadata.ProjectID = sa.ProjectID
+			}
+		}
+	}
+
 	if err := s.repo.UpdateAPIKey(ctx, id, req); err != nil {
 		return nil, err
 	}
@@ -373,6 +463,14 @@ func (s *AIRouterService) UpdateAPIKey(ctx context.Context, id uuid.UUID, req mo
 	s.mu.Lock()
 	delete(s.geminiProviders, updated.KeySecret)
 	delete(s.openRouterProviders, updated.KeySecret)
+	// Invalidate vertex providers matching this key's project
+	if updated.Metadata != nil && updated.Metadata.ProjectID != "" {
+		for k := range s.vertexProviders {
+			if strings.HasPrefix(k, updated.Metadata.ProjectID+":") {
+				delete(s.vertexProviders, k)
+			}
+		}
+	}
 	s.mu.Unlock()
 
 	return &model.APIKeyResponse{
@@ -382,6 +480,7 @@ func (s *AIRouterService) UpdateAPIKey(ctx context.Context, id uuid.UUID, req mo
 		MaskedKey: MaskKey(updated.KeySecret),
 		IsDefault: updated.IsDefault,
 		Status:    updated.Status,
+		Metadata:  updated.Metadata,
 		CreatedAt: updated.CreatedAt,
 		UpdatedAt: updated.UpdatedAt,
 	}, nil
@@ -418,10 +517,23 @@ func (s *AIRouterService) TestPing(ctx context.Context, req model.TestPingReques
 	}
 
 	var pingErr error
-	if req.Provider == "gemini" {
+	switch req.Provider {
+	case "gemini":
 		provider := s.getGeminiProvider(keySecret, req.ModelID)
 		_, pingErr = provider.CompleteText(ctx, req.ModelID, "You are a test ping agent.", "Ping. Reply with 'Pong'.")
-	} else {
+	case "vertex_ai":
+		// For vertex_ai, we need metadata from the DB key
+		projectID, region, gcsBucket := "", "", ""
+		if req.APIKeyID != nil && s.repo != nil {
+			if kObj, err := s.repo.GetAPIKeyByID(ctx, *req.APIKeyID); err == nil && kObj != nil && kObj.Metadata != nil {
+				projectID = kObj.Metadata.ProjectID
+				region = kObj.Metadata.Region
+				gcsBucket = kObj.Metadata.GCSBucket
+			}
+		}
+		provider := s.getVertexProvider(keySecret, projectID, region, gcsBucket, req.ModelID)
+		_, pingErr = provider.CompleteText(ctx, req.ModelID, "You are a test ping agent.", "Ping. Reply with 'Pong'.")
+	default:
 		provider := s.getOpenRouterProvider(keySecret)
 		_, pingErr = provider.CompleteText(ctx, req.ModelID, "You are a test ping agent.", "Ping. Reply with 'Pong'.")
 	}
@@ -463,15 +575,19 @@ func (s *AIRouterService) CreateAIModel(ctx context.Context, req model.CreateAIM
 		return nil, fmt.Errorf("settings repository is not configured")
 	}
 
-	modelID := strings.TrimSpace(req.ID)
+	modelID := strings.TrimSpace(req.ModelID)
 	if modelID == "" {
 		return nil, fmt.Errorf("model ID is required")
 	}
+	provider := strings.ToLower(strings.TrimSpace(req.Provider))
+	if provider == "" {
+		return nil, fmt.Errorf("provider is required")
+	}
 
-	// Check if already exists
-	existing, _ := s.repo.GetAIModelByID(ctx, modelID)
+	// Check if already exists for this provider and model_id
+	existing, _ := s.repo.GetAIModelByProviderAndModelID(ctx, provider, modelID)
 	if existing != nil {
-		return nil, fmt.Errorf("model '%s' already exists in catalog", modelID)
+		return nil, fmt.Errorf("model '%s' for provider '%s' already exists in catalog", modelID, provider)
 	}
 
 	ctxTokens := req.ContextTokens
@@ -480,8 +596,9 @@ func (s *AIRouterService) CreateAIModel(ctx context.Context, req model.CreateAIM
 	}
 
 	m := &model.AIModelInfo{
-		ID:                 modelID,
-		Provider:           strings.ToLower(strings.TrimSpace(req.Provider)),
+		ID:                 uuid.New(),
+		Provider:           provider,
+		ModelID:            modelID,
 		DisplayName:        strings.TrimSpace(req.DisplayName),
 		ContextTokens:      ctxTokens,
 		SupportsMultimodal: req.SupportsMultimodal,
@@ -498,7 +615,7 @@ func (s *AIRouterService) CreateAIModel(ctx context.Context, req model.CreateAIM
 }
 
 // UpdateAIModel updates model properties.
-func (s *AIRouterService) UpdateAIModel(ctx context.Context, id string, req model.UpdateAIModelRequest) (*model.AIModelInfo, error) {
+func (s *AIRouterService) UpdateAIModel(ctx context.Context, id uuid.UUID, req model.UpdateAIModelRequest) (*model.AIModelInfo, error) {
 	if s.repo == nil {
 		return nil, fmt.Errorf("settings repository is not configured")
 	}
@@ -516,7 +633,7 @@ func (s *AIRouterService) UpdateAIModel(ctx context.Context, id string, req mode
 }
 
 // DeleteAIModel deletes an AI model if not currently assigned to any flow.
-func (s *AIRouterService) DeleteAIModel(ctx context.Context, id string) error {
+func (s *AIRouterService) DeleteAIModel(ctx context.Context, id uuid.UUID) error {
 	if s.repo == nil {
 		return fmt.Errorf("settings repository is not configured")
 	}

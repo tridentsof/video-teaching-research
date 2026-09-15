@@ -31,6 +31,7 @@ import {
   Sliders,
   Send,
   Bell,
+  Globe,
 } from 'lucide-react';
 import { ActivityLogView } from '@/components/ActivityLogView';
 import { activityLogService } from '@/lib/activityLog';
@@ -128,7 +129,7 @@ export default function SettingsPage() {
   const [testing, setTesting] = useState(false);
 
   const [settingsData, setSettingsData] = useState<AIFlowsSettingsData | null>(null);
-  const [flowState, setFlowState] = useState<Record<string, { model_id: string; api_key_id?: string; temperature: number; fallback_model_id?: string }>>({});
+  const [flowState, setFlowState] = useState<Record<string, { model_catalog_id: string; api_key_id?: string; temperature: number; fallback_model_catalog_id?: string }>>({});
   const [selectedFlowKey, setSelectedFlowKey] = useState<string>('video_extraction');
   const [activePreset, setActivePreset] = useState<string>('custom');
   const [activeAdminTab, setActiveAdminTab] = useState<'api_config' | 'telegram' | 'activity_log'>('api_config');
@@ -139,6 +140,9 @@ export default function SettingsPage() {
   const [newKeyProvider, setNewKeyProvider] = useState('gemini');
   const [newKeyLabel, setNewKeyLabel] = useState('');
   const [newKeySecret, setNewKeySecret] = useState('');
+  const [newKeyProjectID, setNewKeyProjectID] = useState('');
+  const [newKeyRegion, setNewKeyRegion] = useState('us-central1');
+  const [newKeyGCSBucket, setNewKeyGCSBucket] = useState('');
   const [newKeyIsDefault, setNewKeyIsDefault] = useState(false);
   const [creatingKey, setCreatingKey] = useState(false);
 
@@ -173,13 +177,13 @@ export default function SettingsPage() {
       const res = await api.getAIFlowsSettings();
       setSettingsData(res);
 
-      const stateMap: Record<string, { model_id: string; api_key_id?: string; temperature: number; fallback_model_id?: string }> = {};
+      const stateMap: Record<string, { model_catalog_id: string; api_key_id?: string; temperature: number; fallback_model_catalog_id?: string }> = {};
       (res?.flows || []).forEach((f) => {
         stateMap[f.flow_key] = {
-          model_id: f.model_id,
+          model_catalog_id: f.model_catalog_id,
           api_key_id: f.api_key_id,
           temperature: f.temperature,
-          fallback_model_id: f.fallback_model_id,
+          fallback_model_catalog_id: f.fallback_model_catalog_id,
         };
       });
       setFlowState(stateMap);
@@ -218,22 +222,40 @@ export default function SettingsPage() {
   }, []);
 
   const currentFlow = flowState[selectedFlowKey] || {
-    model_id: 'gemini-3.7-flash',
+    model_catalog_id: '',
     temperature: 0.2,
   };
 
   const currentMeta = FLOW_METAS[selectedFlowKey] || FLOW_METAS.video_extraction;
-  const currentModelInfo = (settingsData?.models || []).find((m) => m.id === currentFlow.model_id);
+  const currentModelInfo = (settingsData?.models || []).find((m) => m.id === currentFlow.model_catalog_id);
 
   // Update handlers
-  const handleModelChange = (modelId: string) => {
-    setFlowState((prev) => ({
-      ...prev,
-      [selectedFlowKey]: {
-        ...prev[selectedFlowKey],
-        model_id: modelId,
-      },
-    }));
+  const handleModelChange = (modelCatalogId: string) => {
+    setFlowState((prev) => {
+      const selectedModel = (settingsData?.models || []).find((m) => m.id === modelCatalogId);
+      let newKeyId = prev[selectedFlowKey]?.api_key_id;
+      const currentKey = (settingsData?.api_keys || []).find((k) => k.id === newKeyId);
+      // Auto-switch to a compatible active API key for this provider if current key doesn't match
+      if (selectedModel && (!currentKey || currentKey.provider !== selectedModel.provider)) {
+        const matchingKey =
+          (settingsData?.api_keys || []).find(
+            (k) => k.provider === selectedModel.provider && k.status === 'active' && k.is_default
+          ) ||
+          (settingsData?.api_keys || []).find(
+            (k) => k.provider === selectedModel.provider && k.status === 'active'
+          );
+        newKeyId = matchingKey ? matchingKey.id : undefined;
+      }
+
+      return {
+        ...prev,
+        [selectedFlowKey]: {
+          ...prev[selectedFlowKey],
+          model_catalog_id: modelCatalogId,
+          api_key_id: newKeyId,
+        },
+      };
+    });
     setActivePreset('custom');
   };
 
@@ -263,11 +285,23 @@ export default function SettingsPage() {
     setActivePreset(preset);
     const updated = { ...flowState };
 
+    const getModelCatalogId = (provider: string, modelId: string): string => {
+      const found = (settingsData?.models || []).find((m) => m.provider === provider && m.model_id === modelId);
+      return found ? found.id : '';
+    };
+
     if (preset === 'all-flash') {
+      const gFlashId = getModelCatalogId('gemini', 'gemini-3.7-flash');
+      const geminiKey =
+        (settingsData?.api_keys || []).find((k) => k.provider === 'gemini' && k.status === 'active' && k.is_default) ||
+        (settingsData?.api_keys || []).find((k) => k.provider === 'gemini' && k.status === 'active');
+      const gKeyId = geminiKey ? geminiKey.id : undefined;
+
       FLOW_ORDER.forEach((key) => {
         updated[key] = {
           ...updated[key],
-          model_id: 'gemini-3.7-flash',
+          model_catalog_id: gFlashId || updated[key]?.model_catalog_id,
+          api_key_id: gKeyId || updated[key]?.api_key_id,
         };
       });
       activityLogService.addLog({
@@ -290,11 +324,23 @@ export default function SettingsPage() {
           : 'Preset applied: All flows routed to Gemini 3.7 Flash'
       );
     } else if (preset === 'claude-research') {
-      updated.video_extraction = { ...updated.video_extraction, model_id: 'gemini-3.7-flash' };
-      updated.checklist_mapping = { ...updated.checklist_mapping, model_id: 'claude-3.7-sonnet' };
-      updated.thematic_analysis = { ...updated.thematic_analysis, model_id: 'claude-3.7-sonnet' };
-      updated.interview_generator = { ...updated.interview_generator, model_id: 'claude-3.7-sonnet' };
-      updated.codebook_generation = { ...updated.codebook_generation, model_id: 'gemini-3.7-flash' };
+      const gFlashId = getModelCatalogId('gemini', 'gemini-3.7-flash');
+      const geminiKey =
+        (settingsData?.api_keys || []).find((k) => k.provider === 'gemini' && k.status === 'active' && k.is_default) ||
+        (settingsData?.api_keys || []).find((k) => k.provider === 'gemini' && k.status === 'active');
+      const gKeyId = geminiKey ? geminiKey.id : undefined;
+
+      const claudeId = getModelCatalogId('openrouter', 'claude-3.7-sonnet') || getModelCatalogId('openrouter', 'anthropic/claude-3.7-sonnet');
+      const openRouterKey =
+        (settingsData?.api_keys || []).find((k) => k.provider === 'openrouter' && k.status === 'active' && k.is_default) ||
+        (settingsData?.api_keys || []).find((k) => k.provider === 'openrouter' && k.status === 'active');
+      const orKeyId = openRouterKey ? openRouterKey.id : undefined;
+
+      updated.video_extraction = { ...updated.video_extraction, model_catalog_id: gFlashId || updated.video_extraction?.model_catalog_id, api_key_id: gKeyId || updated.video_extraction?.api_key_id };
+      updated.checklist_mapping = { ...updated.checklist_mapping, model_catalog_id: claudeId || updated.checklist_mapping?.model_catalog_id, api_key_id: orKeyId || updated.checklist_mapping?.api_key_id };
+      updated.thematic_analysis = { ...updated.thematic_analysis, model_catalog_id: claudeId || updated.thematic_analysis?.model_catalog_id, api_key_id: orKeyId || updated.thematic_analysis?.api_key_id };
+      updated.interview_generator = { ...updated.interview_generator, model_catalog_id: claudeId || updated.interview_generator?.model_catalog_id, api_key_id: orKeyId || updated.interview_generator?.api_key_id };
+      updated.codebook_generation = { ...updated.codebook_generation, model_catalog_id: gFlashId || updated.codebook_generation?.model_catalog_id, api_key_id: gKeyId || updated.codebook_generation?.api_key_id };
       activityLogService.addLog({
         category: 'admin',
         module: 'preset',
@@ -313,6 +359,39 @@ export default function SettingsPage() {
         language === 'vi'
           ? 'Đã áp dụng Preset: Claude 3.7 cho Phân tích & Gemini Flash cho Video'
           : 'Preset applied: Claude 3.7 Sonnet for Reasoning & Gemini Flash for Video'
+      );
+    } else if (preset === 'vertex-enterprise') {
+      const vertexKey =
+        (settingsData?.api_keys || []).find((k) => k.provider === 'vertex_ai' && k.status === 'active' && k.is_default) ||
+        (settingsData?.api_keys || []).find((k) => k.provider === 'vertex_ai' && k.status === 'active');
+      const vKeyId = vertexKey ? vertexKey.id : undefined;
+
+      const vFlashId = getModelCatalogId('vertex_ai', 'gemini-3.7-flash');
+      const vProId = getModelCatalogId('vertex_ai', 'gemini-2.5-pro');
+
+      updated.video_extraction = { ...updated.video_extraction, model_catalog_id: vFlashId || updated.video_extraction?.model_catalog_id, api_key_id: vKeyId || updated.video_extraction?.api_key_id };
+      updated.checklist_mapping = { ...updated.checklist_mapping, model_catalog_id: vFlashId || updated.checklist_mapping?.model_catalog_id, api_key_id: vKeyId || updated.checklist_mapping?.api_key_id };
+      updated.thematic_analysis = { ...updated.thematic_analysis, model_catalog_id: vProId || updated.thematic_analysis?.model_catalog_id, api_key_id: vKeyId || updated.thematic_analysis?.api_key_id };
+      updated.interview_generator = { ...updated.interview_generator, model_catalog_id: vProId || updated.interview_generator?.model_catalog_id, api_key_id: vKeyId || updated.interview_generator?.api_key_id };
+      updated.codebook_generation = { ...updated.codebook_generation, model_catalog_id: vProId || updated.codebook_generation?.model_catalog_id, api_key_id: vKeyId || updated.codebook_generation?.api_key_id };
+      activityLogService.addLog({
+        category: 'admin',
+        module: 'preset',
+        action: 'ai_flow.apply_preset',
+        target_id: 'vertex-enterprise',
+        target_title: 'Preset: GCP Vertex AI Enterprise',
+        actor: {
+          username: api.getCurrentUser()?.username || 'admin',
+          role: 'Admin',
+        },
+        summary: 'Áp dụng bộ định tuyến mẫu: Toàn bộ 5 bước pipeline sử dụng Google Cloud Vertex AI.',
+        summary_en: 'Applied preset routing: All 5 pipeline steps routed to Google Cloud Vertex AI.',
+        status: 'success',
+      });
+      toast.success(
+        language === 'vi'
+          ? 'Đã áp dụng Preset: Toàn bộ pipeline dùng Google Cloud Vertex AI'
+          : 'Preset applied: All pipeline flows routed to Google Cloud Vertex AI'
       );
     }
 
@@ -340,10 +419,10 @@ export default function SettingsPage() {
       setSaving(true);
       const payload = FLOW_ORDER.map((k) => ({
         flow_key: k,
-        model_id: flowState[k]?.model_id || 'gemini-3.7-flash',
+        model_catalog_id: flowState[k]?.model_catalog_id || '',
         api_key_id: flowState[k]?.api_key_id,
         temperature: flowState[k]?.temperature ?? 0.2,
-        fallback_model_id: flowState[k]?.fallback_model_id,
+        fallback_model_catalog_id: flowState[k]?.fallback_model_catalog_id,
       }));
 
       const res = await api.updateAIFlowsSettings(payload);
@@ -362,11 +441,14 @@ export default function SettingsPage() {
         summary: `Đã lưu thành công cấu hình định tuyến mới cho ${payload.length} luồng xử lý AI.`,
         summary_en: `Successfully saved new routing configurations for ${payload.length} AI pipeline flows.`,
         status: 'success',
-        diff: payload.map((p) => ({
-          field: p.flow_key,
-          label: (FLOW_METAS[p.flow_key] ? (language === 'vi' ? FLOW_METAS[p.flow_key].titleVi : FLOW_METAS[p.flow_key].titleEn) : p.flow_key),
-          after: `${p.model_id} (temp: ${p.temperature})`,
-        })),
+        diff: payload.map((p) => {
+          const m = (settingsData?.models || []).find((mod) => mod.id === p.model_catalog_id);
+          return {
+            field: p.flow_key,
+            label: (FLOW_METAS[p.flow_key] ? (language === 'vi' ? FLOW_METAS[p.flow_key].titleVi : FLOW_METAS[p.flow_key].titleEn) : p.flow_key),
+            after: `${m?.display_name || p.model_catalog_id} (temp: ${p.temperature})`,
+          };
+        }),
       });
 
       toast.success(t('aiStudioSavedSuccess'));
@@ -377,7 +459,7 @@ export default function SettingsPage() {
     }
   };
 
-  // Test Ping
+  // Ping Testing
   const handleTestPing = async () => {
     const keyId = currentFlow.api_key_id;
     if (!keyId) {
@@ -392,7 +474,7 @@ export default function SettingsPage() {
     try {
       setTesting(true);
       const provider = currentModelInfo?.provider || 'gemini';
-      const modelId = currentFlow.model_id;
+      const modelId = currentModelInfo?.model_id || 'gemini-3.7-flash';
 
       const res = await api.testAIPing(provider, modelId, keyId);
       activityLogService.addLog({
@@ -430,6 +512,9 @@ export default function SettingsPage() {
     setNewKeyProvider('gemini');
     setNewKeyLabel('');
     setNewKeySecret('');
+    setNewKeyProjectID('');
+    setNewKeyRegion('us-central1');
+    setNewKeyGCSBucket('');
     setNewKeyIsDefault(false);
     setIsKeyModalOpen(true);
   };
@@ -439,6 +524,9 @@ export default function SettingsPage() {
     setNewKeyProvider(k.provider);
     setNewKeyLabel(k.label);
     setNewKeySecret(''); // ZERO EXPOSURE: never display or load existing secret
+    setNewKeyProjectID(k.metadata?.project_id || '');
+    setNewKeyRegion(k.metadata?.region || 'us-central1');
+    setNewKeyGCSBucket(k.metadata?.gcs_bucket || '');
     setNewKeyIsDefault(!!k.is_default);
     setIsKeyModalOpen(true);
   };
@@ -456,11 +544,28 @@ export default function SettingsPage() {
 
     try {
       setCreatingKey(true);
+      let projectID = newKeyProjectID.trim();
+      if (newKeyProvider === 'vertex_ai' && !projectID && newKeySecret.trim()) {
+        try {
+          const parsed = JSON.parse(newKeySecret.trim());
+          if (parsed.project_id) {
+            projectID = parsed.project_id;
+          }
+        } catch (_) {}
+      }
+
+      const metadata = newKeyProvider === 'vertex_ai' ? {
+        project_id: projectID || undefined,
+        region: newKeyRegion.trim() || 'us-central1',
+        gcs_bucket: newKeyGCSBucket.trim() || undefined,
+      } : undefined;
+
       if (editingKeyId) {
         await api.updateAPIKey(editingKeyId, {
           label: newKeyLabel.trim(),
           key_secret: newKeySecret.trim() ? newKeySecret.trim() : undefined,
           is_default: newKeyIsDefault,
+          metadata,
         });
         activityLogService.addLog({
           category: 'admin',
@@ -478,7 +583,7 @@ export default function SettingsPage() {
         });
         toast.success(language === 'vi' ? 'Đã cập nhật khóa API thành công!' : 'API Key updated successfully!');
       } else {
-        await api.createAPIKey(newKeyProvider, newKeyLabel.trim(), newKeySecret.trim(), newKeyIsDefault);
+        await api.createAPIKey(newKeyProvider, newKeyLabel.trim(), newKeySecret.trim(), newKeyIsDefault, metadata);
         activityLogService.addLog({
           category: 'admin',
           module: 'api_vault',
@@ -498,6 +603,9 @@ export default function SettingsPage() {
       setIsKeyModalOpen(false);
       setNewKeyLabel('');
       setNewKeySecret('');
+      setNewKeyProjectID('');
+      setNewKeyRegion('us-central1');
+      setNewKeyGCSBucket('');
       await fetchSettings();
     } catch (err: any) {
       toast.error(err?.message || 'Failed to save API key');
@@ -547,7 +655,7 @@ export default function SettingsPage() {
 
   const openEditModel = (m: AIModelItem) => {
     setEditingModelId(m.id);
-    setModelFormId(m.id);
+    setModelFormId(m.model_id);
     setModelFormProvider(m.provider);
     setModelFormDisplayName(m.display_name);
     setModelFormContextTokens(m.context_tokens || 128000);
@@ -563,16 +671,19 @@ export default function SettingsPage() {
       toast.error('Display Name is required');
       return;
     }
-    if (!editingModelId && !modelFormId.trim()) {
+    if (!modelFormId.trim()) {
       toast.error('Model ID / API Identifier is required');
       return;
     }
 
     try {
       setSavingModel(true);
+      const cleanModelId = modelFormId.trim();
+
       if (editingModelId) {
         await api.updateAIModel(editingModelId, {
           display_name: modelFormDisplayName.trim(),
+          model_id: cleanModelId,
           context_tokens: Number(modelFormContextTokens) || 128000,
           supports_multimodal: modelFormMultimodal,
           supports_reasoning: modelFormReasoning,
@@ -588,15 +699,15 @@ export default function SettingsPage() {
             username: api.getCurrentUser()?.username || 'admin',
             role: 'Admin',
           },
-          summary: `Cập nhật thông số kỹ thuật mô hình "${modelFormDisplayName.trim()}" trong danh mục.`,
-          summary_en: `Updated specifications for model "${modelFormDisplayName.trim()}" in catalog.`,
+          summary: `Cập nhật thông số kỹ thuật mô hình "${modelFormDisplayName.trim()}" (${cleanModelId}) trong danh mục.`,
+          summary_en: `Updated specifications for model "${modelFormDisplayName.trim()}" (${cleanModelId}) in catalog.`,
           status: 'success',
         });
         toast.success(t('aiStudioModelSaved'));
       } else {
         await api.createAIModel({
-          id: modelFormId.trim(),
           provider: modelFormProvider,
+          model_id: cleanModelId,
           display_name: modelFormDisplayName.trim(),
           context_tokens: Number(modelFormContextTokens) || 128000,
           supports_multimodal: modelFormMultimodal,
@@ -607,7 +718,7 @@ export default function SettingsPage() {
           category: 'admin',
           module: 'model_catalog',
           action: 'model.create',
-          target_id: modelFormId.trim(),
+          target_id: cleanModelId,
           target_title: `Model Catalog • ${modelFormDisplayName.trim()}`,
           actor: {
             username: api.getCurrentUser()?.username || 'admin',
@@ -891,8 +1002,23 @@ export default function SettingsPage() {
                 gap: '8px',
               }}
             >
-              <div style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: k.provider === 'gemini' ? '#15803D' : '#7E22CE' }} />
+              <div style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: k.provider === 'gemini' ? '#15803D' : k.provider === 'vertex_ai' ? '#0284C7' : '#7E22CE' }} />
               <span>{k.label}</span>
+              {k.provider === 'vertex_ai' && (
+                <span style={{ fontSize: '9.5px', fontWeight: 700, padding: '1px 5px', borderRadius: '4px', backgroundColor: '#E0F2FE', color: '#0369A1', textTransform: 'uppercase' }}>
+                  Vertex AI
+                </span>
+              )}
+              {k.provider === 'vertex_ai' && k.metadata?.project_id && (
+                <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }} title="GCP Project ID">
+                  • {k.metadata.project_id}
+                </span>
+              )}
+              {k.provider === 'vertex_ai' && k.metadata?.gcs_bucket && (
+                <span style={{ fontSize: '9.5px', padding: '1px 5px', borderRadius: '4px', backgroundColor: 'rgba(234, 179, 8, 0.12)', color: '#B45309', fontFamily: 'var(--font-mono)', fontWeight: 600 }} title={`GCS Bucket: ${k.metadata.gcs_bucket}`}>
+                  gs://{k.metadata.gcs_bucket}
+                </span>
+              )}
               {k.is_default && (
                 <span style={{ fontSize: '9.5px', fontWeight: 700, padding: '1px 5px', borderRadius: '4px', backgroundColor: '#E0E7FF', color: '#3730A3', textTransform: 'uppercase' }}>
                   Default
@@ -983,13 +1109,31 @@ export default function SettingsPage() {
               >
                 {t('aiStudioPresetClaude')}
               </button>
+              <button
+                onClick={() => applyPreset('vertex-enterprise')}
+                className={`preset-pill ${activePreset === 'vertex-enterprise' ? 'active' : ''}`}
+                style={{
+                  background: activePreset === 'vertex-enterprise' ? '#E0F2FE' : 'var(--bg)',
+                  borderColor: activePreset === 'vertex-enterprise' ? '#0284C7' : 'transparent',
+                  color: activePreset === 'vertex-enterprise' ? '#0369A1' : 'inherit',
+                  border: '1px solid',
+                  borderRadius: '6px',
+                  padding: '4px 10px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                GCP Vertex AI
+              </button>
             </div>
           </div>
 
           {/* Flow Nodes in Sequence */}
           {FLOW_ORDER.map((flowKey, idx) => {
             const meta = FLOW_METAS[flowKey];
-            const cfg = flowState[flowKey] || { model_id: 'gemini-3.7-flash', temperature: 0.2 };
+            const cfg = flowState[flowKey] || { model_catalog_id: '', temperature: 0.2 };
+            const assignedM = (settingsData?.models || []).find((m) => m.id === cfg.model_catalog_id);
             const isSelected = selectedFlowKey === flowKey;
 
             return (
@@ -1031,7 +1175,9 @@ export default function SettingsPage() {
                         {language === 'vi' ? meta.titleVi : meta.titleEn}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{cfg.model_id}</span>
+                        <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
+                          {assignedM?.display_name || assignedM?.model_id || cfg.model_catalog_id || 'Chưa chọn model'}
+                        </span>
                         <span>•</span>
                         {(() => {
                           const kObj = (settingsData?.api_keys || []).find((k) => k.id === cfg.api_key_id);
@@ -1103,7 +1249,7 @@ export default function SettingsPage() {
               {t('aiStudioTargetModel')}
             </label>
             <select
-              value={currentFlow.model_id}
+              value={currentFlow.model_catalog_id}
               onChange={(e) => handleModelChange(e.target.value)}
               className="select-control"
               style={{
@@ -1117,13 +1263,25 @@ export default function SettingsPage() {
                 outline: 'none',
               }}
             >
-              {(settingsData?.models || [])
-                .filter((m) => !currentMeta.requireMultimodal || m.supports_multimodal)
-                .map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.display_name}
-                  </option>
-                ))}
+              {[
+                { id: 'vertex_ai', name: 'Google Cloud Vertex AI' },
+                { id: 'gemini', name: 'Google Gemini Direct (AI Studio)' },
+                { id: 'openrouter', name: 'OpenRouter Hub' },
+              ].map((prov) => {
+                const provModels = (settingsData?.models || [])
+                  .filter((m) => m.provider === prov.id)
+                  .filter((m) => !currentMeta.requireMultimodal || m.supports_multimodal);
+                if (provModels.length === 0) return null;
+                return (
+                  <optgroup key={prov.id} label={prov.name}>
+                    {provModels.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.display_name} ({m.model_id})
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
             </select>
           </div>
 
@@ -1691,6 +1849,7 @@ export default function SettingsPage() {
                   style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1.5px solid var(--card-border)', backgroundColor: 'var(--bg)', fontSize: '13px' }}
                 >
                   <option value="gemini">Google Gemini Direct API</option>
+                  <option value="vertex_ai">Google Cloud Vertex AI (Service Account)</option>
                   <option value="openrouter">OpenRouter API (Claude 3.7 / GPT-4o / DeepSeek)</option>
                   <option value="anthropic">Anthropic Claude Direct API</option>
                   <option value="openai">OpenAI Direct API</option>
@@ -1705,7 +1864,7 @@ export default function SettingsPage() {
                   type="text"
                   value={newKeyLabel}
                   onChange={(e) => setNewKeyLabel(e.target.value)}
-                  placeholder="e.g. Gemini Paid Backup Account"
+                  placeholder={newKeyProvider === 'vertex_ai' ? 'e.g. GCP Vertex AI Production' : 'e.g. Gemini Paid Backup Account'}
                   required
                   style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1.5px solid var(--card-border)', fontSize: '13px' }}
                 />
@@ -1714,7 +1873,7 @@ export default function SettingsPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <label style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                    Secret API Key String
+                    {newKeyProvider === 'vertex_ai' ? 'Service Account JSON Credentials' : 'Secret API Key String'}
                   </label>
                   {editingKeyId && (
                     <span style={{ fontSize: '10.5px', color: 'var(--accent)', fontWeight: 600 }}>
@@ -1722,20 +1881,143 @@ export default function SettingsPage() {
                     </span>
                   )}
                 </div>
-                <input
-                  type="password"
-                  value={newKeySecret}
-                  onChange={(e) => setNewKeySecret(e.target.value)}
-                  placeholder={editingKeyId ? '•••••••••••••••• (Leave blank to keep existing secret)' : 'AIzaSy... or sk-or-...'}
-                  required={!editingKeyId}
-                  style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1.5px solid var(--card-border)', fontFamily: 'var(--font-mono)', fontSize: '13px' }}
-                />
+                {newKeyProvider === 'vertex_ai' ? (
+                  <textarea
+                    value={newKeySecret}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setNewKeySecret(val);
+                      try {
+                        const parsed = JSON.parse(val);
+                        if (parsed.project_id && !newKeyProjectID) {
+                          setNewKeyProjectID(parsed.project_id);
+                        }
+                      } catch (_) {}
+                    }}
+                    placeholder={editingKeyId ? '•••••••••••••••• (Leave blank to keep existing credentials)' : 'Paste Service Account JSON content here (or file path)...'}
+                    required={!editingKeyId}
+                    rows={4}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1.5px solid var(--card-border)', fontFamily: 'var(--font-mono)', fontSize: '12px', resize: 'vertical' }}
+                  />
+                ) : (
+                  <input
+                    type="password"
+                    value={newKeySecret}
+                    onChange={(e) => setNewKeySecret(e.target.value)}
+                    placeholder={editingKeyId ? '•••••••••••••••• (Leave blank to keep existing secret)' : 'AIzaSy... or sk-or-...'}
+                    required={!editingKeyId}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1.5px solid var(--card-border)', fontFamily: 'var(--font-mono)', fontSize: '13px' }}
+                  />
+                )}
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  {editingKeyId
+                  {newKeyProvider === 'vertex_ai'
+                    ? (language === 'vi' ? 'Nội dung file JSON Service Account tải từ Google Cloud Console có quyền Vertex AI & Cloud Storage.' : 'GCP Service Account JSON with Vertex AI User and Storage Object Admin roles.')
+                    : editingKeyId
                     ? (language === 'vi' ? 'Khóa hiện tại được bảo mật và không hiển thị. Chỉ nhập chuỗi mới nếu bạn muốn thay đổi.' : 'Current key is kept securely secret. Enter a new string only if you want to overwrite it.')
                     : 'Secret token used to authenticate against AI provider endpoints.'}
                 </span>
               </div>
+
+              {newKeyProvider === 'vertex_ai' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', padding: '12px', backgroundColor: 'var(--bg)', borderRadius: '8px', border: '1px solid var(--card-border)' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                      GCP Project ID
+                    </label>
+                    <input
+                      type="text"
+                      value={newKeyProjectID}
+                      onChange={(e) => setNewKeyProjectID(e.target.value)}
+                      placeholder="e.g. my-gcp-project"
+                      style={{ width: '100%', padding: '7px 10px', borderRadius: '5px', border: '1px solid var(--card-border)', fontSize: '12px', fontFamily: 'var(--font-mono)' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                        Region
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', fontSize: '11px', color: 'var(--accent)', fontWeight: 600 }}>
+                        <input
+                          type="checkbox"
+                          checked={newKeyRegion === 'global'}
+                          onChange={(e) => setNewKeyRegion(e.target.checked ? 'global' : 'us-central1')}
+                          style={{ accentColor: 'var(--accent)', cursor: 'pointer' }}
+                        />
+                        <span>{language === 'vi' ? 'Toàn cầu (Tự động)' : 'Global (Auto)'}</span>
+                      </label>
+                    </div>
+                    {newKeyRegion === 'global' ? (
+                      <div style={{
+                        padding: '7px 11px',
+                        borderRadius: '6px',
+                        backgroundColor: 'rgba(37, 99, 235, 0.07)',
+                        border: '1px solid rgba(37, 99, 235, 0.22)',
+                        fontSize: '11.5px',
+                        color: '#1D4ED8',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                      }}>
+                        <span style={{
+                          position: 'relative',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '50%',
+                          backgroundColor: '#EFF6FF',
+                          border: '1px solid rgba(59, 130, 246, 0.35)',
+                          color: '#2563EB',
+                          flexShrink: 0,
+                        }}>
+                          <Globe size={11} strokeWidth={2.2} />
+                          <span style={{
+                            position: 'absolute',
+                            top: '-1px',
+                            right: '-1px',
+                            width: '5px',
+                            height: '5px',
+                            borderRadius: '50%',
+                            backgroundColor: '#10B981',
+                            boxShadow: '0 0 4px #10B981',
+                          }} />
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px', flexWrap: 'wrap' }}>
+                          <strong style={{ fontWeight: 700, color: '#1E40AF' }}>Global Endpoint</strong>
+                          <span style={{ color: '#3B82F6', fontSize: '11px' }}>
+                            ({language === 'vi' ? 'Tự động định tuyến toàn cầu' : 'Automatic worldwide routing'})
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        value={newKeyRegion}
+                        onChange={(e) => setNewKeyRegion(e.target.value)}
+                        placeholder="us-central1"
+                        style={{ width: '100%', padding: '7px 10px', borderRadius: '5px', border: '1px solid var(--card-border)', fontSize: '12px', fontFamily: 'var(--font-mono)' }}
+                      />
+                    )}
+                  </div>
+                  <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                      Cloud Storage Bucket (Optional, for Video Extraction)
+                    </label>
+                    <input
+                      type="text"
+                      value={newKeyGCSBucket}
+                      onChange={(e) => setNewKeyGCSBucket(e.target.value)}
+                      placeholder="e.g. my-video-chunks-bucket"
+                      style={{ width: '100%', padding: '7px 10px', borderRadius: '5px', border: '1px solid var(--card-border)', fontSize: '12px', fontFamily: 'var(--font-mono)' }}
+                    />
+                    <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                      {language === 'vi' ? 'GCS bucket dùng để tải tạm video chunks trước khi gửi tới Vertex AI Gemini model.' : 'Required for video extraction flow. Video chunks are uploaded here and auto-cleaned after inference.'}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
                 <input
@@ -1868,10 +2150,10 @@ export default function SettingsPage() {
                             textTransform: 'uppercase',
                             padding: '2px 7px',
                             borderRadius: '5px',
-                            backgroundColor: m.provider === 'gemini' ? '#DCFCE7' : '#F3E8FF',
-                            color: m.provider === 'gemini' ? '#15803D' : '#7E22CE',
+                            backgroundColor: m.provider === 'gemini' ? '#DCFCE7' : m.provider === 'vertex_ai' ? '#E0F2FE' : '#F3E8FF',
+                            color: m.provider === 'gemini' ? '#15803D' : m.provider === 'vertex_ai' ? '#0284C7' : '#7E22CE',
                           }}>
-                            {m.provider}
+                            {m.provider === 'vertex_ai' ? 'Vertex AI' : m.provider}
                           </span>
                           <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)' }}>
                             {m.display_name}
@@ -1882,7 +2164,7 @@ export default function SettingsPage() {
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '2px' }}>
                           <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                            ID: {m.id}
+                            Model: <b>{m.model_id}</b>
                           </span>
                           <span style={{ color: 'var(--card-border)' }}>•</span>
                           <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11.5px', color: 'var(--text-muted)' }}>
@@ -1951,6 +2233,7 @@ export default function SettingsPage() {
                       >
                         <option value="openrouter">OpenRouter Hub (Claude, GPT, Llama, DeepSeek...)</option>
                         <option value="gemini">Google Gemini Direct</option>
+                        <option value="vertex_ai">Google Cloud Vertex AI</option>
                       </select>
                     </div>
 
@@ -1976,8 +2259,13 @@ export default function SettingsPage() {
                       type="text"
                       value={modelFormId}
                       onChange={(e) => setModelFormId(e.target.value)}
-                      disabled={!!editingModelId}
-                      placeholder={modelFormProvider === 'openrouter' ? 'e.g. meta-llama/llama-3.3-70b-instruct' : 'e.g. gemini-2.0-flash-exp'}
+                      placeholder={
+                        modelFormProvider === 'vertex_ai'
+                          ? 'e.g. gemini-3.7-flash'
+                          : modelFormProvider === 'openrouter'
+                          ? 'e.g. anthropic/claude-3.7-sonnet'
+                          : 'e.g. gemini-2.5-flash'
+                      }
                       required
                       style={{
                         width: '100%',
@@ -1986,11 +2274,13 @@ export default function SettingsPage() {
                         border: '1.5px solid var(--card-border)',
                         fontFamily: 'var(--font-mono)',
                         fontSize: '13px',
-                        backgroundColor: editingModelId ? 'rgba(0,0,0,0.03)' : 'var(--bg)',
+                        backgroundColor: 'var(--bg)',
                       }}
                     />
                     <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                      Exact API string identifier used when sending prompt requests.
+                      {language === 'vi'
+                        ? 'Mã Model ID kỹ thuật nguyên bản của nhà cung cấp (ví dụ: gemini-3.7-flash, claude-3.7-sonnet, gpt-4o).'
+                        : 'Exact vendor technical model ID string (e.g. gemini-3.7-flash, claude-3.7-sonnet, gpt-4o).'}
                     </span>
                   </div>
 

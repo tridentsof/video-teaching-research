@@ -75,23 +75,26 @@ INSERT INTO checklist_items (checklist_id, section, text, sort_order) VALUES
 ('00000000-0000-0000-0000-000000000001', 'E', 'Teacher uses polls or annotation tools', 6);
 
 -- Re-ensure AI Model Catalog & Default Flow Configurations
-INSERT INTO ai_models (id, provider, display_name, context_tokens, supports_multimodal, supports_reasoning, is_active, sort_order)
+INSERT INTO ai_models (id, provider, model_id, display_name, context_tokens, supports_multimodal, supports_reasoning, is_active, sort_order)
 VALUES
-    ('gemini-3.7-flash',  'gemini',     'Google: Gemini 3.7 Flash',                 1048576, TRUE,  TRUE,  TRUE, 1),
-    ('gemini-2.5-flash',  'gemini',     'Google: Gemini 2.5 Flash',                 1048576, TRUE,  FALSE, TRUE, 2),
-    ('gemini-2.5-pro',    'gemini',     'Google: Gemini 2.5 Pro',                   2097152, TRUE,  TRUE,  TRUE, 3),
-    ('claude-3.7-sonnet', 'openrouter', 'Anthropic: Claude 3.7 Sonnet (OpenRouter)', 200000,  FALSE, TRUE,  TRUE, 4),
-    ('gpt-4o',            'openrouter', 'OpenAI: GPT-4o (OpenRouter)',               128000,  FALSE, TRUE,  TRUE, 5),
-    ('deepseek-r1',       'openrouter', 'DeepSeek: R1 (OpenRouter)',                  64000,   FALSE, TRUE,  TRUE, 6)
-ON CONFLICT (id) DO NOTHING;
+    ('10000000-0000-0000-0000-000000000001', 'gemini', 'gemini-3.7-flash',       'Google: Gemini 3.7 Flash',                 1048576, TRUE,  TRUE,  TRUE, 1),
+    ('10000000-0000-0000-0000-000000000005', 'gemini', 'gemini-2.5-flash',       'Google: Gemini 2.5 Flash',                 1048576, TRUE,  FALSE, TRUE, 2),
+    ('10000000-0000-0000-0000-000000000006', 'gemini', 'gemini-2.5-pro',         'Google: Gemini 2.5 Pro',                   2097152, TRUE,  TRUE,  TRUE, 3),
+    ('20000000-0000-0000-0000-000000000001', 'vertex_ai', 'gemini-3.7-flash',   'Vertex AI: Gemini 3.7 Flash',              1048576, TRUE,  TRUE,  TRUE, 10),
+    ('20000000-0000-0000-0000-000000000002', 'vertex_ai', 'gemini-2.5-pro',     'Vertex AI: Gemini 2.5 Pro',                2097152, TRUE,  TRUE,  TRUE, 11),
+    ('20000000-0000-0000-0000-000000000003', 'vertex_ai', 'gemini-2.5-flash',   'Vertex AI: Gemini 2.5 Flash',              1048576, TRUE,  FALSE, TRUE, 12),
+    ('30000000-0000-0000-0000-000000000001', 'openrouter', 'anthropic/claude-3.7-sonnet', 'Anthropic: Claude 3.7 Sonnet (OpenRouter)', 200000, FALSE, TRUE, TRUE, 20),
+    ('30000000-0000-0000-0000-000000000002', 'openrouter', 'openai/gpt-4o',              'OpenAI: GPT-4o (OpenRouter)',               128000, FALSE, TRUE, TRUE, 21),
+    ('30000000-0000-0000-0000-000000000003', 'openrouter', 'deepseek/deepseek-r1',        'DeepSeek: R1 (OpenRouter)',                  64000,  FALSE, TRUE, TRUE, 22)
+ON CONFLICT (provider, model_id) DO NOTHING;
 
-INSERT INTO flow_configs (flow_key, model_id, temperature, fallback_model_id)
+INSERT INTO flow_configs (flow_key, model_catalog_id, temperature, fallback_model_catalog_id)
 VALUES
-    ('video_extraction',   'gemini-3.7-flash', 0.20, 'gemini-2.5-flash'),
-    ('checklist_mapping',  'gemini-3.7-flash', 0.10, 'gemini-2.5-flash'),
-    ('thematic_analysis',  'gemini-3.7-flash', 0.40, 'gemini-3.7-flash'),
-    ('interview_generator','gemini-3.7-flash', 0.50, 'gemini-3.7-flash'),
-    ('codebook_generation','gemini-3.7-flash', 0.30, 'gemini-2.5-flash')
+    ('video_extraction',   '10000000-0000-0000-0000-000000000001', 0.20, '10000000-0000-0000-0000-000000000005'),
+    ('checklist_mapping',  '10000000-0000-0000-0000-000000000001', 0.10, '10000000-0000-0000-0000-000000000005'),
+    ('thematic_analysis',  '10000000-0000-0000-0000-000000000001', 0.40, '10000000-0000-0000-0000-000000000001'),
+    ('interview_generator','10000000-0000-0000-0000-000000000001', 0.50, '10000000-0000-0000-0000-000000000001'),
+    ('codebook_generation','10000000-0000-0000-0000-000000000001', 0.30, '10000000-0000-0000-0000-000000000005')
 ON CONFLICT (flow_key) DO NOTHING;
 
 COMMIT;
