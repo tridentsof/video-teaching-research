@@ -219,19 +219,19 @@ func (s *TelegramBotService) handleSubscribe(ctx context.Context, chatID int64, 
 
 	displayName := firstName
 	if displayName == "" {
-		displayName = "bạn"
+		displayName = "bạn / you"
 	}
 
-	reply := fmt.Sprintf(`🎉 <b>Đăng ký thành công!</b>
+	reply := fmt.Sprintf(`🎉 <b>Đăng ký thành công / Subscription Successful!</b>
 
-Xin chào <b>%s</b>! Tài khoản của bạn đã được lưu vào hệ thống thông báo Video Teaching Research.
+Xin chào / Hello <b>%s</b>! Tài khoản của bạn đã được kết nối vào hệ thống Video Teaching Research / Your account is now subscribed.
 
-✅ Bạn sẽ tự động nhận kết quả ngay khi có video hoàn thành phân tích hoặc gặp lỗi.
+✅ Bạn sẽ tự động nhận kết quả ngay khi phân tích hoàn tất hoặc gặp lỗi / You will automatically receive updates when video analysis completes or fails.
 
-📌 <b>Các lệnh hỗ trợ:</b>
-• <code>/status</code> - Kiểm tra trạng thái đăng ký
-• <code>/unsubscribe</code> - Hủy nhận thông báo
-• <code>/help</code> - Xem lại hướng dẫn`, html.EscapeString(displayName))
+📌 <b>Các lệnh hỗ trợ / Available Commands:</b>
+• <code>/status</code> - Kiểm tra trạng thái / Check status
+• <code>/unsubscribe</code> - Hủy nhận thông báo / Unsubscribe
+• <code>/help</code> - Xem trợ giúp / View help guide`, html.EscapeString(displayName))
 
 	_ = s.sendReply(ctx, chatID, reply)
 	log.Printf("[TelegramBot] User %s (%d) successfully subscribed", firstName, chatID)
@@ -245,10 +245,10 @@ func (s *TelegramBotService) handleUnsubscribe(ctx context.Context, chatID int64
 		}
 	}
 
-	reply := `👋 <b>Đã hủy nhận thông báo thành công.</b>
+	reply := `👋 <b>Đã hủy nhận thông báo thành công / Unsubscribed Successfully.</b>
 
-Bạn sẽ không còn nhận tin nhắn khi có video phân tích xong nữa.
-Khi nào muốn tiếp tục theo dõi, bạn chỉ cần gõ <code>/subscribe</code> bất kỳ lúc nào!`
+Bạn sẽ không còn nhận tin nhắn khi có video phân tích xong / You will no longer receive notifications when analysis finishes.
+Khi nào muốn tiếp tục theo dõi, bạn chỉ cần gõ <code>/subscribe</code> bất kỳ lúc nào / Type <code>/subscribe</code> anytime to reactivate!`
 
 	_ = s.sendReply(ctx, chatID, reply)
 	log.Printf("[TelegramBot] User (%d) unsubscribed", chatID)
@@ -256,39 +256,41 @@ Khi nào muốn tiếp tục theo dõi, bạn chỉ cần gõ <code>/subscribe</
 
 // handleStatus displays subscription details.
 func (s *TelegramBotService) handleStatus(ctx context.Context, chatID int64) {
-	statusStr := "Chưa đăng ký (Đang tắt)"
+	statusStr := "Chưa đăng ký (Đang tắt) / Inactive"
 	totalActive := 0
 
 	if s.subscriberRepo != nil {
 		sub, _ := s.subscriberRepo.GetByChatID(ctx, chatID)
 		if sub != nil && sub.IsActive {
-			statusStr = "Đang nhận thông báo (Active) ✅"
+			statusStr = "Đang nhận thông báo / Active ✅"
 		}
 		totalActive, _ = s.subscriberRepo.CountActive(ctx)
 	}
 
-	reply := fmt.Sprintf(`📊 <b>Trạng thái thông báo:</b>
+	reply := fmt.Sprintf(`📊 <b>Trạng thái thông báo / Notification Status:</b>
 
-• <b>Tài khoản của bạn:</b> %s
-• <b>Tổng người/nhóm đang theo dõi:</b> %d
-• <b>Hệ thống backend:</b> Đang kết nối bình thường ✅
+• <b>Tài khoản / Account:</b> %s
+• <b>Tổng người theo dõi / Total Subscribers:</b> %d
+• <b>Hệ thống backend / Backend:</b> Bình thường / Online ✅
 
-<i>Gõ /subscribe để kích hoạt hoặc /unsubscribe để tạm dừng.</i>`, statusStr, totalActive)
+<i>Gõ /subscribe để kích hoạt hoặc /unsubscribe để tạm dừng.
+Type /subscribe to activate or /unsubscribe to pause.</i>`, statusStr, totalActive)
 
 	_ = s.sendReply(ctx, chatID, reply)
 }
 
 // handleHelp sends available commands guide.
 func (s *TelegramBotService) handleHelp(ctx context.Context, chatID int64) {
-	reply := `🤖 <b>Trợ lý Thông báo Video Teaching Research</b>
+	reply := `🤖 <b>Trợ lý Thông báo Video Teaching Research / Video Teaching Research Bot</b>
 
-Bot này sẽ tự động gửi kết quả phân tích video (Events trích xuất, Checklist mapping, Báo cáo & Codebook) đến bạn ngay khi hoàn tất.
+Bot này sẽ tự động gửi kết quả phân tích video (Events, Checklist mapping, Báo cáo & Codebook) đến bạn ngay khi hoàn tất.
+This bot automatically delivers video analysis results (Extracted Events, Checklist mappings, Reports & Codebooks) once ready.
 
-📌 <b>Danh sách lệnh:</b>
-• <code>/subscribe</code> - Đăng ký nhận thông báo phân tích video
-• <code>/unsubscribe</code> - Hủy nhận thông báo
-• <code>/status</code> - Kiểm tra trạng thái tài khoản của bạn
-• <code>/help</code> - Hiển thị menu trợ giúp này`
+📌 <b>Danh sách lệnh / Commands:</b>
+• <code>/subscribe</code> - Đăng ký nhận thông báo / Subscribe
+• <code>/unsubscribe</code> - Hủy nhận thông báo / Unsubscribe
+• <code>/status</code> - Kiểm tra trạng thái / Check status
+• <code>/help</code> - Hiển thị menu trợ giúp / Show help guide`
 
 	_ = s.sendReply(ctx, chatID, reply)
 }

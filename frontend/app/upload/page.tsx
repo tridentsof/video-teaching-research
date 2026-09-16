@@ -9,9 +9,10 @@ import { UploadCloud, Video, AlertCircle, ArrowLeft, Scissors, Film, Check } fro
 import Link from 'next/link';
 
 import { useUpload } from '@/lib/uploadContext';
+import { FeatureWorkflowBanner } from '@/components/FeatureWorkflowBanner';
 
 export default function UploadPage() {
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
   const router = useRouter();
   const toast = useToast();
   const { startUpload } = useUpload();
@@ -29,6 +30,7 @@ export default function UploadPage() {
       if (!title) {
         setTitle(selectedFile.name.replace(/\.[^/.]+$/, ''));
       }
+      setError(null);
     }
   };
 
@@ -52,15 +54,15 @@ export default function UploadPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) {
-      const msg = 'Please choose an MP4 video file.';
+      const msg = language === 'vi' ? 'Vui lòng chọn tệp video định dạng MP4.' : 'Please choose an MP4 video file.';
       setError(msg);
-      toast.warning(msg, { title: 'File Missing' });
+      toast.warning(msg, { title: language === 'vi' ? 'Thiếu tệp video' : 'File Missing' });
       return;
     }
     if (!teacherId) {
-      const msg = 'Please specify the Teacher ID.';
+      const msg = language === 'vi' ? 'Vui lòng chỉ định Teacher ID.' : 'Please specify the Teacher ID.';
       setError(msg);
-      toast.warning(msg, { title: 'Teacher ID Required' });
+      toast.warning(msg, { title: language === 'vi' ? 'Yêu cầu Teacher ID' : 'Teacher ID Required' });
       return;
     }
 
@@ -78,10 +80,15 @@ export default function UploadPage() {
       console.error('Background upload failed:', err);
     });
 
-    toast.info(`Uploading "${title || file.name}". Starting real-time analysis...`, {
-      title: 'Upload Started',
-      duration: 3000,
-    });
+    toast.info(
+      language === 'vi'
+        ? `Đang tải lên "${title || file.name}". Khởi chạy phân tích trực tiếp...`
+        : `Uploading "${title || file.name}". Starting real-time analysis...`,
+      {
+        title: language === 'vi' ? 'Bắt đầu tải lên' : 'Upload Started',
+        duration: 3000,
+      }
+    );
 
     // Instant transition to live progress screen!
     router.push('/videos/uploading');
@@ -107,6 +114,9 @@ export default function UploadPage() {
           {t('uploadDesc')}
         </p>
       </div>
+
+      {/* Feature Workflow & Automation Guidance */}
+      <FeatureWorkflowBanner featureKey="upload" />
 
       {error && (
         <div style={{

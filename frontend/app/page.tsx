@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Video, api } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n';
 import { useUpload } from '@/lib/uploadContext';
+import { FeatureWorkflowBanner } from '@/components/FeatureWorkflowBanner';
 import {
   Play,
   FileText,
@@ -525,6 +526,9 @@ export default function VideoListPage() {
           </Link>
         </div>
       </div>
+
+      {/* Feature Workflow & Automation Guidance */}
+      <FeatureWorkflowBanner featureKey="videos" />
 
       {/* Success Notification Banner */}
       {editSuccess && (

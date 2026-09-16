@@ -153,6 +153,9 @@ type AnalysisRun struct {
 	CompletedAt         *time.Time `json:"completed_at,omitempty" db:"completed_at"`
 	CoreQuestionsStatus string     `json:"core_questions_status" db:"core_questions_status"`
 	CoreQuestions       string     `json:"core_questions" db:"core_questions"` // JSONB string
+	ThemeCount          int        `json:"theme_count"`
+	CategoryCount       int        `json:"category_count"`
+	PatternCount        int        `json:"pattern_count"`
 }
 
 // Pattern represents a detected recurring teaching strategy.

@@ -81,7 +81,7 @@ export const ActivityLogView: React.FC<ActivityLogViewProps> = () => {
   };
 
   const handleExportCSV = () => {
-    activityLogService.exportCSV(filteredLogs);
+    activityLogService.exportCSV(filteredLogs, language);
     toast.success(language === 'vi' ? 'Đã xuất file CSV' : 'Exported CSV file');
   };
 

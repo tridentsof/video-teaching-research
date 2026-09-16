@@ -10,6 +10,8 @@ import {
 } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n';
 import { useToast } from '@/components/ToastProvider';
+import { FeatureWorkflowBanner } from '@/components/FeatureWorkflowBanner';
+import { PedagogicalNarrativeView } from '@/components/PedagogicalNarrativeView';
 import {
   Download,
   Sparkles,
@@ -191,8 +193,8 @@ export default function InterviewStudioPage() {
   const handleSynthesizeCore = async () => {
     if (!latestRunId) {
       toast.error(
-        'Chưa có dữ liệu phân tích chiến lược. Vui lòng vào mục "Chiến Lược & Chủ Đề" (/themes) và nhấn "Chạy Phân Tích Chiến Lược & Chủ Đề" trước khi sinh Core Questions.',
-        { title: 'Chưa Chạy Phân Tích', duration: 6000 }
+        t('interviewToastRunPhase6First'),
+        { title: t('commonNote'), duration: 6000 }
       );
       return;
     }
@@ -201,9 +203,9 @@ export default function InterviewStudioPage() {
       const res = await api.synthesizeCoreQuestions(latestRunId);
       setSynthesizedCore(res.core_questions);
       setCoreStatus('draft');
-      toast.success('Đã tổng hợp thành công đề xuất Core Questions từ 22 câu gốc và Themes!');
+      toast.success(t('interviewToastSynthesizeSuccess'));
     } catch (err: any) {
-      toast.error(err.message || 'Lỗi khi sinh Core Questions');
+      toast.error(err.message || t('interviewToastSynthesizeError'));
     } finally {
       setIsSynthesizing(false);
     }
@@ -218,7 +220,7 @@ export default function InterviewStudioPage() {
       setSynthesizedCore(questionsToApprove);
       setCoreStatus('approved');
       setShowCoreModal(false);
-      toast.success('Đã phê duyệt Core Questions và tự động sinh câu hỏi sâu cho 12 giáo viên!');
+      toast.success(t('interviewToastApproveSuccess'));
       // Refresh current teacher questions
       const data = await api.getTeacherAnalysis(latestRunId, selectedTeacher);
       if (data && data.interview_questions) {
@@ -228,7 +230,7 @@ export default function InterviewStudioPage() {
         setIsLiveFromBackend(true);
       }
     } catch (err: any) {
-      toast.error(err.message || 'Lỗi khi phê duyệt Core Questions');
+      toast.error(err.message || t('interviewToastApproveError'));
     } finally {
       setIsApproving(false);
     }
@@ -243,28 +245,28 @@ export default function InterviewStudioPage() {
         editingQuestion.question_text,
         editingQuestion.rq_category
       );
-      toast.success('Đã cập nhật câu hỏi phỏng vấn');
+      toast.success(t('interviewToastUpdateSuccess'));
       setDynamicQuestions((prev) =>
         prev.map((q) => (q.id === editingQuestion.id ? editingQuestion : q))
       );
       setEditingQuestion(null);
     } catch {
-      toast.error('Lỗi khi cập nhật câu hỏi');
+      toast.error(t('interviewToastUpdateError'));
     }
   };
 
   // Base Questions Bank Handlers
   const handleResetDefaults = async () => {
-    if (!confirm('Bạn có chắc chắn muốn reset ngân hàng câu hỏi về 22 câu hỏi bán cấu trúc gốc không?')) {
+    if (!confirm(t('interviewConfirmReset'))) {
       return;
     }
     setBankLoading(true);
     try {
       const data = await api.resetBaseInterviewQuestions();
       setBaseQuestions(data);
-      toast.success('Đã reset ngân hàng về 22 câu hỏi bán cấu trúc chuẩn!');
+      toast.success(t('interviewToastResetSuccess'));
     } catch {
-      toast.error('Lỗi khi reset câu hỏi');
+      toast.error(t('interviewToastResetError'));
     } finally {
       setBankLoading(false);
     }
@@ -272,12 +274,12 @@ export default function InterviewStudioPage() {
 
   const handleCreateBaseQuestion = async () => {
     if (!newQuestion.question_text.trim()) {
-      toast.error('Vui lòng nhập nội dung câu hỏi');
+      toast.error(t('interviewToastEnterText'));
       return;
     }
     try {
       await api.createBaseInterviewQuestion(newQuestion);
-      toast.success('Đã thêm câu hỏi mới vào ngân hàng');
+      toast.success(t('interviewToastCreateSuccess'));
       setShowAddModal(false);
       setNewQuestion({
         section: 'Section B',
@@ -288,7 +290,7 @@ export default function InterviewStudioPage() {
       });
       fetchBaseQuestions();
     } catch {
-      toast.error('Lỗi khi thêm câu hỏi mới');
+      toast.error(t('interviewToastCreateError'));
     }
   };
 
@@ -296,22 +298,22 @@ export default function InterviewStudioPage() {
     if (!editingBaseQ) return;
     try {
       await api.updateBaseInterviewQuestion(editingBaseQ.id, editingBaseQ);
-      toast.success('Đã cập nhật câu hỏi gốc');
+      toast.success(t('interviewToastUpdateBaseSuccess'));
       setEditingBaseQ(null);
       fetchBaseQuestions();
     } catch {
-      toast.error('Lỗi khi cập nhật câu hỏi');
+      toast.error(t('interviewToastUpdateError'));
     }
   };
 
   const handleDeleteBaseQuestion = async (id: string) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa câu hỏi này khỏi ngân hàng không?')) return;
+    if (!confirm(t('interviewConfirmDelete'))) return;
     try {
       await api.deleteBaseInterviewQuestion(id);
-      toast.success('Đã xóa câu hỏi khỏi ngân hàng');
+      toast.success(t('interviewToastDeleteSuccess'));
       fetchBaseQuestions();
     } catch {
-      toast.error('Lỗi khi xóa câu hỏi');
+      toast.error(t('interviewToastDeleteError'));
     }
   };
 
@@ -352,13 +354,13 @@ export default function InterviewStudioPage() {
     try {
       await navigator.clipboard.writeText(getMarkdownContent());
       setCopied(true);
-      toast.success(`Đã copy nội dung phỏng vấn của ${selectedTeacher}`, {
-        title: 'Copied',
+      toast.success(`${t('interviewToastCopied')} ${selectedTeacher}`, {
+        title: t('commonCopied'),
         duration: 2500,
       });
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error('Lỗi khi copy');
+      toast.error(t('commonFailed'));
     }
   };
 
@@ -455,7 +457,7 @@ export default function InterviewStudioPage() {
             <span className="badge badge-audio">Grounded Theory RQ1–RQ3</span>
           </div>
           <p style={{ color: 'var(--text-muted)', fontSize: '13.5px' }}>
-            Thiết kế phỏng vấn bán cấu trúc: Tổng hợp Core Questions từ 22 câu gốc và sinh câu hỏi Follow-up sâu theo mốc thời gian & tương tác của từng GV.
+            {t('interviewSubtitle')}
           </p>
         </div>
 
@@ -486,7 +488,7 @@ export default function InterviewStudioPage() {
             }}
           >
             <UserCheck size={15} />
-            <span>Interview Studio (12 GV)</span>
+            <span>{t('interviewTabStudio')}</span>
           </button>
           <button
             onClick={() => setActiveTab('bank')}
@@ -506,10 +508,13 @@ export default function InterviewStudioPage() {
             }}
           >
             <BookOpen size={15} />
-            <span>Ngân Hàng 22 Câu Hỏi Gốc</span>
+            <span>{t('interviewTabBank')}</span>
           </button>
         </div>
       </div>
+
+      {/* Feature Workflow & Automation Guidance */}
+      <FeatureWorkflowBanner featureKey="interview" />
 
       {/* ==================== TAB 1: INTERVIEW STUDIO ==================== */}
       {activeTab === 'studio' && (
@@ -545,26 +550,26 @@ export default function InterviewStudioPage() {
                   {coreStatus === 'approved' ? (
                     <>
                       <CheckCircle2 size={12} />
-                      <span>Core Questions: Approved</span>
+                      <span>{t('interviewFlowABadgeApproved')}</span>
                     </>
                   ) : (
                     <>
                       <Zap size={12} />
-                      <span>Flow A: Core Questions Proposal (Draft)</span>
+                      <span>{t('interviewFlowABadgeDraft')}</span>
                     </>
                   )}
                 </span>
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  Tổng hợp từ 22 câu hỏi gốc & Teaching Themes
+                  {t('interviewFlowASub')}
                 </span>
               </div>
               <h3 style={{ fontSize: '15px', fontWeight: 700, color: coreStatus === 'approved' ? '#166534' : '#92400E', margin: 0 }}>
                 {coreStatus === 'approved'
-                  ? 'Bộ Core Questions đã được phê duyệt và áp dụng đồng bộ cho 12 giáo viên.'
-                  : 'Đề xuất Core Questions đang ở dạng dự thảo. Bạn có thể xem xét, chỉnh sửa và bấm Approve.'}
+                  ? t('interviewFlowAApprovedDesc')
+                  : t('interviewFlowADraftDesc')}
               </h3>
               <p style={{ fontSize: '12.5px', color: coreStatus === 'approved' ? '#15803D' : '#78350F', margin: 0 }}>
-                Bộ câu hỏi cốt lõi này trả lời đầy đủ 3 Research Questions (RQ1: Chiến thuật, RQ2: Cảm nhận, RQ3: Thách thức & giải pháp).
+                {t('interviewFlowARQNote')}
               </p>
             </div>
 
@@ -578,17 +583,16 @@ export default function InterviewStudioPage() {
                 style={{ fontSize: '12.5px', padding: '7px 14px' }}
               >
                 <Edit2 size={14} />
-                <span>Xem & Chỉnh Sửa Core Questions ({synthesizedCore.length})</span>
+                <span>{t('interviewEditCoreBtn')} ({synthesizedCore.length})</span>
               </button>
               <button
                 onClick={handleSynthesizeCore}
                 disabled={isSynthesizing}
                 className="btn btn-secondary"
                 style={{ fontSize: '12.5px', padding: '7px 14px' }}
-                title="Chỉ tổng hợp lại 6–9 Core Questions chung (Draft). KHÔNG chạy lại câu hỏi riêng của các giáo viên cho đến khi bạn bấm Approve."
               >
                 <RefreshCw size={14} className={isSynthesizing ? 'animate-spin' : ''} />
-                <span>{isSynthesizing ? 'Đang tổng hợp...' : 'AI Re-synthesize Core'}</span>
+                <span>{isSynthesizing ? t('commonSaving') : t('interviewResynthesizeBtn')}</span>
               </button>
               {coreStatus !== 'approved' && (
                 <button
@@ -596,10 +600,9 @@ export default function InterviewStudioPage() {
                   disabled={isApproving}
                   className="btn btn-primary"
                   style={{ fontSize: '12.5px', padding: '7px 16px', backgroundColor: 'var(--accent-green, #10B981)' }}
-                  title="Phê duyệt bộ Core Questions và tự động sinh câu hỏi phỏng vấn sâu cá nhân hoá cho toàn bộ 12 giáo viên."
                 >
                   <CheckCircle2 size={14} />
-                  <span>{isApproving ? 'Đang xử lý (12 GV)...' : 'Approve & Generate Guides (12 GV)'}</span>
+                  <span>{isApproving ? t('commonInProgress') : t('interviewApproveBtn')}</span>
                 </button>
               )}
             </div>
@@ -674,7 +677,7 @@ export default function InterviewStudioPage() {
             }}>
               <Loader2 size={24} className="animate-spin" color="var(--accent)" />
               <span style={{ fontSize: '14px', fontWeight: 500 }}>
-                Đang tải dữ liệu phỏng vấn của giáo viên {selectedTeacher}...
+                {t('interviewLoadingTeacher')} {selectedTeacher}...
               </span>
             </div>
           ) : (
@@ -696,15 +699,15 @@ export default function InterviewStudioPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <UserCheck size={18} color="var(--accent)" />
                     <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>
-                      Core Questions (Chung cho 12 GV)
+                      {t('interviewCoreColTitle')}
                     </h3>
                   </div>
                   <span className="badge badge-audio" style={{ fontSize: '11px' }}>
-                    {coreQuestions.length > 0 ? `${coreQuestions.length} câu` : `${synthesizedCore.length} câu`}
+                    {coreQuestions.length > 0 ? `${coreQuestions.length} ${t('interviewQuestionsCount')}` : `${synthesizedCore.length} ${t('interviewQuestionsCount')}`}
                   </span>
                 </div>
                 <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>
-                  Bộ câu hỏi cốt lõi tổng hợp từ 22 câu hỏi bán cấu trúc gốc, bám sát RQ1, RQ2 và RQ3.
+                  {t('interviewCoreColDesc')}
                 </p>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -764,16 +767,16 @@ export default function InterviewStudioPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Sparkles size={18} color="var(--accent-green)" />
                     <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>
-                      Participant-Specific Follow-Up Questions — {selectedTeacher}
+                      {t('interviewDynamicColTitle')} — {selectedTeacher}
                     </h3>
                   </div>
                   <span className="badge badge-audio" style={{ fontSize: '11px' }}>
-                    {dynamicQuestions.length} câu hỏi đào sâu
+                    {dynamicQuestions.length} {t('interviewFollowupsCount')}
                   </span>
                 </div>
 
                 <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>
-                  Sinh trực tiếp từ <strong>Chronological Interaction Log</strong> (lời thoại & hành vi) của {selectedTeacher}, bắt buộc gắn nhãn RQ1–RQ3 và trích dẫn bằng chứng mốc thời gian.
+                  {t('interviewDynamicColDesc')}
                 </p>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -817,7 +820,7 @@ export default function InterviewStudioPage() {
                             }}
                           >
                             <Edit2 size={12} />
-                            <span>Sửa</span>
+                            <span>{t('commonEdit')}</span>
                           </button>
                         </div>
 
@@ -854,27 +857,20 @@ export default function InterviewStudioPage() {
                       color: 'var(--text-muted)',
                       fontSize: '13px',
                     }}>
-                      Chưa có câu hỏi đào sâu riêng biệt cho {selectedTeacher}. Nhấn <strong>"Approve & Generate Guides"</strong> ở banner trên để sinh câu hỏi.
+                      {t('interviewDynamicEmpty')}
                     </div>
                   )}
                 </div>
 
-                {/* Qualitative Narrative */}
+                {/* Pedagogical Narrative Synthesis */}
                 {teacherAnalysis?.markdown_content && (
-                  <div style={{
-                    marginTop: '10px',
-                    padding: '16px',
-                    backgroundColor: '#FFFDF9',
-                    border: '1px solid var(--card-border)',
-                    borderRadius: 'var(--radius-sm)',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', color: 'var(--accent)', fontWeight: 700, fontSize: '13px' }}>
-                      <BookOpen size={14} />
-                      <span>Tóm Tắt Phương Pháp Sư Phạm ({selectedTeacher})</span>
-                    </div>
-                    <div style={{ fontSize: '13px', color: 'var(--text-main)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
-                      {teacherAnalysis.markdown_content}
-                    </div>
+                  <div style={{ marginTop: '12px' }}>
+                    <PedagogicalNarrativeView
+                      teacherId={selectedTeacher}
+                      markdownContent={teacherAnalysis.markdown_content}
+                      contextSummary={teacherAnalysis.context_summary}
+                      themeIds={teacherAnalysis.theme_ids}
+                    />
                   </div>
                 )}
               </div>
@@ -902,21 +898,21 @@ export default function InterviewStudioPage() {
           }}>
             <div>
               <h3 style={{ fontSize: '17px', fontWeight: 700, margin: 0 }}>
-                Ngân Hàng 22 Câu Hỏi Bán Cấu Trúc Gốc
+                {t('interviewBankTitle')}
               </h3>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                Căn cứ phương pháp luận thiết kế câu hỏi phỏng vấn giáo viên tiểu học dạy tiếng Anh trực tuyến (Primary EFL).
+                {t('interviewBankSubtitle')}
               </p>
             </div>
 
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               <button onClick={handleResetDefaults} className="btn btn-secondary" style={{ fontSize: '12.5px' }}>
                 <RefreshCw size={14} />
-                <span>Reset về 22 Câu Gốc Mặc Định</span>
+                <span>{t('interviewResetDefaults')}</span>
               </button>
               <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ fontSize: '12.5px' }}>
                 <Plus size={14} />
-                <span>+ Thêm Câu Hỏi Mới</span>
+                <span>{t('interviewAddNew')}</span>
               </button>
             </div>
           </div>
@@ -925,7 +921,7 @@ export default function InterviewStudioPage() {
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '12.5px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <Filter size={14} />
-              <span>Lọc theo RQ:</span>
+              <span>{t('interviewFilterRQ')}</span>
             </span>
             {['ALL', 'RQ1', 'RQ2', 'RQ3', 'BACKGROUND', 'CLOSING'].map((cat) => (
               <button
@@ -944,7 +940,7 @@ export default function InterviewStudioPage() {
                   transition: 'all 0.15s ease',
                 }}
               >
-                {cat === 'ALL' ? 'Tất cả (' + baseQuestions.length + ')' : cat}
+                {cat === 'ALL' ? `${t('interviewFilterAll')} (${baseQuestions.length})` : cat}
               </button>
             ))}
           </div>
@@ -953,7 +949,7 @@ export default function InterviewStudioPage() {
           {bankLoading ? (
             <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
               <Loader2 size={24} className="animate-spin" style={{ margin: '0 auto 8px' }} />
-              <span>Đang tải danh sách câu hỏi gốc...</span>
+              <span>{t('interviewLoadingBank')}</span>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -1024,7 +1020,7 @@ export default function InterviewStudioPage() {
                       }}
                     >
                       <Edit2 size={12} />
-                      <span>Sửa</span>
+                      <span>{t('interviewEdit')}</span>
                     </button>
                     <button
                       onClick={() => handleDeleteBaseQuestion(q.id)}
@@ -1042,7 +1038,7 @@ export default function InterviewStudioPage() {
                       }}
                     >
                       <Trash2 size={12} />
-                      <span>Xóa</span>
+                      <span>{t('interviewDelete')}</span>
                     </button>
                   </div>
                 </div>
@@ -1086,7 +1082,7 @@ export default function InterviewStudioPage() {
               alignItems: 'center',
             }}>
               <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>
-                Chỉnh Sửa Bộ Core Questions (Flow A)
+                {t('interviewEditCoreTitle')}
               </h3>
               <button
                 onClick={() => setShowCoreModal(false)}
@@ -1101,7 +1097,7 @@ export default function InterviewStudioPage() {
                   padding: '4px',
                   borderRadius: '4px',
                 }}
-                title="Đóng"
+                title={t('commonClose')}
               >
                 <X size={18} />
               </button>
@@ -1109,7 +1105,7 @@ export default function InterviewStudioPage() {
 
             <div style={{ padding: '20px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
-                Bạn có thể trực tiếp sửa nội dung từng câu hỏi hoặc thay đổi phân loại RQ1, RQ2, RQ3 trước khi Approve.
+                {t('interviewEditCoreDesc')}
               </p>
 
               {editingCoreList.map((item, idx) => (
@@ -1123,7 +1119,7 @@ export default function InterviewStudioPage() {
                   gap: '8px',
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 700 }}>Câu #{idx + 1}</span>
+                    <span style={{ fontSize: '12px', fontWeight: 700 }}>{t('interviewCoreQuestionNum')} #{idx + 1}</span>
                     <select
                       value={item.rq_category}
                       onChange={(e) => {
@@ -1177,7 +1173,7 @@ export default function InterviewStudioPage() {
               gap: '10px',
             }}>
               <button onClick={() => setShowCoreModal(false)} className="btn btn-secondary">
-                Hủy
+                {t('interviewCancel')}
               </button>
               <button
                 onClick={() => handleApproveCore(editingCoreList)}
@@ -1186,7 +1182,7 @@ export default function InterviewStudioPage() {
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               >
                 <CheckCircle2 size={14} />
-                <span>{isApproving ? 'Đang lưu...' : 'Lưu & Phê Duyệt Bộ Câu Hỏi'}</span>
+                <span>{isApproving ? t('settingsSaving') : t('interviewSaveAndApprove')}</span>
               </button>
             </div>
           </div>
@@ -1219,13 +1215,13 @@ export default function InterviewStudioPage() {
             gap: '16px',
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
           }}>
-            <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Thêm Câu Hỏi Bán Cấu Trúc Gốc</h3>
+            <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>{t('interviewAddBaseTitle')}</h3>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '12.5px', fontWeight: 600 }}>Nội dung câu hỏi</label>
+              <label style={{ fontSize: '12.5px', fontWeight: 600 }}>{t('interviewQuestionContent')}</label>
               <textarea
                 rows={3}
-                placeholder="Nhập câu hỏi phỏng vấn bằng tiếng Anh..."
+                placeholder={t('interviewQuestionPlaceholder')}
                 value={newQuestion.question_text}
                 onChange={(e) => setNewQuestion({ ...newQuestion, question_text: e.target.value })}
                 style={{ padding: '8px 10px', border: '1px solid var(--card-border)', borderRadius: '4px', fontSize: '13px' }}
@@ -1249,7 +1245,7 @@ export default function InterviewStudioPage() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '12.5px', fontWeight: 600 }}>Thứ tự (Index)</label>
+                <label style={{ fontSize: '12.5px', fontWeight: 600 }}>{t('interviewQuestionOrder')}</label>
                 <input
                   type="number"
                   value={newQuestion.question_index}
@@ -1261,10 +1257,10 @@ export default function InterviewStudioPage() {
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
               <button onClick={() => setShowAddModal(false)} className="btn btn-secondary">
-                Hủy
+                {t('interviewCancel')}
               </button>
               <button onClick={handleCreateBaseQuestion} className="btn btn-primary">
-                Thêm Vào Ngân Hàng
+                {t('interviewAddToBank')}
               </button>
             </div>
           </div>
@@ -1297,10 +1293,10 @@ export default function InterviewStudioPage() {
             gap: '16px',
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
           }}>
-            <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Sửa Câu Hỏi Gốc (Q{editingBaseQ.question_index})</h3>
+            <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>{t('interviewEditBaseTitle')} (Q{editingBaseQ.question_index})</h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '12.5px', fontWeight: 600 }}>Nội dung câu hỏi</label>
+              <label style={{ fontSize: '12.5px', fontWeight: 600 }}>{t('interviewQuestionContent')}</label>
               <textarea
                 rows={3}
                 value={editingBaseQ.question_text}
@@ -1338,10 +1334,10 @@ export default function InterviewStudioPage() {
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
               <button onClick={() => setEditingBaseQ(null)} className="btn btn-secondary">
-                Hủy
+                {t('interviewCancel')}
               </button>
               <button onClick={handleUpdateBaseQuestion} className="btn btn-primary">
-                Lưu Thay Đổi
+                {t('interviewSave')}
               </button>
             </div>
           </div>
@@ -1375,11 +1371,11 @@ export default function InterviewStudioPage() {
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
           }}>
             <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>
-              Sửa Câu Hỏi Phỏng Vấn Sâu ({selectedTeacher})
+              {t('interviewEditDynamicTitle')} ({selectedTeacher})
             </h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '12.5px', fontWeight: 600 }}>Nội dung câu hỏi</label>
+              <label style={{ fontSize: '12.5px', fontWeight: 600 }}>{t('interviewQuestionContent')}</label>
               <textarea
                 rows={4}
                 value={editingQuestion.question_text}
@@ -1389,7 +1385,7 @@ export default function InterviewStudioPage() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '12.5px', fontWeight: 600 }}>Gắn thẻ Research Question (RQ)</label>
+              <label style={{ fontSize: '12.5px', fontWeight: 600 }}>{t('interviewTagRQ')}</label>
               <select
                 value={editingQuestion.rq_category || 'RQ1'}
                 onChange={(e) => setEditingQuestion({ ...editingQuestion, rq_category: e.target.value })}
@@ -1403,10 +1399,10 @@ export default function InterviewStudioPage() {
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
               <button onClick={() => setEditingQuestion(null)} className="btn btn-secondary">
-                Hủy
+                {t('interviewCancel')}
               </button>
               <button onClick={handleSaveQuestion} className="btn btn-primary">
-                Lưu Thay Đổi
+                {t('interviewSave')}
               </button>
             </div>
           </div>

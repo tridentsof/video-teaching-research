@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Video, api } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n';
 import { useToast } from '@/components/ToastProvider';
+import { FeatureWorkflowBanner } from '@/components/FeatureWorkflowBanner';
 import {
   FileDown,
   ArrowRight,
@@ -214,6 +215,9 @@ export default function ReportsIndexPage() {
           </button>
         </div>
       </div>
+
+      {/* Feature Workflow & Automation Guidance */}
+      <FeatureWorkflowBanner featureKey="reports" />
 
       {/* Export Progress Notification Banner */}
       {isExporting && exportProgress && (

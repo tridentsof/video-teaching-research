@@ -22,12 +22,16 @@ func NewAnalysisHandler(svc *service.AnalysisService) *AnalysisHandler {
 	return &AnalysisHandler{svc: svc}
 }
 
-// RunAnalysis triggers the Phase 6 Analysis pipeline.
+// RunAnalysis triggers the Phase 6 Analysis pipeline asynchronously.
 // POST /api/analysis/run
 func (h *AnalysisHandler) RunAnalysis(c *gin.Context) {
-	run, err := h.svc.RunFullAnalysis(c.Request.Context())
+	run, err := h.svc.TriggerAnalysis(c.Request.Context())
 	if err != nil {
-		RespondError(c, http.StatusInternalServerError, "failed to run analysis: "+err.Error())
+		if strings.Contains(err.Error(), "already in progress") {
+			RespondError(c, http.StatusConflict, err.Error())
+			return
+		}
+		RespondError(c, http.StatusInternalServerError, "failed to trigger analysis: "+err.Error())
 		return
 	}
 	RespondSuccess(c, run)

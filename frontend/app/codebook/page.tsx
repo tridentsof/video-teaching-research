@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Video, CodebookEntry, api } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n';
 import { useToast } from '@/components/ToastProvider';
+import { FeatureWorkflowBanner } from '@/components/FeatureWorkflowBanner';
 import {
   BookMarked,
   Download,
@@ -44,7 +45,7 @@ interface VideoCodebook {
 
 // ─── Main Page Component ──────────────────────────────────────────────────────
 export default function CodeBookPage() {
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
   const toast = useToast();
 
   const [codebooks, setCodebooks] = useState<VideoCodebook[]>([]);
@@ -57,6 +58,21 @@ export default function CodeBookPage() {
     api.getVideos()
       .then((videos) => {
         const eligible = videos.filter((v) => v.status === 'report_generated');
+        // Sort by Teacher ID ascending (natural sort: T01 < T02 < T10), then upload date, then title
+        eligible.sort((a, b) => {
+          const teacherCompare = (a.teacher_id || '').localeCompare(b.teacher_id || '', undefined, {
+            numeric: true,
+            sensitivity: 'base',
+          });
+          if (teacherCompare !== 0) return teacherCompare;
+
+          const timeA = new Date(a.uploaded_at || 0).getTime();
+          const timeB = new Date(b.uploaded_at || 0).getTime();
+          if (timeA !== timeB) return timeA - timeB;
+
+          return (a.title || '').localeCompare(b.title || '', undefined, { numeric: true });
+        });
+
         setCodebooks(
           eligible.map((video) => ({
             video,
@@ -70,6 +86,26 @@ export default function CodeBookPage() {
       .catch(() => setCodebooks([]))
       .finally(() => setPageLoading(false));
   }, []);
+
+  // Sorted codebooks: guarantees teacher ascending sort order (natural sort)
+  const sortedCodebooks = useMemo(() => {
+    return [...codebooks].sort((a, b) => {
+      // 1. Sort by Teacher ID (natural sort: T01 < T02 < T10)
+      const teacherCompare = (a.video.teacher_id || '').localeCompare(b.video.teacher_id || '', undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      });
+      if (teacherCompare !== 0) return teacherCompare;
+
+      // 2. Sort chronologically by date/time (Oldest to Newest)
+      const timeA = new Date(a.video.uploaded_at || 0).getTime();
+      const timeB = new Date(b.video.uploaded_at || 0).getTime();
+      if (timeA !== timeB) return timeA - timeB;
+
+      // 3. Fallback to lesson title
+      return (a.video.title || '').localeCompare(b.video.title || '', undefined, { numeric: true });
+    });
+  }, [codebooks]);
 
   // Load codebook for video
   const loadCodebook = useCallback(async (videoId: string) => {
@@ -120,12 +156,12 @@ export default function CodeBookPage() {
             : cb
         )
       );
-      toast.success(t('codebookGeneratedSuccess'), { title: 'AI Synthesis' });
+      toast.success(t('codebookGeneratedSuccess'), { title: language === 'vi' ? 'Tổng hợp AI' : 'AI Synthesis' });
     } catch (err: any) {
       setCodebooks((prev) =>
         prev.map((cb) => (cb.video.id === videoId ? { ...cb, generating: false } : cb))
       );
-      toast.error(`Generation failed: ${err.message}`, { title: 'Error' });
+      toast.error(`${language === 'vi' ? 'Tổng hợp thất bại: ' : 'Generation failed: '}${err.message}`, { title: language === 'vi' ? 'Lỗi' : 'Error' });
     }
   };
 
@@ -145,9 +181,15 @@ export default function CodeBookPage() {
       a.download = 'codebook_export.xlsx';
       a.click();
       URL.revokeObjectURL(a.href);
-      toast.success('Excel file downloaded successfully!', { title: 'Export Complete' });
+      toast.success(
+        language === 'vi' ? 'Đã tải xuống tệp Excel thành công!' : 'Excel file downloaded successfully!',
+        { title: language === 'vi' ? 'Xuất hoàn tất' : 'Export Complete' }
+      );
     } catch (err: any) {
-      toast.error(`Export failed: ${err.message}`, { title: 'Export Error' });
+      toast.error(
+        `${language === 'vi' ? 'Xuất thất bại: ' : 'Export failed: '}${err.message}`,
+        { title: language === 'vi' ? 'Lỗi xuất' : 'Export Error' }
+      );
     } finally {
       setExporting(false);
     }
@@ -160,7 +202,7 @@ export default function CodeBookPage() {
     try {
       setIsDeletingCodebook(true);
       await api.deleteCodebook(videoId);
-      toast.success(t('deleteCodebookSuccess') || 'Đã xóa sổ mã hóa thành công!');
+      toast.success(t('deleteCodebookSuccess') || (language === 'vi' ? 'Đã xóa sổ mã hóa thành công!' : 'Codebook deleted successfully!'));
       setCodebooks((prev) =>
         prev.map((item) =>
           item.video.id === videoId ? { ...item, entries: [] } : item
@@ -228,7 +270,7 @@ export default function CodeBookPage() {
           <button
             id="codebook-export-btn"
             onClick={handleExport}
-            disabled={exporting || codebooks.length === 0}
+            disabled={exporting || sortedCodebooks.length === 0}
             className="btn btn-primary"
             style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', fontWeight: 600 }}
           >
@@ -238,8 +280,11 @@ export default function CodeBookPage() {
         </div>
       </div>
 
+      {/* Feature Workflow & Automation Guidance */}
+      <FeatureWorkflowBanner featureKey="codebook" />
+
       {/* ── Search & Filter Bar ─────────────────────────────────────── */}
-      {!pageLoading && codebooks.length > 0 && (
+      {!pageLoading && sortedCodebooks.length > 0 && (
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -269,13 +314,13 @@ export default function CodeBookPage() {
             <button
               onClick={() => setSearchQuery('')}
               style={{
-                border: 'none',
-                background: 'transparent',
-                color: 'var(--text-subtle)',
-                fontSize: '12px',
-                cursor: 'pointer',
-                padding: '2px 6px',
-              }}
+              border: 'none',
+              background: 'transparent',
+              color: 'var(--text-subtle)',
+              fontSize: '12px',
+              cursor: 'pointer',
+              padding: '2px 6px',
+            }}
             >
               Clear
             </button>
@@ -301,7 +346,7 @@ export default function CodeBookPage() {
       )}
 
       {/* ── Empty State ─────────────────────────────────────────────── */}
-      {!pageLoading && codebooks.length === 0 && (
+      {!pageLoading && sortedCodebooks.length === 0 && (
         <div style={{
           textAlign: 'center',
           padding: '60px 20px',
@@ -319,7 +364,7 @@ export default function CodeBookPage() {
       )}
 
       {/* ── Video Codebook Cards ─────────────────────────────────────── */}
-      {codebooks.map((cb) => (
+      {sortedCodebooks.map((cb) => (
         <VideoCodebookCard
           key={cb.video.id}
           cb={cb}

@@ -9,7 +9,7 @@ import { ShieldCheck, Eye, EyeOff, Sparkles, ArrowRight, CheckCircle2, AlertCirc
 
 export default function LoginPage() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
   const toast = useToast();
 
   const [username, setUsername] = useState('');
@@ -25,9 +25,9 @@ export default function LoginPage() {
     setSuccessMsg(null);
 
     if (!username.trim() || !password.trim()) {
-      const msg = 'Please enter your researcher username and password.';
+      const msg = language === 'vi' ? 'Vui lòng nhập tên tài khoản và mật khẩu.' : 'Please enter your researcher username and password.';
       setError(msg);
-      toast.warning(msg, { title: 'Input Required' });
+      toast.warning(msg, { title: language === 'vi' ? 'Yêu cầu thông tin' : 'Input Required' });
       return;
     }
 
@@ -36,15 +36,15 @@ export default function LoginPage() {
       await api.login(username, password);
       const msg = t('authSuccessLogin');
       setSuccessMsg(msg);
-      toast.success(msg, { title: 'Authentication Successful' });
+      toast.success(msg, { title: language === 'vi' ? 'Đăng nhập thành công' : 'Authentication Successful' });
 
       setTimeout(() => {
         window.location.href = '/';
       }, 400);
     } catch (err: any) {
-      const msg = err.message || 'Authentication failed. Please check your credentials.';
+      const msg = err.message || (language === 'vi' ? 'Đăng nhập thất bại. Vui lòng kiểm tra lại tài khoản/mật khẩu.' : 'Authentication failed. Please check your credentials.');
       setError(msg);
-      toast.error(msg, { title: 'Login Failed' });
+      toast.error(msg, { title: language === 'vi' ? 'Lỗi đăng nhập' : 'Login Failed' });
     } finally {
       setLoading(false);
     }

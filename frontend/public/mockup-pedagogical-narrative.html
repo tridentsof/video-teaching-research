@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="vi" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đề xuất Giao diện Pedagogical Narrative Synthesis — Video Teaching Research</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            serif: ['"Instrument Serif"', 'Georgia', 'serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            terracotta: {
+              50: '#FDF8F6',
+              100: '#F7EDE8',
+              500: '#9E4A28',
+              600: '#843D1F',
+              700: '#6C3017',
+            },
+            academic: {
+              bg: '#FBF9F5',
+              card: '#FFFFFF',
+              border: '#E8E3D9',
+              borderSoft: '#F0EAE1',
+              text: '#1A1612',
+              muted: '#736B63',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root {
+      --bg: #FBF9F5;
+      --card-border: #E8E3D9;
+      --accent: #9E4A28;
+      --accent-soft: #F7EDE8;
+    }
+    body {
+      background-color: var(--bg);
+      color: #1A1612;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .dark body {
+      background-color: #0d1117;
+      color: #e6edf3;
+    }
+    .academic-card {
+      background: #FFFFFF;
+      border: 1px solid #E8E3D9;
+      box-shadow: 0 1px 3px rgba(40, 30, 20, 0.04);
+    }
+    .dark .academic-card {
+      background: #161b22;
+      border-color: #30363d;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    }
+    .badge-rq1 { background: #EAF4EE; color: #2D6A4F; border: 1px solid #C2E2D0; }
+    .badge-rq2 { background: #EBF3F9; color: #1D5C8A; border: 1px solid #BFD9ED; }
+    .badge-rq3 { background: #FEF7EA; color: #B26A00; border: 1px solid #F6DFB6; }
+    .badge-theme { background: #F3E8FF; color: #6D28D9; border: 1px solid #DDD6FE; }
+    .dark .badge-rq1 { background: rgba(45, 106, 79, 0.2); color: #4ade80; border-color: rgba(74, 222, 128, 0.3); }
+    .dark .badge-rq2 { background: rgba(29, 92, 138, 0.2); color: #60a5fa; border-color: rgba(96, 165, 250, 0.3); }
+    .dark .badge-rq3 { background: rgba(178, 106, 0, 0.2); color: #fbbf24; border-color: rgba(251, 191, 36, 0.3); }
+    .dark .badge-theme { background: rgba(109, 40, 217, 0.2); color: #c084fc; border-color: rgba(192, 132, 252, 0.3); }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+
+  <!-- Top Navigation & Options Switcher -->
+  <header class="max-w-6xl mx-auto mb-8 pb-6 border-b border-gray-200 dark:border-gray-800">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2 mb-1">
+          <span class="px-2.5 py-0.5 rounded text-xs font-bold uppercase tracking-wider bg-terracotta-100 text-terracotta-600 border border-terracotta-500/20">
+            UI Redesign Proposal
+          </span>
+          <span class="text-xs text-gray-500 font-mono">Interview Studio • Teacher Analysis</span>
+        </div>
+        <h1 class="text-2xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2 font-serif">
+          Pedagogical Narrative Synthesis — Cải tiến giao diện trực quan
+        </h1>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+          Thay vì đổ raw text Markdown đơn điệu (<code class="text-xs bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">white-space: pre-wrap</code>), tổ chức lại thành hồ sơ sư phạm thân thiện, cấu trúc thẻ thông minh và chuẩn học thuật.
+        </p>
+      </div>
+
+      <!-- Theme & Option Switcher -->
+      <div class="flex items-center gap-3 self-start lg:self-center">
+        <!-- Option Pills -->
+        <div class="inline-flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl border border-gray-200 dark:border-gray-700 text-xs font-semibold">
+          <button onclick="setOption('opt1')" id="btn-opt1" class="px-3.5 py-1.5 rounded-lg bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white transition">
+            Option 1: Bento Cards & Quick Stats (Khuyên dùng ⭐)
+          </button>
+          <button onclick="setOption('opt2')" id="btn-opt2" class="px-3.5 py-1.5 rounded-lg text-gray-600 dark:text-gray-400 hover:text-gray-900 transition">
+            Option 2: Tabbed Dossier (Phân tab)
+          </button>
+          <button onclick="setOption('opt3')" id="btn-opt3" class="px-3.5 py-1.5 rounded-lg text-gray-600 dark:text-gray-400 hover:text-gray-900 transition">
+            Option 3: Collapsible Profile Sheet (Đầu trang)
+          </button>
+        </div>
+
+        <button onclick="toggleDarkMode()" class="p-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs" title="Chuyển chế độ Sáng / Tối">
+          🌓
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto space-y-8">
+
+    <!-- Comparison Header: Current vs Proposed -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 text-xs">
+      <div>
+        <span class="font-bold text-red-700 dark:text-red-400 flex items-center gap-1.5 mb-1">
+          ❌ Hiện tại (Current raw markdown):
+        </span>
+        <p class="text-gray-700 dark:text-gray-300">
+          Chỉ là một khung <code>div</code> bọc raw text có <code># H1, ## H2, **bold**</code> thô ráp, nhét ở dưới đáy cột bên phải dưới danh sách câu hỏi dynamic, khó đọc, bảng biểu bị vỡ format.
+        </p>
+      </div>
+      <div>
+        <span class="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5 mb-1">
+          ✅ Đề xuất cải tiến (Proposed Experience):
+        </span>
+        <p class="text-gray-700 dark:text-gray-300">
+          Phân tích các mục sư phạm thành các khối trực quan: <strong>Profile Card, Metric Pills (Wait time, Scaffolding), Cards chiến thuật lặp lại</strong> + nút xem bảng Markdown đầy đủ đã render chuẩn typography học thuật.
+        </p>
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- OPTION 1: BENTO CARDS & QUICK STATS (RECOMMENDED) -->
+    <!-- ================================================================= -->
+    <section id="view-opt1" class="space-y-6">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <span>Option 1: Executive Dossier & Bento Cards (Khuyên dùng ⭐)</span>
+          <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 font-normal">
+            Trực quan • Dễ quét mắt • Sẵn sàng trước khi hỏi
+          </span>
+        </h2>
+        <span class="text-xs text-gray-500">Giáo viên đang chọn: <strong class="text-terracotta-600 dark:text-amber-400">Teacher T01</strong></span>
+      </div>
+
+      <!-- Pedagogical Narrative Synthesis Container -->
+      <div class="academic-card rounded-2xl p-6 space-y-6 border border-gray-200 dark:border-gray-700/80">
+        
+        <!-- Header Bar: Title + Badges + Quick Actions -->
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pb-4 border-b border-gray-100 dark:border-gray-800">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-terracotta-100 dark:bg-terracotta-700/30 text-terracotta-600 dark:text-terracotta-400 flex items-center justify-center font-serif text-lg font-bold shadow-sm">
+              📖
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="font-bold text-base text-gray-900 dark:text-white">
+                  Hồ Sơ & Tổng Hợp Sư Phạm (Pedagogical Profile & Narrative)
+                </h3>
+                <span class="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                  T01
+                </span>
+              </div>
+              <p class="text-xs text-gray-500 mt-0.5">
+                Tổng hợp định tính từ 2 video bài giảng (V01, V02) • Chạy phân tích ngày 16/09/2026
+              </p>
+            </div>
+          </div>
+
+          <!-- Quick Actions: Copy Markdown, View Full Report -->
+          <div class="flex items-center gap-2 shrink-0">
+            <button onclick="toggleRawView('raw-opt1')" class="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5 transition">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+              <span>Xem Văn Bản Đầy Đủ</span>
+            </button>
+            <button class="px-3 py-1.5 rounded-lg bg-terracotta-500 hover:bg-terracotta-600 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+              <span>Sao Chép Markdown</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 4 Key Empirical Metric Pills (Bento Top) -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div class="p-3.5 rounded-xl bg-gray-50 dark:bg-gray-800/60 border border-gray-200/70 dark:border-gray-700/60">
+            <span class="text-[11px] font-medium text-gray-500 block">Thời gian chờ (Wait Time)</span>
+            <div class="flex items-baseline gap-2 mt-1">
+              <span class="text-xl font-bold font-mono text-terracotta-600 dark:text-amber-400">4.5s</span>
+              <span class="text-[11px] font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.2 rounded">+40% vs nhóm</span>
+            </div>
+            <span class="text-[11px] text-gray-400 mt-1 block">Chiến thuật kiên nhẫn nổi bật</span>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-gray-50 dark:bg-gray-800/60 border border-gray-200/70 dark:border-gray-700/60">
+            <span class="text-[11px] font-medium text-gray-500 block">Tổng sự kiện ghi nhận</span>
+            <div class="flex items-baseline gap-2 mt-1">
+              <span class="text-xl font-bold font-mono text-gray-900 dark:text-white">21 lần</span>
+              <span class="text-[11px] font-medium text-gray-500">V01 (11) • V02 (10)</span>
+            </div>
+            <span class="text-[11px] text-gray-400 mt-1 block">Tần suất 0.52 lần/phút</span>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-gray-50 dark:bg-gray-800/60 border border-gray-200/70 dark:border-gray-700/60">
+            <span class="text-[11px] font-medium text-gray-500 block">Phân bổ thời gian chính</span>
+            <div class="flex items-baseline gap-2 mt-1">
+              <span class="text-xl font-bold font-mono text-blue-600 dark:text-blue-400">80%</span>
+              <span class="text-[11px] font-medium text-gray-500">Giữa tiết học</span>
+            </div>
+            <span class="text-[11px] text-gray-400 mt-1 block">Phút 15–40 (luyện nói sâu)</span>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-gray-50 dark:bg-gray-800/60 border border-gray-200/70 dark:border-gray-700/60">
+            <span class="text-[11px] font-medium text-gray-500 block">Grounded Theory Theme</span>
+            <div class="flex items-center gap-1.5 mt-1.5">
+              <span class="text-xs font-semibold px-2 py-0.5 rounded badge-theme">
+                Scaffolding Through Patience
+              </span>
+            </div>
+            <span class="text-[11px] text-gray-400 mt-1 block">Nhóm: Pacing Strategies</span>
+          </div>
+        </div>
+
+        <!-- Section 1: Pedagogical Overview (Editorial Quote Callout) -->
+        <div class="p-4 rounded-xl bg-[#FFFDF9] dark:bg-[#1a1f2c] border-l-4 border-l-terracotta-500 border border-gray-200/80 dark:border-gray-700">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-terracotta-600 dark:text-amber-400 flex items-center gap-1.5">
+              🎯 Tổng quan phong cách giảng dạy (Pedagogical Overview)
+            </span>
+          </div>
+          <p class="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
+            Giáo viên <strong>T01</strong> thể hiện phong cách giảng dạy có cấu trúc nhịp độ (pacing) kiểm soát cao, đặc biệt duy trì khoảng lặng chờ đợi có chủ ý (trung bình 4.5s – 5.2s) ngay sau các câu hỏi mở. Thay vì can thiệp sớm bằng gợi ý lời nói, giáo viên ưu tiên để học sinh tự kích hoạt tư duy, sau đó mới bổ trợ bằng hình ảnh trên bảng tương tác số (digital whiteboard).
+          </p>
+        </div>
+
+        <!-- Section 2: Key Recurring Strategies Breakdown (Interactive Cards) -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              Chiến thuật lặp lại cốt lõi & Bằng chứng thực nghiệm (Recurring Strategies)
+            </h4>
+            <span class="text-xs text-gray-400">Gợi ý đào sâu cho phỏng vấn</span>
+          </div>
+
+          <!-- Strategy Card 1 -->
+          <div class="p-4 rounded-xl bg-gray-50/70 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700 hover:border-terracotta-500/50 transition space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <h5 class="text-sm font-bold text-gray-900 dark:text-white">
+                  Chiến thuật: Wait time after question (Khoảng lặng chờ đợi sau câu hỏi)
+                </h5>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-mono font-bold px-2 py-0.5 rounded badge-rq1">
+                  RQ1: Pacing Strategy
+                </span>
+                <span class="text-xs font-mono px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                  21 lần xuất hiện
+                </span>
+              </div>
+            </div>
+
+            <p class="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+              <strong>Ngữ cảnh kích hoạt:</strong> Xuất hiện đều đặn sau khi giáo viên nêu câu hỏi suy luận mở. Giáo viên chủ động giữ im lặng trung bình 4.5s để học sinh suy nghĩ trước khi chỉ định đích danh. Tần suất cao hơn <strong>+40%</strong> so với mức trung bình của 12 giáo viên.
+            </p>
+
+            <!-- Empirical Evidence Mini-Table -->
+            <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+              <table class="w-full text-left text-xs font-sans">
+                <thead class="bg-gray-100/80 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">
+                  <tr>
+                    <th class="p-2.5">Video Bài Giảng</th>
+                    <th class="p-2.5">Số lần (Count)</th>
+                    <th class="p-2.5">Thời gian chờ TB</th>
+                    <th class="p-2.5">Tác động quan sát đến học sinh (RQ2)</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300">
+                  <tr>
+                    <td class="p-2.5 font-mono font-semibold text-terracotta-600 dark:text-amber-400">V01</td>
+                    <td class="p-2.5 font-mono">11 lần</td>
+                    <td class="p-2.5 font-mono">4.2s</td>
+                    <td class="p-2.5">Học sinh tự tin phát biểu câu hoàn chỉnh hơn (82% câu trả lời dài)</td>
+                  </tr>
+                  <tr>
+                    <td class="p-2.5 font-mono font-semibold text-terracotta-600 dark:text-amber-400">V02</td>
+                    <td class="p-2.5 font-mono">10 lần</td>
+                    <td class="p-2.5 font-mono">4.8s</td>
+                    <td class="p-2.5">Giảm bớt sự ngập ngừng khi gặp từ vựng khó</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Strategy Card 2 -->
+          <div class="p-4 rounded-xl bg-gray-50/70 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700 hover:border-terracotta-500/50 transition space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                <h5 class="text-sm font-bold text-gray-900 dark:text-white">
+                  Chiến thuật: Multimodal Scaffolding via Whiteboard Visuals
+                </h5>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-mono font-bold px-2 py-0.5 rounded badge-rq3">
+                  RQ3: Challenge Handling
+                </span>
+                <span class="text-xs font-mono px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                  14 lần xuất hiện
+                </span>
+              </div>
+            </div>
+
+            <p class="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+              <strong>Ngữ cảnh kích hoạt:</strong> Khi học sinh im lặng quá 5 giây hoặc phát âm ngập ngừng, giáo viên chuyển đổi ngay sang khoanh vùng gợi ý trực quan trên slide bài giảng thay vì ngắt lời học sinh bằng âm thanh.
+            </p>
+          </div>
+        </div>
+
+        <!-- Collapsible Full Markdown Viewer (Optional toggle) -->
+        <div id="raw-opt1" class="hidden pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-gray-700 dark:text-gray-300">📄 Báo Cáo Học Thuật Gốc (Rendered Academic Markdown):</span>
+            <button onclick="toggleRawView('raw-opt1')" class="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">Thu gọn ✕</button>
+          </div>
+          <div class="p-4 rounded-xl bg-gray-50 dark:bg-gray-950 font-mono text-xs text-gray-800 dark:text-gray-300 leading-relaxed border border-gray-200 dark:border-gray-800 overflow-x-auto max-h-96">
+            <pre># Teaching Strategy Analysis — T01
+**Videos analyzed:** V01, V02 | **Analysis run:** 2026-09-16
+
+## Pedagogical Overview
+Teacher T01 demonstrates a highly structured pacing approach with deliberate wait-time intervals (avg 4.5s) and structured nomination routines...
+
+## Recurring Strategies
+### Strategy: Wait time after question
+- **Occurrences:** 21 lần (V01: 11, V02: 10)
+- **Theme:** Scaffolding Through Patience
+- **Frequency vs group avg:** +40%
+- **Timing distribution:** 80% trong mid-lesson (15–40 phút)</pre>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ================================================================= -->
+    <!-- OPTION 2: TABBED PEDAGOGICAL DOSSIER -->
+    <!-- ================================================================= -->
+    <section id="view-opt2" class="hidden space-y-6">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <span>Option 2: Tabbed Pedagogical Dossier (Phân nhóm bằng Tabs)</span>
+          <span class="text-xs px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 font-normal">
+            Gọn gàng • Phân tách rõ ràng giữa Tóm tắt, Chiến thuật & Báo cáo đầy đủ
+          </span>
+        </h2>
+        <span class="text-xs text-gray-500">Giáo viên: <strong class="text-terracotta-600">T01</strong></span>
+      </div>
+
+      <div class="academic-card rounded-2xl border border-gray-200 dark:border-gray-700/80 overflow-hidden">
+        
+        <!-- Tab Bar -->
+        <div class="flex items-center border-b border-gray-200 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/50 px-6 pt-3 gap-2">
+          <button onclick="switchDossierTab('tab-overview')" id="tab-btn-overview" class="px-4 py-2.5 text-xs font-bold border-b-2 border-terracotta-500 text-terracotta-600 dark:text-amber-400 transition flex items-center gap-1.5">
+            <span>💡 1. Tổng Quan Sư Phạm</span>
+          </button>
+          <button onclick="switchDossierTab('tab-strategies')" id="tab-btn-strategies" class="px-4 py-2.5 text-xs font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition flex items-center gap-1.5">
+            <span>📊 2. Chiến Thuật Lặp Lại (2)</span>
+          </button>
+          <button onclick="switchDossierTab('tab-evidence')" id="tab-btn-evidence" class="px-4 py-2.5 text-xs font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition flex items-center gap-1.5">
+            <span>📑 3. Báo Cáo Chi Tiết (.MD)</span>
+          </button>
+        </div>
+
+        <!-- Tab 1: Overview -->
+        <div id="tab-overview" class="p-6 space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
+            <div>
+              <h4 class="font-bold text-sm text-gray-900 dark:text-white">Hồ Sơ Năng Lực Sư Phạm & Nhịp Độ Lớp Học (T01)</h4>
+              <p class="text-xs text-gray-500">Quan sát qua 2 video V01 (45 phút) và V02 (40 phút)</p>
+            </div>
+            <span class="px-2 py-0.5 text-xs rounded font-mono bg-emerald-50 text-emerald-700 border border-emerald-200">
+              Scaffolding Through Patience
+            </span>
+          </div>
+
+          <div class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed space-y-3">
+            <p>
+              Giáo viên T01 có phong cách giảng dạy tập trung vào sự tự tin và quyền chủ động của người học (Learner Agency). Khoảng lặng chờ đợi trung bình 4.5 giây giữa câu hỏi và phản hồi của học sinh giúp tạo không gian tâm lý an toàn, giảm lo âu khi nói tiếng Anh.
+            </p>
+            <div class="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2">
+              <span class="text-base">💡</span>
+              <div>
+                <strong>Lưu ý cho người phỏng vấn:</strong> Tập trung phỏng vấn sâu RQ2 về lý do giáo viên quyết định chờ đợi thay vì nhắc từ (scaffolding timing) và đánh giá của giáo viên về mức độ giảm lo âu của học sinh.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Strategies (Hidden by default) -->
+        <div id="tab-strategies" class="hidden p-6 space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40">
+              <span class="text-xs font-bold text-terracotta-600 block mb-1">Wait Time After Question</span>
+              <p class="text-xs text-gray-600 dark:text-gray-300">21 lần xuất hiện • 4.5s silence • +40% vs trung bình nhóm 12 GV.</p>
+            </div>
+            <div class="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40">
+              <span class="text-xs font-bold text-blue-600 block mb-1">Visual Cues via Whiteboard</span>
+              <p class="text-xs text-gray-600 dark:text-gray-300">14 lần xuất hiện • Hỗ trợ khi học sinh ngập ngừng quá 5 giây.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Markdown (Hidden by default) -->
+        <div id="tab-evidence" class="hidden p-6">
+          <div class="p-4 rounded-xl bg-gray-900 text-gray-100 font-mono text-xs leading-relaxed max-h-80 overflow-y-auto">
+            <code># Teaching Strategy Analysis — T01<br>... Full academic markdown rendered here ...</code>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ================================================================= -->
+    <!-- OPTION 3: COLLAPSIBLE PROFILE SHEET (BANNER TRÊN ĐẦU TRANG) -->
+    <!-- ================================================================= -->
+    <section id="view-opt3" class="hidden space-y-6">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <span>Option 3: Full-Width Collapsible Profile Banner (Đặt trên đầu trang)</span>
+          <span class="text-xs px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-400 font-normal">
+            Toàn màn hình • Thu nhỏ / Phóng to linh hoạt
+          </span>
+        </h2>
+      </div>
+
+      <!-- Collapsible Profile Bar -->
+      <div class="academic-card rounded-2xl border border-gray-200 dark:border-gray-700 p-5">
+        <div class="flex items-center justify-between cursor-pointer" onclick="toggleSheet()">
+          <div class="flex items-center gap-3">
+            <span class="w-8 h-8 rounded-lg bg-terracotta-500 text-white flex items-center justify-center font-bold text-xs">
+              T01
+            </span>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-sm font-bold text-gray-900 dark:text-white">
+                  Teacher T01 — Pedagogical Strategy Dossier
+                </h3>
+                <span class="text-[11px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-mono font-medium">
+                  2 Videos Analyzed
+                </span>
+                <span class="text-[11px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-mono font-medium">
+                  Wait Time: 4.5s (+40%)
+                </span>
+              </div>
+              <p class="text-xs text-gray-500 mt-0.5">
+                Nhấp vào đây để xem toàn bộ phân tích định tính và chiến thuật sư phạm trước khi phỏng vấn
+              </p>
+            </div>
+          </div>
+          <button id="sheet-toggle-icon" class="p-1 text-gray-400 hover:text-gray-600 transition">
+            ▼
+          </button>
+        </div>
+
+        <div id="sheet-content" class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-700 dark:text-gray-300 leading-relaxed space-y-3">
+          <p>
+            <strong>Pedagogical Overview:</strong> Giáo viên thể hiện phong cách kiểm soát nhịp độ kiên nhẫn. Thường đợi từ 4 đến 6 giây để người học lấy lại bình tĩnh trước khi gọi tên. Phối hợp với bảng tương tác trực quan khi học sinh có biểu hiện lúng túng.
+          </p>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="p-2.5 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <span class="font-bold text-gray-900 dark:text-white block">Chiến thuật 1: Wait Time</span>
+              <span class="text-gray-500">21 lần xuất hiện • Pacing Scaffolding</span>
+            </div>
+            <div class="p-2.5 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <span class="font-bold text-gray-900 dark:text-white block">Chiến thuật 2: Whiteboard Visuals</span>
+              <span class="text-gray-500">14 lần xuất hiện • Challenge Intervention</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Context Preview: How this fits with the 2-Column Interview Questions -->
+    <div class="p-5 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 space-y-4">
+      <div class="flex items-center justify-between">
+        <h4 class="text-xs font-bold uppercase tracking-wider text-gray-400">
+          Mối tương quan với Danh sách Câu hỏi Phỏng vấn bên dưới
+        </h4>
+        <span class="text-xs font-mono text-terracotta-600 dark:text-terracotta-400">RQ1 • RQ2 • RQ3 Alignment</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-4 text-xs opacity-85">
+        <!-- Left: Core Questions -->
+        <div class="md:col-span-5 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 space-y-2">
+          <span class="font-bold text-gray-800 dark:text-gray-200 block">Cột Trái: Câu hỏi Cốt lõi (8 câu chung)</span>
+          <p class="text-gray-500">Áp dụng chung cho 12 giáo viên nhằm đối chiếu diện rộng.</p>
+        </div>
+        <!-- Right: Dynamic Questions -->
+        <div class="md:col-span-7 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 space-y-2">
+          <span class="font-bold text-gray-800 dark:text-gray-200 block">Cột Phải: Câu hỏi Đào sâu Cá nhân hóa (T01)</span>
+          <p class="text-gray-500">Trích xuất trực tiếp từ các bằng chứng trong Pedagogical Narrative Synthesis ở trên.</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    function setOption(opt) {
+      document.getElementById('view-opt1').classList.add('hidden');
+      document.getElementById('view-opt2').classList.add('hidden');
+      document.getElementById('view-opt3').classList.add('hidden');
+
+      document.getElementById('btn-opt1').className = "px-3.5 py-1.5 rounded-lg text-gray-600 dark:text-gray-400 hover:text-gray-900 transition";
+      document.getElementById('btn-opt2').className = "px-3.5 py-1.5 rounded-lg text-gray-600 dark:text-gray-400 hover:text-gray-900 transition";
+      document.getElementById('btn-opt3').className = "px-3.5 py-1.5 rounded-lg text-gray-600 dark:text-gray-400 hover:text-gray-900 transition";
+
+      document.getElementById('view-' + opt).classList.remove('hidden');
+      document.getElementById('btn-' + opt).className = "px-3.5 py-1.5 rounded-lg bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white transition font-bold";
+    }
+
+    function toggleDarkMode() {
+      document.documentElement.classList.toggle('dark');
+    }
+
+    function toggleRawView(id) {
+      const el = document.getElementById(id);
+      el.classList.toggle('hidden');
+    }
+
+    function switchDossierTab(tabId) {
+      document.getElementById('tab-overview').classList.add('hidden');
+      document.getElementById('tab-strategies').classList.add('hidden');
+      document.getElementById('tab-evidence').classList.add('hidden');
+
+      document.getElementById('tab-btn-overview').className = "px-4 py-2.5 text-xs font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-800 transition flex items-center gap-1.5";
+      document.getElementById('tab-btn-strategies').className = "px-4 py-2.5 text-xs font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-800 transition flex items-center gap-1.5";
+      document.getElementById('tab-btn-evidence').className = "px-4 py-2.5 text-xs font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-800 transition flex items-center gap-1.5";
+
+      document.getElementById(tabId).classList.remove('hidden');
+      
+      const activeBtnId = tabId === 'tab-overview' ? 'tab-btn-overview' : (tabId === 'tab-strategies' ? 'tab-btn-strategies' : 'tab-btn-evidence');
+      document.getElementById(activeBtnId).className = "px-4 py-2.5 text-xs font-bold border-b-2 border-terracotta-500 text-terracotta-600 dark:text-amber-400 transition flex items-center gap-1.5";
+    }
+
+    function toggleSheet() {
+      const content = document.getElementById('sheet-content');
+      const icon = document.getElementById('sheet-toggle-icon');
+      if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        icon.textContent = '▲';
+      } else {
+        content.classList.add('hidden');
+        icon.textContent = '▼';
+      }
+    }
+  </script>
+</body>
+</html>

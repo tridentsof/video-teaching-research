@@ -20,7 +20,7 @@ import {
 export const PipelineNotificationCenter: React.FC = () => {
   const router = useRouter();
   const toast = useToast();
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
   const [videos, setVideos] = useState<Video[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -44,36 +44,42 @@ export const PipelineNotificationCenter: React.FC = () => {
           if (oldStatus && oldStatus !== v.status) {
             if (v.status === 'error' || v.status === 'failed') {
               toast.error(
-                `Analysis for lesson "${v.title || v.teacher_id}" was interrupted.`,
+                language === 'vi'
+                  ? `Tiến trình phân tích bài giảng "${v.title || v.teacher_id}" đã bị gián đoạn.`
+                  : `Analysis for lesson "${v.title || v.teacher_id}" was interrupted.`,
                 {
-                  title: `Analysis Interrupted (${v.teacher_id})`,
+                  title: language === 'vi' ? `Phân tích bị gián đoạn (${v.teacher_id})` : `Analysis Interrupted (${v.teacher_id})`,
                   duration: 8000,
                   action: {
-                    label: 'Review & Retry →',
+                    label: language === 'vi' ? 'Xem & Chạy lại →' : 'Review & Retry →',
                     onClick: () => router.push(`/videos/${v.id}`),
                   },
                 }
               );
             } else if (v.status === 'report_generated' || v.status === 'completed') {
               toast.success(
-                `Classroom analysis report for "${v.title || v.teacher_id}" is ready.`,
+                language === 'vi'
+                  ? `Báo cáo phân tích sư phạm cho "${v.title || v.teacher_id}" đã sẵn sàng.`
+                  : `Classroom analysis report for "${v.title || v.teacher_id}" is ready.`,
                 {
-                  title: `Analysis Ready (${v.teacher_id})`,
+                  title: language === 'vi' ? `Báo cáo hoàn tất (${v.teacher_id})` : `Analysis Ready (${v.teacher_id})`,
                   duration: 6000,
                   action: {
-                    label: 'View Report →',
+                    label: language === 'vi' ? 'Xem báo cáo →' : 'View Report →',
                     onClick: () => router.push(`/reports/${v.id}`),
                   },
                 }
               );
             } else if (v.status === 'cancelled') {
               toast.warning(
-                `Analysis for lesson "${v.title || v.teacher_id}" was cancelled.`,
+                language === 'vi'
+                  ? `Tiến trình phân tích bài giảng "${v.title || v.teacher_id}" đã bị dừng.`
+                  : `Analysis for lesson "${v.title || v.teacher_id}" was cancelled.`,
                 {
-                  title: `Analysis Cancelled (${v.teacher_id})`,
+                  title: language === 'vi' ? `Đã dừng phân tích (${v.teacher_id})` : `Analysis Cancelled (${v.teacher_id})`,
                   duration: 6000,
                   action: {
-                    label: 'Details →',
+                    label: language === 'vi' ? 'Chi tiết →' : 'Details →',
                     onClick: () => router.push(`/videos/${v.id}`),
                   },
                 }
@@ -140,15 +146,20 @@ export const PipelineNotificationCenter: React.FC = () => {
       const isResume = mode === 'resume';
       toast.info(
         isResume
-          ? `Analysis resumed from checkpoint for "${title}".`
-          : `Full analysis restarted for "${title}".`,
+          ? (language === 'vi' ? `Đã tiếp tục phân tích từ checkpoint cho "${title}".` : `Analysis resumed from checkpoint for "${title}".`)
+          : (language === 'vi' ? `Đã khởi động lại toàn bộ phân tích cho "${title}".` : `Full analysis restarted for "${title}".`),
         {
-          title: isResume ? 'Analysis Resumed' : 'Analysis Restarted',
+          title: isResume
+            ? (language === 'vi' ? 'Đã tiếp tục phân tích' : 'Analysis Resumed')
+            : (language === 'vi' ? 'Đã chạy lại phân tích' : 'Analysis Restarted'),
         }
       );
       await fetchVideosAndCheckTransitions();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to restart analysis', { title: 'Restart Error' });
+      toast.error(
+        err.message || (language === 'vi' ? 'Không thể chạy lại phân tích' : 'Failed to restart analysis'),
+        { title: language === 'vi' ? 'Lỗi chạy lại' : 'Restart Error' }
+      );
       await fetchVideosAndCheckTransitions();
     } finally {
       setRetryingId(null);
@@ -159,12 +170,18 @@ export const PipelineNotificationCenter: React.FC = () => {
     e.stopPropagation();
     try {
       await api.cancelPipeline(videoId);
-      toast.warning(`Analysis stopped for "${title}".`, {
-        title: 'Analysis Stopped',
-      });
+      toast.warning(
+        language === 'vi' ? `Đã dừng phân tích bài giảng "${title}".` : `Analysis stopped for "${title}".`,
+        {
+          title: language === 'vi' ? 'Đã dừng phân tích' : 'Analysis Stopped',
+        }
+      );
       await fetchVideosAndCheckTransitions();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to stop analysis', { title: 'Stop Error' });
+      toast.error(
+        err.message || (language === 'vi' ? 'Không thể dừng phân tích' : 'Failed to stop analysis'),
+        { title: language === 'vi' ? 'Lỗi dừng phân tích' : 'Stop Error' }
+      );
     }
   };
 

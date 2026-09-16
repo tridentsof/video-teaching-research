@@ -84,7 +84,7 @@ export const Sidebar: React.FC = () => {
               lineHeight: 1.1,
               whiteSpace: 'nowrap',
             }}>
-              Observation Studio
+              {t('brandTitle')}
             </h1>
             <span style={{
               fontSize: '10.5px',
@@ -94,12 +94,12 @@ export const Sidebar: React.FC = () => {
               color: 'var(--text-muted)',
               whiteSpace: 'nowrap',
             }}>
-              Classroom Video Lab
+              {t('brandSub')}
             </span>
           </div>
         ) : (
           <div
-            title="Observation Studio"
+            title={t('brandTitle')}
             style={{
               width: '38px',
               height: '38px',

@@ -94,6 +94,18 @@ export interface PipelineStatusSummary {
   jobs: PipelineJob[];
 }
 
+export interface AnalysisRunItem {
+  id: string;
+  status: string;
+  triggered_at: string;
+  completed_at?: string;
+  error_msg?: string;
+  core_questions_status?: string;
+  theme_count?: number;
+  category_count?: number;
+  pattern_count?: number;
+}
+
 export interface Theme {
   id: string;
   analysis_run_id: string;
@@ -516,18 +528,18 @@ export const api = {
     return request(`/analysis/themes/${themeId}/confirm`, { method: 'PUT' });
   },
 
-  async getLatestAnalysisRun(): Promise<{ id: string; status: string; triggered_at: string; completed_at?: string; error_msg?: string } | null> {
+  async getLatestAnalysisRun(): Promise<AnalysisRunItem | null> {
     try {
-      const data = await request<{ run: { id: string; status: string; triggered_at: string; completed_at?: string; error_msg?: string } | null }>('/analysis/latest');
+      const data = await request<{ run: AnalysisRunItem | null }>('/analysis/latest');
       return data.run || null;
     } catch {
       return null;
     }
   },
 
-  async listAnalysisRuns(): Promise<Array<{ id: string; status: string; triggered_at: string; completed_at?: string; error_msg?: string }>> {
+  async listAnalysisRuns(): Promise<AnalysisRunItem[]> {
     try {
-      const data = await request<{ runs: Array<{ id: string; status: string; triggered_at: string; completed_at?: string; error_msg?: string }> }>('/analysis/runs');
+      const data = await request<{ runs: AnalysisRunItem[] }>('/analysis/runs');
       return data.runs || [];
     } catch {
       return [];

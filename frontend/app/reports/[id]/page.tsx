@@ -37,7 +37,7 @@ function formatSeconds(sec: number): string {
 export default function ReportDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
   const [report, setReport] = useState<Report | null>(null);
   const [video, setVideo] = useState<Video | null>(null);
   const [loading, setLoading] = useState(true);
@@ -224,15 +224,16 @@ Teacher maintains warm, energetic classroom rapport with strong use of positive 
         report,
         video,
         observationNo: video ? `#${video.id.slice(0, 8)}` : '#01',
-        className: 'Online English Class',
+        className: language === 'vi' ? 'Lớp tiếng Anh trực tuyến' : 'Online English Class',
         platform: 'Zoom',
         generalNotes: 'Teacher maintains warm, energetic classroom rapport with strong use of positive reinforcement and multi-modal digital tools. Pacing and wait time effectively support second language acquisition for young learners.',
+        lang: language,
       });
       const filename = `Classroom_Observation_Checklist_${report.teacher_id}_${report.video_id.slice(0, 8)}.docx`;
       downloadBlob(blob, filename);
     } catch (err) {
       console.error('Failed to export Word document:', err);
-      alert('Could not export Word document. Please try again.');
+      alert(language === 'vi' ? 'Không thể xuất tài liệu Word. Vui lòng thử lại.' : 'Could not export Word document. Please try again.');
     } finally {
       setExportingWord(false);
     }
@@ -346,16 +347,13 @@ Teacher maintains warm, energetic classroom rapport with strong use of positive 
             </a>
           )}
 
-          {/* Delete Report button */}
+          {/* Delete Report Button */}
           {report && (
             <button
-              onClick={() => {
-                setDeleteError(null);
-                setShowDeleteConfirm(true);
-              }}
+              onClick={() => setShowDeleteConfirm(true)}
               className="btn"
               style={{
-                backgroundColor: '#FEE2E2',
+                background: '#FEF2F2',
                 color: '#DC2626',
                 border: '1px solid #FECACA',
                 display: 'inline-flex',
@@ -363,10 +361,10 @@ Teacher maintains warm, energetic classroom rapport with strong use of positive 
                 gap: '6px',
                 cursor: 'pointer',
               }}
-              title={t('deleteReport') || 'Delete Report'}
+              title={t('deleteReport')}
             >
               <Trash2 size={15} />
-              <span>{t('deleteReport') || 'Delete Report'}</span>
+              <span>{t('deleteReport')}</span>
             </button>
           )}
         </div>
@@ -388,7 +386,7 @@ Teacher maintains warm, energetic classroom rapport with strong use of positive 
           gap: '12px',
         }}>
           <div className="animate-spin" style={{ width: '28px', height: '28px', border: '3px solid var(--card-border)', borderTopColor: 'var(--accent)', borderRadius: '50%' }} />
-          <span style={{ fontSize: '14px', fontWeight: 500 }}>Đang tải báo cáo quan sát...</span>
+          <span style={{ fontSize: '14px', fontWeight: 500 }}>{t('commonLoading')}</span>
         </div>
       ) : report && activeTab === 'checklist' ? (
         <div style={{
@@ -437,7 +435,7 @@ Teacher maintains warm, energetic classroom rapport with strong use of positive 
 
           {/* 5 Section Tables: A to E */}
           {sectionsToRender.map((sec) => {
-            const secTitle = SECTION_NAMES[sec] || `Section ${sec}`;
+            const secTitle = t(`checklistsSec${sec}` as any) || SECTION_NAMES[sec] || `Section ${sec}`;
             const indicatorList = DEFAULT_CHECKLIST_STRUCTURE[sec] || [];
 
             return (

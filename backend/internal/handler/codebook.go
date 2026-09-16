@@ -3,7 +3,9 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -116,14 +118,26 @@ func (h *CodebookHandler) ExportExcel(c *gin.Context) {
 	}
 
 	// Filter to only videos that have reports
+	var eligibleVideos []model.Video
 	var videoIDs []uuid.UUID
-	videoMap := make(map[uuid.UUID]model.Video)
 	for _, v := range videos {
 		if v.Status == "report_generated" {
+			eligibleVideos = append(eligibleVideos, v)
 			videoIDs = append(videoIDs, v.ID)
-			videoMap[v.ID] = v
 		}
 	}
+
+	// Sort eligible videos by TeacherID ascending (natural sort: T01 < T02 < T10), then UploadedAt, then Title
+	sort.Slice(eligibleVideos, func(i, j int) bool {
+		cmp := naturalCompare(eligibleVideos[i].TeacherID, eligibleVideos[j].TeacherID)
+		if cmp != 0 {
+			return cmp < 0
+		}
+		if !eligibleVideos[i].UploadedAt.Equal(eligibleVideos[j].UploadedAt) {
+			return eligibleVideos[i].UploadedAt.Before(eligibleVideos[j].UploadedAt)
+		}
+		return naturalCompare(eligibleVideos[i].Title, eligibleVideos[j].Title) < 0
+	})
 
 	// Get codebook entries for all videos
 	allEntries, err := h.svc.GetAllForExport(ctx, videoIDs)
@@ -165,21 +179,34 @@ func (h *CodebookHandler) ExportExcel(c *gin.Context) {
 	colWidths := []float64{22, 40, 32, 32, 32, 22, 22}
 
 	sheetCreated := false
-	for _, v := range videos {
-		if v.Status != "report_generated" {
-			continue
-		}
-
+	usedSheetNames := make(map[string]int)
+	for _, v := range eligibleVideos {
 		entries := allEntries[v.ID]
 
-		// Sheet name: "T01 — Lesson 1" (max 31 chars for Excel)
-		sheetName := fmt.Sprintf("%s — %s", v.TeacherID, v.Title)
-		if len(sheetName) > 31 {
-			sheetName = sheetName[:31]
-		}
+		// Base sheet name: "T01 — Lesson 1" (max 31 chars for Excel)
+		cleanTeacher := strings.TrimSpace(v.TeacherID)
+		cleanTitle := strings.TrimSpace(v.Title)
+		baseName := fmt.Sprintf("%s — %s", cleanTeacher, cleanTitle)
 		// Remove invalid sheet name chars
 		for _, ch := range []string{":", "\\", "/", "?", "*", "[", "]"} {
-			sheetName = strings.ReplaceAll(sheetName, ch, "")
+			baseName = strings.ReplaceAll(baseName, ch, "")
+		}
+		baseName = strings.TrimSpace(baseName)
+		if baseName == "" {
+			baseName = "Sheet"
+		}
+
+		sheetName := baseName
+		usedSheetNames[baseName]++
+		if count := usedSheetNames[baseName]; count > 1 {
+			suffix := fmt.Sprintf(" (%d)", count)
+			if len(baseName)+len(suffix) > 31 {
+				sheetName = baseName[:31-len(suffix)] + suffix
+			} else {
+				sheetName = baseName + suffix
+			}
+		} else if len(sheetName) > 31 {
+			sheetName = sheetName[:31]
 		}
 
 		// Create or rename sheet
@@ -265,4 +292,84 @@ func (h *CodebookHandler) ExportExcel(c *gin.Context) {
 		// Headers already set, nothing else we can do
 		return
 	}
+}
+
+// naturalCompare compares two strings using natural alphanumeric ordering.
+// For example: "T1" < "T2" < "T10", "T01" < "T02" < "T10".
+func naturalCompare(s1, s2 string) int {
+	r1 := []rune(s1)
+	r2 := []rune(s2)
+	i, j := 0, 0
+	len1, len2 := len(r1), len(r2)
+
+	for i < len1 && j < len2 {
+		if unicode.IsDigit(r1[i]) && unicode.IsDigit(r2[j]) {
+			startI := i
+			for i < len1 && unicode.IsDigit(r1[i]) {
+				i++
+			}
+			startJ := j
+			for j < len2 && unicode.IsDigit(r2[j]) {
+				j++
+			}
+
+			// Trim leading zeros for numeric comparison
+			trimI := startI
+			for trimI < i-1 && r1[trimI] == '0' {
+				trimI++
+			}
+			trimJ := startJ
+			for trimJ < j-1 && r2[trimJ] == '0' {
+				trimJ++
+			}
+
+			numLen1 := i - trimI
+			numLen2 := j - trimJ
+			if numLen1 != numLen2 {
+				if numLen1 < numLen2 {
+					return -1
+				}
+				return 1
+			}
+
+			for k := 0; k < numLen1; k++ {
+				if r1[trimI+k] != r2[trimJ+k] {
+					if r1[trimI+k] < r2[trimJ+k] {
+						return -1
+					}
+					return 1
+				}
+			}
+
+			// If numerically identical, the one with fewer leading zeros comes first
+			zeros1 := trimI - startI
+			zeros2 := trimJ - startJ
+			if zeros1 != zeros2 {
+				if zeros1 < zeros2 {
+					return -1
+				}
+				return 1
+			}
+			continue
+		}
+
+		c1 := unicode.ToLower(r1[i])
+		c2 := unicode.ToLower(r2[j])
+		if c1 != c2 {
+			if c1 < c2 {
+				return -1
+			}
+			return 1
+		}
+		i++
+		j++
+	}
+
+	if i < len1 {
+		return 1
+	}
+	if j < len2 {
+		return -1
+	}
+	return 0
 }

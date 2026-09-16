@@ -21,6 +21,7 @@ export interface ExportReportData {
   className?: string;
   platform?: string;
   generalNotes?: string;
+  lang?: 'en' | 'vi';
 }
 
 export const SECTION_NAMES: Record<string, string> = {
@@ -29,6 +30,14 @@ export const SECTION_NAMES: Record<string, string> = {
   C: 'Section C. Sustaining Learner Attention and Engagement',
   D: 'Section D. Providing Scaffolding and Positive Reinforcement',
   E: 'Section E. Using Digital Tools to Support Learning and Interaction',
+};
+
+export const SECTION_NAMES_VI: Record<string, string> = {
+  A: 'Phần A. Thiết lập quy tắc và nền nếp trực tuyến',
+  B: 'Phần B. Quản lý lượt nói và sự tham gia phát biểu',
+  C: 'Phần C. Duy trì sự chú ý và tương tác của học sinh',
+  D: 'Phần D. Hỗ trợ sư phạm (Scaffolding) và khích lệ tích cực',
+  E: 'Phần E. Sử dụng công cụ số hỗ trợ học tập và tương tác',
 };
 
 export const DEFAULT_CHECKLIST_STRUCTURE: Record<string, string[]> = {
@@ -94,7 +103,8 @@ export function buildSingleReportChildren(
     right: { style: BorderStyle.SINGLE, size: 6, color: '000000' },
   }
 ): (Paragraph | Table)[] {
-  const { report, video, observationNo, className, platform, generalNotes } = data;
+  const { report, video, observationNo, className, platform, generalNotes, lang = 'en' } = data;
+  const isVi = lang === 'vi';
 
   // Map existing items
   const itemsByText: Record<string, ReportItem> = {};
@@ -114,7 +124,7 @@ export function buildSingleReportChildren(
       spacing: { before: 0, after: 360 },
       children: [
         new TextRun({
-          text: 'Classroom Observation Checklist',
+          text: isVi ? 'BẢNG KIỂM QUAN SÁT LỚP HỌC TRỰC TUYẾN' : 'Classroom Observation Checklist',
           font: fontName,
           size: 32, // 16pt
           bold: true,
@@ -129,7 +139,7 @@ export function buildSingleReportChildren(
       spacing: { before: 120, after: 120 },
       children: [
         new TextRun({
-          text: 'Lesson Information',
+          text: isVi ? 'Thông Tin Tiết Học' : 'Lesson Information',
           font: fontName,
           size: 24, // 12pt
           bold: true,
@@ -141,19 +151,19 @@ export function buildSingleReportChildren(
   const obsNum = observationNo || (video ? `#${video.id.slice(0, 8)}` : '#01');
   const teacherName = video?.teacher_id || report.teacher_id || '___________';
   const dateStr = video?.uploaded_at ? new Date(video.uploaded_at).toISOString().split('T')[0] : (report.generated_at ? new Date(report.generated_at).toISOString().split('T')[0] : '___________');
-  const cls = className || 'Online English Class';
+  const cls = className || (isVi ? 'Lớp tiếng Anh trực tuyến' : 'Online English Class');
   const plat = platform || 'Zoom';
   const topic = video?.title || '___________';
   const durationStr = video?.duration_sec ? `${formatSeconds(video.duration_sec)}` : '___________';
 
   const lessonInfoBullets = [
-    `- Observation No.: ${obsNum}`,
-    `- Teacher: ${teacherName}`,
-    `- Date: ${dateStr}`,
-    `- Class: ${cls}`,
-    `- Platform (Zoom/Google Meet): ${plat}`,
-    `- Lesson Topic: ${topic}`,
-    `- Duration: ${durationStr}`,
+    `- ${isVi ? 'Lượt quan sát' : 'Observation No.'}: ${obsNum}`,
+    `- ${isVi ? 'Giáo viên' : 'Teacher'}: ${teacherName}`,
+    `- ${isVi ? 'Ngày' : 'Date'}: ${dateStr}`,
+    `- ${isVi ? 'Lớp' : 'Class'}: ${cls}`,
+    `- ${isVi ? 'Nền tảng (Zoom/Google Meet)' : 'Platform (Zoom/Google Meet)'}: ${plat}`,
+    `- ${isVi ? 'Chủ đề bài học' : 'Lesson Topic'}: ${topic}`,
+    `- ${isVi ? 'Thời lượng' : 'Duration'}: ${durationStr}`,
   ];
 
   for (const bullet of lessonInfoBullets) {
@@ -181,7 +191,7 @@ export function buildSingleReportChildren(
 
   // Render Sections A to E
   for (const sec of sectionsToRender) {
-    const secTitle = SECTION_NAMES[sec] || `Section ${sec}`;
+    const secTitle = (isVi ? SECTION_NAMES_VI[sec] : SECTION_NAMES[sec]) || (isVi ? `Phần ${sec}` : `Section ${sec}`);
     const indicatorList = DEFAULT_CHECKLIST_STRUCTURE[sec] || [];
 
     docChildren.push(
@@ -211,7 +221,7 @@ export function buildSingleReportChildren(
               new Paragraph({
                 alignment: AlignmentType.CENTER,
                 spacing: { before: 80, after: 80 },
-                children: [new TextRun({ text: 'Indicators', font: fontName, size: 21, bold: true })],
+                children: [new TextRun({ text: isVi ? 'Chỉ báo hành vi' : 'Indicators', font: fontName, size: 21, bold: true })],
               }),
             ],
           }),
@@ -223,7 +233,7 @@ export function buildSingleReportChildren(
               new Paragraph({
                 alignment: AlignmentType.CENTER,
                 spacing: { before: 80, after: 80 },
-                children: [new TextRun({ text: 'Observed', font: fontName, size: 21, bold: true })],
+                children: [new TextRun({ text: isVi ? 'Quan sát' : 'Observed', font: fontName, size: 21, bold: true })],
               }),
             ],
           }),
@@ -235,7 +245,7 @@ export function buildSingleReportChildren(
               new Paragraph({
                 alignment: AlignmentType.CENTER,
                 spacing: { before: 80, after: 80 },
-                children: [new TextRun({ text: 'Frequency', font: fontName, size: 21, bold: true })],
+                children: [new TextRun({ text: isVi ? 'Tần suất' : 'Frequency', font: fontName, size: 21, bold: true })],
               }),
             ],
           }),
@@ -247,7 +257,7 @@ export function buildSingleReportChildren(
               new Paragraph({
                 alignment: AlignmentType.CENTER,
                 spacing: { before: 80, after: 80 },
-                children: [new TextRun({ text: 'Timestamp', font: fontName, size: 21, bold: true })],
+                children: [new TextRun({ text: isVi ? 'Mốc thời gian' : 'Timestamp', font: fontName, size: 21, bold: true })],
               }),
             ],
           }),
@@ -259,7 +269,7 @@ export function buildSingleReportChildren(
               new Paragraph({
                 alignment: AlignmentType.CENTER,
                 spacing: { before: 80, after: 80 },
-                children: [new TextRun({ text: 'Context', font: fontName, size: 21, bold: true })],
+                children: [new TextRun({ text: isVi ? 'Bối cảnh / Dẫn chứng' : 'Context', font: fontName, size: 21, bold: true })],
               }),
             ],
           }),
@@ -420,7 +430,7 @@ export function buildSingleReportChildren(
       spacing: { before: 360, after: 120 },
       children: [
         new TextRun({
-          text: 'General Observation Notes',
+          text: isVi ? 'Ghi Chú Quan Sát Chung' : 'General Observation Notes',
           font: fontName,
           size: 24,
           bold: true,
@@ -520,6 +530,7 @@ export async function generateCombinedWordReport(reportsData: ExportReportData[]
   };
 
   // Collect unique teachers
+  const isVi = reportsData[0]?.lang === 'vi';
   const teachers = Array.from(
     new Set(reportsData.map((r) => r.report.teacher_id || r.video?.teacher_id || 'Unknown'))
   ).filter(Boolean);
@@ -535,7 +546,7 @@ export async function generateCombinedWordReport(reportsData: ExportReportData[]
       spacing: { before: 240, after: 120 },
       children: [
         new TextRun({
-          text: 'COMPREHENSIVE CLASSROOM OBSERVATION REPORT',
+          text: isVi ? 'BÁO CÁO TỔNG HỢP QUAN SÁT LỚP HỌC TOÀN DIỆN' : 'COMPREHENSIVE CLASSROOM OBSERVATION REPORT',
           font: fontName,
           size: 32, // 16pt
           bold: true,
@@ -547,7 +558,7 @@ export async function generateCombinedWordReport(reportsData: ExportReportData[]
       spacing: { before: 0, after: 360 },
       children: [
         new TextRun({
-          text: 'Synthesis of All Teaching Video Observations (Sorted by Teacher and Lesson Sequence)',
+          text: isVi ? 'Tổng hợp toàn bộ video quan sát giảng dạy (Sắp xếp theo Giáo viên và Thứ tự bài giảng)' : 'Synthesis of All Teaching Video Observations (Sorted by Teacher and Lesson Sequence)',
           font: fontName,
           size: 24, // 12pt
           italics: true,
@@ -559,10 +570,10 @@ export async function generateCombinedWordReport(reportsData: ExportReportData[]
 
   // Metadata summary
   const metaBullets = [
-    `• Generated Date: ${nowStr}`,
-    `• Total Teachers: ${teachers.length} (${teachers.join(', ')})`,
-    `• Total Video Observations: ${reportsData.length} lessons`,
-    `• Observation Framework: 5-Section Academic Checklist (Sections A to E - 29 Indicators)`,
+    `• ${isVi ? 'Ngày tạo' : 'Generated Date'}: ${nowStr}`,
+    `• ${isVi ? 'Tổng số giáo viên' : 'Total Teachers'}: ${teachers.length} (${teachers.join(', ')})`,
+    `• ${isVi ? 'Tổng số video quan sát' : 'Total Video Observations'}: ${reportsData.length} ${isVi ? 'tiết học' : 'lessons'}`,
+    `• ${isVi ? 'Khung quan sát' : 'Observation Framework'}: ${isVi ? 'Bảng kiểm học thuật 5 phần (Phần A đến E - 29 Chỉ báo)' : '5-Section Academic Checklist (Sections A to E - 29 Indicators)'}`,
   ];
 
   for (const b of metaBullets) {
@@ -585,7 +596,7 @@ export async function generateCombinedWordReport(reportsData: ExportReportData[]
       spacing: { before: 280, after: 140 },
       children: [
         new TextRun({
-          text: 'Table of Contents & Summary Table',
+          text: isVi ? 'Mục Lục & Bảng Tổng Hợp' : 'Table of Contents & Summary Table',
           font: fontName,
           size: 26, // 13pt
           bold: true,
@@ -619,7 +630,7 @@ export async function generateCombinedWordReport(reportsData: ExportReportData[]
             new Paragraph({
               alignment: AlignmentType.CENTER,
               spacing: { before: 60, after: 60 },
-              children: [new TextRun({ text: 'Teacher', font: fontName, size: 20, bold: true })],
+              children: [new TextRun({ text: isVi ? 'Giáo viên' : 'Teacher', font: fontName, size: 20, bold: true })],
             }),
           ],
         }),
@@ -631,7 +642,7 @@ export async function generateCombinedWordReport(reportsData: ExportReportData[]
             new Paragraph({
               alignment: AlignmentType.CENTER,
               spacing: { before: 60, after: 60 },
-              children: [new TextRun({ text: 'Lesson Topic / Title', font: fontName, size: 20, bold: true })],
+              children: [new TextRun({ text: isVi ? 'Chủ đề / Tiêu đề bài học' : 'Lesson Topic / Title', font: fontName, size: 20, bold: true })],
             }),
           ],
         }),
@@ -643,7 +654,7 @@ export async function generateCombinedWordReport(reportsData: ExportReportData[]
             new Paragraph({
               alignment: AlignmentType.CENTER,
               spacing: { before: 60, after: 60 },
-              children: [new TextRun({ text: 'Date', font: fontName, size: 20, bold: true })],
+              children: [new TextRun({ text: isVi ? 'Ngày' : 'Date', font: fontName, size: 20, bold: true })],
             }),
           ],
         }),
@@ -655,7 +666,7 @@ export async function generateCombinedWordReport(reportsData: ExportReportData[]
             new Paragraph({
               alignment: AlignmentType.CENTER,
               spacing: { before: 60, after: 60 },
-              children: [new TextRun({ text: 'Observed', font: fontName, size: 20, bold: true })],
+              children: [new TextRun({ text: isVi ? 'Số chỉ báo' : 'Observed', font: fontName, size: 20, bold: true })],
             }),
           ],
         }),
@@ -667,7 +678,7 @@ export async function generateCombinedWordReport(reportsData: ExportReportData[]
             new Paragraph({
               alignment: AlignmentType.CENTER,
               spacing: { before: 60, after: 60 },
-              children: [new TextRun({ text: 'Total Freq', font: fontName, size: 20, bold: true })],
+              children: [new TextRun({ text: isVi ? 'Tổng tần suất' : 'Total Freq', font: fontName, size: 20, bold: true })],
             }),
           ],
         }),

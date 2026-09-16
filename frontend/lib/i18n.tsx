@@ -173,6 +173,9 @@ export const translations: TranslationDict = {
   commonCopyQuestions: { en: 'Copy Questions', vi: 'Sao Chép Câu Hỏi' },
   commonActive: { en: 'Active', vi: 'Đang Chạy' },
   commonNeedsReview: { en: 'Needs Review', vi: 'Cần Xem Lại' },
+  commonNote: { en: 'Note', vi: 'Lưu ý' },
+  commonClose: { en: 'Close', vi: 'Đóng' },
+  commonSearch: { en: 'Search', vi: 'Tìm kiếm' },
 
   // Dashboard & Video List
   dashboardTitle: { en: 'Classroom Video Analysis', vi: 'Phân Tích Video Giảng Dạy' },
@@ -273,8 +276,8 @@ export const translations: TranslationDict = {
   btnDeleting: { en: 'Deleting...', vi: 'Đang xóa...' },
 
   // Reset pipeline
-  resetPipeline: { en: 'Reset Pipeline', vi: 'Reset Pipeline' },
-  resetPipelineTitle: { en: 'Reset Pipeline', vi: 'Reset Pipeline' },
+  resetPipeline: { en: 'Reset Pipeline', vi: 'Đặt Lại Tiến Trình' },
+  resetPipelineTitle: { en: 'Reset Pipeline', vi: 'Đặt Lại Tiến Trình Phân Tích' },
   resetPipelineDesc: {
     en: 'Delete all analysis results and return to initial uploaded status.',
     vi: 'Xóa tất cả kết quả phân tích và quay lại trạng thái ban đầu.',
@@ -284,7 +287,7 @@ export const translations: TranslationDict = {
     vi: 'Sẽ xóa: chunks, events, mappings, reports, codebook, pipeline jobs. Video gốc sẽ được giữ lại.',
   },
   resetPipelineSuccess: { en: 'Pipeline reset successfully! Video returned to uploaded status.', vi: 'Reset pipeline thành công! Video đã quay lại trạng thái uploaded.' },
-  btnConfirmReset: { en: 'Reset Pipeline', vi: 'Reset Pipeline' },
+  btnConfirmReset: { en: 'Reset Pipeline', vi: 'Đặt Lại Tiến Trình' },
   btnResetting: { en: 'Resetting...', vi: 'Đang reset...' },
 
   // Delete report
@@ -463,11 +466,11 @@ export const translations: TranslationDict = {
   },
   checklistsVersionBadge: { en: 'v1.0 Final', vi: 'Phiên Bản v1.0' },
   checklistsSaveBtn: { en: 'Save Changes', vi: 'Lưu Thay Đổi' },
-  checklistsSecA: { en: 'Section A. Establishing Online Rules and Routines', vi: 'Section A. Establishing Online Rules and Routines' },
-  checklistsSecB: { en: 'Section B. Managing Turn-taking and Speaking Participation', vi: 'Section B. Managing Turn-taking and Speaking Participation' },
-  checklistsSecC: { en: 'Section C. Sustaining Learner Attention and Engagement', vi: 'Section C. Sustaining Learner Attention and Engagement' },
-  checklistsSecD: { en: 'Section D. Providing Scaffolding and Positive Reinforcement', vi: 'Section D. Providing Scaffolding and Positive Reinforcement' },
-  checklistsSecE: { en: 'Section E. Using Digital Tools to Support Learning and Interaction', vi: 'Section E. Using Digital Tools to Support Learning and Interaction' },
+  checklistsSecA: { en: 'Section A. Establishing Online Rules and Routines', vi: 'Phân Mục A. Thiết Lập Quy Tắc & Nề Nếp Học Trực Tuyến' },
+  checklistsSecB: { en: 'Section B. Managing Turn-taking and Speaking Participation', vi: 'Phân Mục B. Quản Lý Lượt Nói & Mức Độ Tham Gia Giao Tiếp' },
+  checklistsSecC: { en: 'Section C. Sustaining Learner Attention and Engagement', vi: 'Phân Mục C. Duy Trì Sự Tập Trung & Hứng Thú Của Học Sinh' },
+  checklistsSecD: { en: 'Section D. Providing Scaffolding and Positive Reinforcement', vi: 'Phân Mục D. Hỗ Trợ Giàn Giáo Ngôn Ngữ & Củng Cố Tích Cực' },
+  checklistsSecE: { en: 'Section E. Using Digital Tools to Support Learning and Interaction', vi: 'Phân Mục E. Ứng Dụng Công Cụ Kỹ Thuật Số Hỗ Trợ Tương Tác' },
 
   // Reports
   reportsDesc: {
@@ -485,23 +488,23 @@ export const translations: TranslationDict = {
   reportsExportProgressFetching: { en: 'Fetching report', vi: 'Đang tải dữ liệu báo cáo' },
   reportsExportProgressCompiling: { en: 'Compiling Word document...', vi: 'Đang đóng gói file Word...' },
   reportsDownloadMd: { en: 'Download Markdown', vi: 'Tải File Markdown' },
-  reportsColIndicators: { en: 'Indicators', vi: 'Indicators' },
-  reportsColObserved: { en: 'Observed', vi: 'Observed' },
-  reportsColFrequency: { en: 'Frequency', vi: 'Frequency' },
-  reportsColTimestamp: { en: 'Timestamp', vi: 'Timestamp' },
-  reportsColContext: { en: 'Context', vi: 'Context' },
-  reportsObservedYes: { en: 'Yes', vi: 'Yes' },
-  reportsObservedNo: { en: 'No', vi: 'No' },
-  reportsLessonInfo: { en: 'Lesson Information', vi: 'Lesson Information' },
-  reportsGeneralNotes: { en: 'General Observation Notes', vi: 'General Observation Notes' },
-  reportsChecklistTitle: { en: 'Classroom Observation Checklist', vi: 'Classroom Observation Checklist' },
-  reportsObservationNo: { en: 'Observation No.', vi: 'Observation No.' },
-  reportsTeacher: { en: 'Teacher', vi: 'Teacher' },
-  reportsDate: { en: 'Date', vi: 'Date' },
-  reportsClass: { en: 'Class', vi: 'Class' },
-  reportsPlatform: { en: 'Platform (Zoom/Google Meet)', vi: 'Platform (Zoom/Google Meet)' },
-  reportsLessonTopic: { en: 'Lesson Topic', vi: 'Lesson Topic' },
-  reportsDuration: { en: 'Duration', vi: 'Duration' },
+  reportsColIndicators: { en: 'Indicators', vi: 'Chỉ Báo Quan Sát' },
+  reportsColObserved: { en: 'Observed', vi: 'Ghi Nhận' },
+  reportsColFrequency: { en: 'Frequency', vi: 'Tần Suất' },
+  reportsColTimestamp: { en: 'Timestamp', vi: 'Mốc Thời Gian' },
+  reportsColContext: { en: 'Context', vi: 'Ngữ Cảnh & Dẫn Chứng' },
+  reportsObservedYes: { en: 'Yes', vi: 'Có' },
+  reportsObservedNo: { en: 'No', vi: 'Không' },
+  reportsLessonInfo: { en: 'Lesson Information', vi: 'Thông Tin Tiết Dạy' },
+  reportsGeneralNotes: { en: 'General Observation Notes', vi: 'Ghi Chú Quan Sát Tổng Quan' },
+  reportsChecklistTitle: { en: 'Classroom Observation Checklist', vi: 'Khung Tiêu Chí Quan Sát Lớp Học' },
+  reportsObservationNo: { en: 'Observation No.', vi: 'Mã Số Tiết Quan Sát' },
+  reportsTeacher: { en: 'Teacher', vi: 'Giáo Viên' },
+  reportsDate: { en: 'Date', vi: 'Ngày Quan Sát' },
+  reportsClass: { en: 'Class', vi: 'Lớp Học' },
+  reportsPlatform: { en: 'Platform (Zoom/Google Meet)', vi: 'Nền Tảng Trực Tuyến' },
+  reportsLessonTopic: { en: 'Lesson Topic', vi: 'Chủ Đề Tiết Dạy' },
+  reportsDuration: { en: 'Duration', vi: 'Thời Lượng' },
 
   // Code Book
   codebookTitle: { en: 'Code Book', vi: 'Sổ Mã Quan Sát' },
@@ -552,13 +555,183 @@ export const translations: TranslationDict = {
   runPhase6: { en: 'Analyze All 24 Lessons', vi: 'Tổng Hợp Tất Cả 24 Bài Giảng' },
   reasoningTrace: { en: 'Evidence & Explanation', vi: 'Dẫn Chứng & Giải Thích' },
 
+  themesEmptyTitle: { en: 'No Teaching Themes Data Yet', vi: 'Chưa có dữ liệu Teaching Themes' },
+  themesEmptyDesc: {
+    en: 'Click "Analyze All 24 Lessons" to synthesize Grounded Theory themes from all completed lesson reports.',
+    vi: 'Hãy nhấn nút "Analyze All 24 Lessons" để khởi chạy phân tích Grounded Theory tổng hợp từ các bài giảng đã hoàn thành.'
+  },
+
+  // Versioning & Runs History
+  runHistoryTitle: { en: 'Analysis Runs History & Versioning', vi: 'Lịch Sử Các Đợt Phân Tích & Quản Lý Phiên' },
+  runHistorySubtitle: { en: 'Review and select past analysis runs, inspect qualitative themes discovered in each session.', vi: 'Xem lại và chọn các đợt phân tích trước, đối chiếu các chủ đề sư phạm phát hiện được trong từng phiên.' },
+  runHistoryBtn: { en: 'Runs History', vi: 'Lịch Sử Các Phiên' },
+  viewThisRun: { en: 'View This Run', vi: 'Xem Phiên Này' },
+  viewingRun: { en: 'Viewing', vi: 'Đang Xem' },
+  activeRunLabel: { en: 'Active Run', vi: 'Phiên Đang Xem' },
+  latestRunLabel: { en: 'Latest', vi: 'Mới nhất' },
+  themesFoundCount: { en: 'Themes', vi: 'Số Themes' },
+  categoriesFoundCount: { en: 'Categories', vi: 'Số Cụm' },
+  strategiesFoundCount: { en: 'Strategies', vi: 'Chiến Lược' },
+  runDuration: { en: 'Duration', vi: 'Thời Lượng' },
+  runTriggeredAt: { en: 'Triggered At', vi: 'Thời Gian Bắt Đầu' },
+  runActions: { en: 'Actions', vi: 'Thao Tác' },
+  totalRunsCount: { en: 'Total Runs', vi: 'Tổng Số Phiên' },
+
+  // Stepper Status Labels
+  stepStatusDone: { en: '✓ Done', vi: '✓ Hoàn thành' },
+  stepStatusFailed: { en: '✕ Failed', vi: '✕ Thất bại' },
+  stepStatusCancelled: { en: '⊘ Cancelled', vi: '⊘ Đã hủy' },
+  stepStatusSkipped: { en: '- Skipped', vi: '- Bỏ qua' },
+  stepStatusInProgress: { en: 'In Progress', vi: 'Đang xử lý' },
+
+  // Video Pipeline Status & Resume
+  statusReviewPending: { en: 'Review Pending', vi: 'Chờ Duyệt' },
+  statusMapped: { en: 'Checklist Mapped', vi: 'Đã Khớp Tiêu Chí' },
+  statusCancelled: { en: 'Cancelled', vi: 'Đã Hủy' },
+  resumeFromStep: { en: 'Resume from', vi: 'Tiếp tục từ' },
+  rerunFromStart: { en: 'Restart from Beginning', vi: 'Chạy lại từ đầu' },
+  restartAll: { en: 'Restart All', vi: 'Khởi Động Lại Tất Cả' },
+  analysisHaltedAt: { en: 'Analysis halted at', vi: 'Phân tích bị dừng tại' },
+  analysisStoppedByUserDesc: {
+    en: 'You stopped the pipeline. Completed steps remain cached — you can resume without spending extra tokens.',
+    vi: 'Bạn đã dừng pipeline. Các bước đã hoàn thành vẫn được lưu — bạn có thể tiếp tục từ chỗ dừng mà không tốn thêm token.'
+  },
+  smartResumeBadge: {
+    en: 'Smart Resume: continue from checkpoint without restarting from scratch.',
+    vi: 'Smart Resume: tiếp tục từ checkpoint, không phải chạy lại từ đầu.'
+  },
+  rerunModeChanged: {
+    en: 'Analysis mode changed — restarting clean from Step 1',
+    vi: 'Chế độ phân tích đã thay đổi — phân tích lại sạch từ Bước 1'
+  },
+
   // Interview Studio
   interviewTitle: { en: 'Teacher Interview Guide', vi: 'Bộ Câu Hỏi Phỏng Vấn Giáo Viên' },
   interviewDesc: {
     en: 'Semi-structured interview questions and follow-ups generated from observed video moments to explore teachers\' instructional choices.',
     vi: 'Bộ câu hỏi phỏng vấn bán cấu trúc và câu hỏi đào sâu sinh từ các khoảnh khắc video thực tế để tìm hiểu ý đồ sư phạm của giáo viên.'
   },
+  interviewSubtitle: {
+    en: 'Semi-structured interview design: Synthesize Core Questions from 22 baseline questions and generate evidence-grounded follow-up inquiry for each teacher.',
+    vi: 'Thiết kế phỏng vấn bán cấu trúc: Tổng hợp Core Questions từ 22 câu gốc và sinh câu hỏi Follow-up sâu theo mốc thời gian & tương tác của từng GV.'
+  },
   interviewBadge: { en: 'Evidence-based', vi: 'Dựa Trên Dẫn Chứng' },
+  interviewTabStudio: { en: 'Interview Studio (12 Teachers)', vi: 'Phòng Phỏng Vấn (12 GV)' },
+  interviewTabBank: { en: '22 Baseline Questions Bank', vi: 'Ngân Hàng 22 Câu Hỏi Gốc' },
+  interviewFlowABadgeDraft: { en: 'Flow A: Core Questions Proposal (Draft)', vi: 'Luồng A: Đề Xuất Core Questions (Dự Thảo)' },
+  interviewFlowABadgeApproved: { en: 'Core Questions: Approved', vi: 'Core Questions: Đã Phê Duyệt' },
+  interviewFlowASub: { en: 'Synthesized from 22 canonical questions & Teaching Themes', vi: 'Tổng hợp từ 22 câu hỏi gốc & Teaching Themes' },
+  interviewFlowAApprovedDesc: {
+    en: 'Core questions have been approved and synchronized across all 12 teachers.',
+    vi: 'Bộ Core Questions đã được phê duyệt và áp dụng đồng bộ cho 12 giáo viên.'
+  },
+  interviewFlowADraftDesc: {
+    en: 'Core question proposals are currently in draft. You can review, modify, and click Approve.',
+    vi: 'Đề xuất Core Questions đang ở dạng dự thảo. Bạn có thể xem xét, chỉnh sửa và bấm Approve.'
+  },
+  interviewFlowARQNote: {
+    en: 'This core set addresses all 3 Research Questions (RQ1: Strategies, RQ2: Perceptions, RQ3: Challenges & Solutions).',
+    vi: 'Bộ câu hỏi cốt lõi này trả lời đầy đủ 3 Research Questions (RQ1: Chiến thuật, RQ2: Cảm nhận, RQ3: Thách thức & giải pháp).'
+  },
+  interviewEditCoreBtn: { en: 'Review & Edit Core Questions', vi: 'Xem & Chỉnh Sửa Core Questions' },
+  interviewResynthesizeBtn: { en: 'AI Re-synthesize', vi: 'AI Tổng Hợp Lại' },
+  interviewApproveBtn: { en: 'Approve & Generate Guides', vi: 'Phê Duyệt & Sinh Câu Hỏi Sâu' },
+  interviewLoadingTeacher: { en: 'Loading interview data for teacher', vi: 'Đang tải dữ liệu phỏng vấn của giáo viên' },
+  interviewCoreColTitle: { en: 'Core Questions (All 12 Teachers)', vi: 'Core Questions (Chung cho 12 GV)' },
+  interviewCoreColDesc: {
+    en: 'Baseline inquiry synthesized from the 22 semi-structured questions, aligned with RQ1, RQ2, and RQ3.',
+    vi: 'Bộ câu hỏi cốt lõi tổng hợp từ 22 câu hỏi bán cấu trúc gốc, bám sát RQ1, RQ2 và RQ3.'
+  },
+  interviewDynamicColTitle: { en: 'Participant-Specific Follow-Up Questions', vi: 'Câu Hỏi Phỏng Vấn Sâu Riêng Biệt' },
+  interviewDynamicColDesc: {
+    en: 'Generated directly from the Chronological Interaction Log (dialogues & behaviors), mapped to RQ1–RQ3 and citing video timestamps.',
+    vi: 'Sinh trực tiếp từ Chronological Interaction Log (lời thoại & hành vi), bắt buộc gắn nhãn RQ1–RQ3 và trích dẫn bằng chứng mốc thời gian.'
+  },
+  interviewDynamicEmpty: {
+    en: 'No specific follow-up questions generated yet for this teacher. Click "Approve & Generate Guides" in the banner above.',
+    vi: 'Chưa có câu hỏi đào sâu riêng biệt cho giáo viên này. Nhấn "Approve & Generate Guides" ở banner trên để sinh câu hỏi.'
+  },
+  interviewNarrativeTitle: { en: 'Pedagogical Narrative Synthesis', vi: 'Hồ Sơ & Tổng Hợp Sư Phạm' },
+  interviewNarrativeSubtitle: {
+    en: 'Qualitative synthesis of instructional style, pacing, and communicative patterns',
+    vi: 'Tổng hợp định tính về phong cách sư phạm, nhịp độ và mô thức tương tác giao tiếp',
+  },
+  interviewNarrativeVisualTab: { en: 'Visual Bento', vi: 'Trực Quan' },
+  interviewNarrativeFullTab: { en: 'Academic (.MD)', vi: 'Báo Cáo (.MD)' },
+  interviewNarrativeCopyMd: { en: 'Copy Markdown', vi: 'Sao Chép Markdown' },
+  interviewNarrativeCopied: { en: 'Copied to clipboard', vi: 'Đã sao chép Markdown vào bộ nhớ tạm' },
+  interviewNarrativeCollapse: { en: 'Collapse', vi: 'Thu gọn' },
+  interviewNarrativeExpand: { en: 'Expand', vi: 'Mở rộng' },
+  interviewNarrativeWaitTime: { en: 'Wait Time Interval', vi: 'Khoảng Lặng Chờ Đợi' },
+  interviewNarrativeTotalEvents: { en: 'Strategy Events', vi: 'Sự Kiện Chiến Thuật' },
+  interviewNarrativeTimingDistribution: { en: 'Timing Distribution', vi: 'Phân Bổ Nhịp Độ' },
+  interviewNarrativeTheme: { en: 'Grounded Theme', vi: 'Chủ Đề Quy Nạp' },
+  interviewNarrativeOverviewTitle: { en: 'Instructional Style & Pedagogical Overview', vi: 'Tổng Quan Phong Cách Giảng Dạy' },
+  interviewNarrativeStrategiesTitle: { en: 'Key Recurring Strategies & Empirical Evidence', vi: 'Chiến Thuật Cốt Lõi & Bằng Chứng Thực Nghiệm' },
+  interviewQuestionsCount: { en: 'questions', vi: 'câu' },
+  interviewFollowupsCount: { en: 'in-depth follow-up questions', vi: 'câu hỏi đào sâu' },
+  interviewBankTitle: { en: '22 Semi-Structured Baseline Questions Bank', vi: 'Ngân Hàng 22 Câu Hỏi Bán Cấu Trúc Gốc' },
+  interviewBankDesc: {
+    en: 'Methodological framework for interviewing primary EFL online speaking teachers.',
+    vi: 'Căn cứ phương pháp luận thiết kế câu hỏi phỏng vấn giáo viên tiểu học dạy tiếng Anh trực tuyến (Primary EFL).'
+  },
+  interviewResetDefaultsBtn: { en: 'Reset to 22 Default Baseline Questions', vi: 'Reset về 22 Câu Gốc Mặc Định' },
+  interviewAddQuestionBtn: { en: '+ Add New Question', vi: '+ Thêm Câu Hỏi Mới' },
+  interviewFilterByRQ: { en: 'Filter by RQ:', vi: 'Lọc theo RQ:' },
+  interviewFilterAll: { en: 'All', vi: 'Tất cả' },
+  interviewLoadingBank: { en: 'Loading baseline questions bank...', vi: 'Đang tải danh sách câu hỏi gốc...' },
+  interviewModalEditCoreTitle: { en: 'Edit Core Questions Set (Flow A)', vi: 'Chỉnh Sửa Bộ Core Questions (Flow A)' },
+  interviewModalEditCoreDesc: {
+    en: 'You can directly edit question wording or change RQ classifications before approving.',
+    vi: 'Bạn có thể trực tiếp sửa nội dung từng câu hỏi hoặc thay đổi phân loại RQ1, RQ2, RQ3 trước khi Approve.'
+  },
+  interviewModalQuestionNumber: { en: 'Question #', vi: 'Câu #' },
+  interviewModalApproveSaveBtn: { en: 'Save & Approve Question Set', vi: 'Lưu & Phê Duyệt Bộ Câu Hỏi' },
+  interviewModalAddBaseTitle: { en: 'Add Baseline Semi-Structured Question', vi: 'Thêm Câu Hỏi Bán Cấu Trúc Gốc' },
+  interviewModalEditBaseTitle: { en: 'Edit Baseline Question', vi: 'Sửa Câu Hỏi Gốc' },
+  interviewModalEditDynamicTitle: { en: 'Edit In-Depth Follow-up Question', vi: 'Sửa Câu Hỏi Phỏng Vấn Sâu' },
+  interviewFormFieldText: { en: 'Question Content', vi: 'Nội Dung Câu Hỏi' },
+  interviewFormPlaceholder: { en: 'Enter interview question in English...', vi: 'Nhập câu hỏi phỏng vấn bằng tiếng Anh...' },
+  interviewFormFieldRQ: { en: 'Research Question (RQ Category)', vi: 'Gắn Thẻ Research Question (RQ)' },
+  interviewFormFieldIndex: { en: 'Sort Order (Index)', vi: 'Thứ Tự (Index)' },
+  interviewFormFieldSection: { en: 'Section Identifier', vi: 'Phân Mục (Section)' },
+  interviewBtnAddToBank: { en: 'Add to Question Bank', vi: 'Thêm Vào Ngân Hàng' },
+  interviewToastRunPhase6First: {
+    en: 'Please run Phase 6 thematic analysis before generating Core Questions.',
+    vi: 'Vui lòng chạy phân tích Phase 6 trước khi sinh Core Questions.'
+  },
+  interviewToastSynthesizeSuccess: {
+    en: 'Successfully synthesized Core Questions from 22 baseline questions and themes!',
+    vi: 'Đã tổng hợp thành công đề xuất Core Questions từ 22 câu gốc và Themes!'
+  },
+  interviewToastSynthesizeError: { en: 'Failed to synthesize Core Questions', vi: 'Lỗi khi sinh Core Questions' },
+  interviewToastApproveSuccess: {
+    en: 'Core Questions approved! Personalized follow-up questions generated for all 12 teachers.',
+    vi: 'Đã phê duyệt Core Questions và tự động sinh câu hỏi sâu cho 12 giáo viên!'
+  },
+  interviewToastApproveError: { en: 'Failed to approve Core Questions', vi: 'Lỗi khi phê duyệt Core Questions' },
+  interviewToastUpdateSuccess: { en: 'Interview question updated successfully.', vi: 'Đã cập nhật câu hỏi phỏng vấn.' },
+  interviewToastUpdateError: { en: 'Failed to update interview question', vi: 'Lỗi khi cập nhật câu hỏi' },
+  interviewConfirmReset: {
+    en: 'Are you sure you want to reset the question bank back to the 22 default semi-structured questions?',
+    vi: 'Bạn có chắc chắn muốn reset ngân hàng câu hỏi về 22 câu hỏi bán cấu trúc gốc không?'
+  },
+  interviewToastResetSuccess: {
+    en: 'Question bank reset to the 22 canonical baseline questions!',
+    vi: 'Đã reset ngân hàng về 22 câu hỏi bán cấu trúc chuẩn!'
+  },
+  interviewToastResetError: { en: 'Failed to reset questions', vi: 'Lỗi khi reset câu hỏi' },
+  interviewToastEnterText: { en: 'Please enter question content.', vi: 'Vui lòng nhập nội dung câu hỏi.' },
+  interviewToastCreateSuccess: { en: 'New question added to bank successfully.', vi: 'Đã thêm câu hỏi mới vào ngân hàng.' },
+  interviewToastCreateError: { en: 'Failed to add new question', vi: 'Lỗi khi thêm câu hỏi mới' },
+  interviewToastUpdateBaseSuccess: { en: 'Baseline question updated successfully.', vi: 'Đã cập nhật câu hỏi gốc.' },
+  interviewConfirmDelete: {
+    en: 'Are you sure you want to delete this question from the bank?',
+    vi: 'Bạn có chắc chắn muốn xóa câu hỏi này khỏi ngân hàng không?'
+  },
+  interviewToastDeleteSuccess: { en: 'Question deleted from bank.', vi: 'Đã xóa câu hỏi khỏi ngân hàng.' },
+  interviewToastDeleteError: { en: 'Failed to delete question', vi: 'Lỗi khi xóa câu hỏi' },
+  interviewToastCopied: { en: 'Copied interview guide for', vi: 'Đã copy nội dung phỏng vấn của' },
   coreQuestions: { en: 'Core Questions (All Teachers)', vi: 'Câu Hỏi Chung (Tất Cả Giáo Viên)' },
   coreQuestionsSub: {
     en: 'Core baseline questions asked to all teachers in the observation study.',
@@ -595,7 +768,56 @@ export const translations: TranslationDict = {
   authSuccessRegister: { en: 'Account created successfully. Redirecting...', vi: 'Tạo tài khoản thành công. Đang chuyển hướng...' },
   authQuickDemo: { en: 'Fill Demo Account', vi: 'Điền Tài Khoản Mẫu' },
   authRoleLab: { en: 'Researcher', vi: 'Nhà Nghiên Cứu' },
-  authNotSignedIn: { en: 'Not Signed In', vi: 'Chưa Đăng Nhập' }
+  authNotSignedIn: { en: 'Not Signed In', vi: 'Chưa Đăng Nhập' },
+
+  // Feature Workflow & Automation Guidance
+  wfStepPrefix: { en: 'Step', vi: 'Bước' },
+  wfRunsAfterLabel: { en: 'Runs after:', vi: 'Chạy sau:' },
+  wfOperationalGuide: { en: 'Operational Guide & Mechanism:', vi: 'Hướng dẫn thao tác & Cơ chế:' },
+  wfAutoRunsBadge: { en: 'Auto-runs after video analysis', vi: 'Tự động chạy sau phân tích video' },
+  wfManualBadge: { en: 'Manual / On-demand trigger', vi: 'Khởi chạy thủ công theo yêu cầu' },
+  wfReferenceBadge: { en: 'Foundational rubric (Auto-referenced)', vi: 'Khung tiêu chí mẫu (Tham chiếu tự động)' },
+  wfSemiAutoBadge: { en: 'Semi-automated (Auto evidence sync)', vi: 'Bán tự động (Tự đồng bộ dẫn chứng)' },
+
+  wfVideosStep: { en: 'Step 1 / 5: Central Data Hub', vi: 'Bước 1 / 5: Trung Tâm Dữ Liệu' },
+  wfVideosRunsAfter: { en: 'Starts upon video ingestion', vi: 'Khởi đầu ngay khi tải video lên hệ thống' },
+  wfVideosAutoText: { en: 'Auto-runs AI pipeline on upload', vi: 'Tự động chạy pipeline khi có video mới' },
+  wfVideosDesc: { en: 'When videos are uploaded, the multimodal AI pipeline triggers automatically (Chunking ➔ Event Extraction ➔ Rubric Mapping ➔ Report). Track live progress or re-run anytime.', vi: 'Khi tải video lên, hệ thống tự động khởi chạy chuỗi xử lý AI (Chunking ➔ Trích xuất sự kiện ➔ Ánh xạ tiêu chí ➔ Tạo báo cáo). Bạn có thể theo dõi tiến độ thời gian thực hoặc bấm chạy lại từng video.' },
+
+  wfUploadStep: { en: 'Step 1.0: Ingestion Setup', vi: 'Bước 1.0: Nạp Dữ Liệu Video' },
+  wfUploadRunsAfter: { en: 'Initial step (Prepare MP4 lesson files)', vi: 'Bước khởi đầu quy trình (Chuẩn bị tệp MP4 bài giảng)' },
+  wfUploadAutoText: { en: 'Auto-triggers analysis right after upload', vi: 'Tự động bắt đầu phân tích sau khi tải xong' },
+  wfUploadDesc: { en: 'As soon as the MP4 video is uploaded, real-time multimodal analysis starts automatically. Enable Auto-Chunking for 5-minute parallel processing to prevent timeouts.', vi: 'Ngay sau khi tệp video MP4 tải lên hoàn tất, hệ thống tự động kích hoạt tiến trình phân tích trực tiếp. Bật "Auto-Chunking" để chia nhỏ video 5 phút giúp tối ưu tốc độ và không bị gián đoạn.' },
+
+  wfChecklistsStep: { en: 'Foundation: Observation Framework', vi: 'Bước Nền Tảng: Khung Tiêu Chí Quan Sát' },
+  wfChecklistsRunsAfter: { en: 'Pre-configured before video analysis', vi: 'Thiết lập ban đầu (Trước khi phân tích video)' },
+  wfChecklistsAutoText: { en: 'Auto-referenced by AI during analysis', vi: 'Được AI tham chiếu tự động khi phân tích' },
+  wfChecklistsDesc: { en: 'Standard 5-section rubric (A-E). AI models automatically load these criteria during Step 3 (Mapping) to score pedagogical events. Criteria can be customized anytime.', vi: 'Khung tiêu chí chuẩn 5 phần (A: Giàn giáo, B: Đặt câu hỏi, C: Khen ngợi, D: Công cụ số, E: Học sinh tự chủ). Mô hình AI tự động đọc bảng kiểm này trong bước Mapping để đối soát và đánh giá từng sự kiện video.' },
+
+  wfCodebookStep: { en: 'Step 2 / 5: Qualitative Coding', vi: 'Bước 2 / 5: Mã Hóa Định Tính' },
+  wfCodebookRunsAfter: { en: 'Runs after Video Analysis completes (report_generated)', vi: 'Chạy sau khi Video phân tích xong (Step: report_generated)' },
+  wfCodebookAutoText: { en: 'Auto-generates codes upon video completion', vi: 'Tự động tạo mã sau khi video hoàn tất phân tích' },
+  wfCodebookDesc: { en: 'Automatically extracts pedagogical codebook (Definitions, Inclusion/Exclusion criteria, Grounded quotes) from completed videos. Export single or combined research reports.', vi: 'Tính năng này trích xuất tự động bảng mã sư phạm (Định nghĩa, Tiêu chí đưa vào/loại trừ, Dẫn chứng trích đoạn) từ các sự kiện video đã hoàn thành. Bạn có thể xem riêng từng video hoặc xuất sổ mã tổng hợp.' },
+
+  wfReportsStep: { en: 'Step 2.5 / 5: Individual Lesson Reports', vi: 'Bước 2.5 / 5: Báo Cáo Từng Tiết Dạy' },
+  wfReportsRunsAfter: { en: 'Runs after Video Analysis completes (report_generated)', vi: 'Chạy sau khi Video phân tích xong (Step: report_generated)' },
+  wfReportsAutoText: { en: 'Auto-generated immediately when analysis finishes', vi: 'Tự động sinh báo cáo đầy đủ ngay khi phân tích xong' },
+  wfReportsDesc: { en: 'Comprehensive observation transcripts, rubric mapping, and duration stats are 100% auto-generated upon video pipeline completion. Ready for Word/DOCX export individually or in batch.', vi: 'Toàn bộ biên bản quan sát, phân loại theo rubric và thống kê thời lượng được tạo tự động 100% khi quy trình phân tích video kết thúc. Sẵn sàng xem chi tiết và xuất Word/DOCX chuyên khảo đơn lẻ hoặc hàng loạt.' },
+
+  wfAnalyticsStep: { en: 'Step 3 / 5: Corpus-Wide Benchmarking', vi: 'Bước 3 / 5: Đối Sánh Toàn Tập Mẫu' },
+  wfAnalyticsRunsAfter: { en: 'Runs after 1 or more videos finish analysis', vi: 'Chạy sau khi có một hoặc nhiều video hoàn tất phân tích' },
+  wfAnalyticsAutoText: { en: 'Real-time Auto-aggregation from analyzed videos', vi: 'Tự động tổng hợp thời gian thực (Real-time Sync)' },
+  wfAnalyticsDesc: { en: 'No manual batch run needed. All longitudinal charts (Trajectory, 5D Radar, Lesson Stream, Pedagogical Quadrant) auto-refresh in real time as videos finish.', vi: 'Không cần bấm nút chạy hay đợi xử lý theo đợt. Ngay khi bất kỳ video nào phân tích xong, các biểu đồ (Xu hướng tiến triển, Radar 5 chiều, Dòng chảy tiết học, Ma trận phong cách) tự động cập nhật ngay lập tức.' },
+
+  wfThemesStep: { en: 'Step 4 / 5: Grounded Theory Synthesis', vi: 'Bước 4 / 5: Quy Nạp Chủ Đề Grounded Theory' },
+  wfThemesRunsAfter: { en: 'Runs after the video corpus is fully analyzed', vi: 'Chạy sau khi toàn bộ tập video đã được phân tích đầy đủ' },
+  wfThemesAutoText: { en: 'Manual / On-demand run (Click "Run Analysis")', vi: 'Chạy thủ công theo yêu cầu (Bấm "Khởi chạy phân tích")' },
+  wfThemesDesc: { en: 'Because this is a multi-stage deep AI inductive process (5 stages across entire corpus), researchers trigger it manually once sufficient video data is collected.', vi: 'Do là tiến trình suy luận quy nạp AI chuyên sâu qua 5 giai đoạn (Gom cụm ➔ Phát hiện Patterns ➔ Grounded Theory ➔ Tổng hợp câu hỏi RQ1-RQ3 ➔ Hồ sơ giáo viên), bạn chủ động bấm nút khởi chạy khi tập mẫu sẵn sàng.' },
+
+  wfInterviewStep: { en: 'Step 5 / 5: Post-Observation Protocol', vi: 'Bước 5 / 5: Hướng Dẫn Phỏng Vấn Hậu Quan Sát' },
+  wfInterviewRunsAfter: { en: 'Runs after video analysis & Teaching Themes synthesis', vi: 'Chạy sau khi phân tích video và hoàn tất tổng hợp Themes' },
+  wfInterviewAutoText: { en: 'Semi-automated (Auto-links evidence, manual review)', vi: 'Bán tự động (Tự liên kết bằng chứng, duyệt câu hỏi)' },
+  wfInterviewDesc: { en: 'System auto-associates observed teacher evidence with questions. Core 22 questions (RQ1–RQ3) can be approved or re-synthesized by AI on demand.', vi: 'Hệ thống tự động liên kết bằng chứng quan sát của từng giáo viên từ các video đã phân tích. Bộ câu hỏi cốt lõi 22 câu (RQ1–RQ3) có thể được phê duyệt hoặc AI tổng hợp lại theo nhu cầu nghiên cứu.' }
 };
 
 interface I18nContextType {

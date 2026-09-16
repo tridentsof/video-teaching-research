@@ -7,6 +7,7 @@ import (
 	"log"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -137,41 +138,66 @@ type aiTeacherAnalysisResponse struct {
 	} `json:"dynamic_questions"`
 }
 
-// RunFullAnalysis executes Steps 1 through 7 of the Phase 6 Analysis Pipeline.
-func (s *AnalysisService) RunFullAnalysis(ctx context.Context) (*model.AnalysisRun, error) {
+// TriggerAnalysis validates prerequisites, creates the run record, and launches the analysis pipeline asynchronously.
+func (s *AnalysisService) TriggerAnalysis(ctx context.Context) (*model.AnalysisRun, error) {
+	// 1. Check if an active analysis run already exists
+	activeRun, err := s.analysisRepo.GetActiveRun(ctx)
+	if err != nil {
+		log.Printf("[Phase 6] Warning: Failed to check active run: %v", err)
+	}
+	if activeRun != nil {
+		return nil, fmt.Errorf("an analysis run is already in progress (ID: %s, status: %s)", activeRun.ID.String()[:8], activeRun.Status)
+	}
+
+	// 2. Validate prerequisites
+	videos, err := s.videoRepo.List(ctx)
+	if err != nil || len(videos) == 0 {
+		return nil, fmt.Errorf("no videos available for analysis")
+	}
+
+	reportItems, err := s.reportRepo.ListAllReportItemsWithContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list report items: %w", err)
+	}
+	if len(reportItems) == 0 {
+		return nil, fmt.Errorf("no completed video reports found; please process videos through Phase 1–5 pipeline before running Thematic Analysis")
+	}
+
+	// 3. Create run record
 	runID := uuid.New()
 	startTime := time.Now()
-
 	run := &model.AnalysisRun{
-		ID:          runID,
-		TriggeredAt: startTime,
-		Status:      "aggregating",
-		Config:      `{"pipeline": "phase_6_grounded_theory"}`,
+		ID:                  runID,
+		TriggeredAt:         startTime,
+		Status:              "aggregating",
+		Config:              `{"pipeline": "phase_6_grounded_theory"}`,
+		CoreQuestionsStatus: "draft",
 	}
 	if err := s.analysisRepo.CreateRun(ctx, run); err != nil {
 		return nil, fmt.Errorf("failed to create analysis run: %w", err)
 	}
 
-	// Step 1: Aggregation & Input Validation
-	log.Println("[Phase 6] Step 1: Cross-video Aggregation & Validation...")
-	videos, err := s.videoRepo.List(ctx)
-	if err != nil || len(videos) == 0 {
-		errMsg := "no videos available for analysis"
-		_ = s.analysisRepo.UpdateRunStatus(ctx, runID, "error", &errMsg)
-		return nil, fmt.Errorf("%s", errMsg)
-	}
+	// 4. Spawn detached background worker with 15m timeout
+	go s.executeFullAnalysisAsync(runID, reportItems)
 
-	reportItems, err := s.reportRepo.ListAllReportItemsWithContext(ctx)
-	if err != nil {
-		errMsg := fmt.Sprintf("failed to list report items: %v", err)
-		_ = s.analysisRepo.UpdateRunStatus(ctx, runID, "error", &errMsg)
-		return nil, fmt.Errorf("%s", errMsg)
-	}
+	return run, nil
+}
 
-	if len(reportItems) == 0 {
-		errMsg := "no completed video reports found; please process videos through Phase 1–5 pipeline before running Thematic Analysis"
-		_ = s.analysisRepo.UpdateRunStatus(ctx, runID, "error", &errMsg)
-		return nil, fmt.Errorf("%s", errMsg)
+// RunFullAnalysis wraps TriggerAnalysis for backward compatibility.
+func (s *AnalysisService) RunFullAnalysis(ctx context.Context) (*model.AnalysisRun, error) {
+	return s.TriggerAnalysis(ctx)
+}
+
+func (s *AnalysisService) executeFullAnalysisAsync(runID uuid.UUID, reportItems []repository.ReportItemContext) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	defer cancel()
+
+	failRun := func(err error) {
+		errMsg := err.Error()
+		log.Printf("[Phase 6] Run %s failed: %v", runID, err)
+		bgCtx, bgCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer bgCancel()
+		_ = s.analysisRepo.UpdateRunStatus(bgCtx, runID, "error", &errMsg)
 	}
 
 	// Step 2: Recurring Pattern Detection with accurate Cross & Intra Teacher counts
@@ -182,7 +208,7 @@ func (s *AnalysisService) RunFullAnalysis(ctx context.Context) (*model.AnalysisR
 	itemTeacherVideos := make(map[string]map[string]map[uuid.UUID]bool)
 	itemTotalCount := make(map[string]int)
 
-	// Also organize report items by teacher for Step 7
+	// Also organize report items by teacher for Step 6
 	teacherReportItems := make(map[string][]repository.ReportItemContext)
 	groupStrategyTotal := make(map[string]int)
 
@@ -249,15 +275,13 @@ func (s *AnalysisService) RunFullAnalysis(ctx context.Context) (*model.AnalysisR
 	}
 
 	if len(detectedPatterns) == 0 {
-		errMsg := "no recurring patterns detected in report items"
-		_ = s.analysisRepo.UpdateRunStatus(ctx, runID, "error", &errMsg)
-		return nil, fmt.Errorf("%s", errMsg)
+		failRun(fmt.Errorf("no recurring patterns detected in report items"))
+		return
 	}
 
 	if err := s.analysisRepo.SavePatterns(ctx, detectedPatterns); err != nil {
-		errMsg := fmt.Sprintf("failed to save patterns: %v", err)
-		_ = s.analysisRepo.UpdateRunStatus(ctx, runID, "error", &errMsg)
-		return nil, fmt.Errorf("%s", errMsg)
+		failRun(fmt.Errorf("failed to save patterns: %w", err))
+		return
 	}
 
 	// Step 3 & 4: Categorize & Grounded Theory Theme Identification (Strict: No Mock Fallback)
@@ -266,20 +290,17 @@ func (s *AnalysisService) RunFullAnalysis(ctx context.Context) (*model.AnalysisR
 
 	categories, themes, err := s.generateCategoriesAndThemes(ctx, runID, detectedPatterns)
 	if err != nil {
-		errMsg := fmt.Sprintf("thematic analysis AI generation failed: %v", err)
-		_ = s.analysisRepo.UpdateRunStatus(ctx, runID, "error", &errMsg)
-		return nil, fmt.Errorf("%s", errMsg)
+		failRun(fmt.Errorf("thematic analysis AI generation failed: %w", err))
+		return
 	}
 
 	if err := s.analysisRepo.SaveCategories(ctx, categories); err != nil {
-		errMsg := fmt.Sprintf("failed to save categories: %v", err)
-		_ = s.analysisRepo.UpdateRunStatus(ctx, runID, "error", &errMsg)
-		return nil, fmt.Errorf("%s", errMsg)
+		failRun(fmt.Errorf("failed to save categories: %w", err))
+		return
 	}
 	if err := s.analysisRepo.SaveThemes(ctx, themes); err != nil {
-		errMsg := fmt.Sprintf("failed to save themes: %v", err)
-		_ = s.analysisRepo.UpdateRunStatus(ctx, runID, "error", &errMsg)
-		return nil, fmt.Errorf("%s", errMsg)
+		failRun(fmt.Errorf("failed to save themes: %w", err))
+		return
 	}
 
 	// Step 5: Synthesize Core Interview Questions via AI (Step 7A - Flow A)
@@ -295,35 +316,96 @@ func (s *AnalysisService) RunFullAnalysis(ctx context.Context) (*model.AnalysisR
 
 	// Step 6: Generate Per-Teacher Analysis & Evidence-Cited Follow-up Questions via AI
 	_ = s.analysisRepo.UpdateRunStatus(ctx, runID, "generating", nil)
-	log.Println("[Phase 6] Step 6: Generating Per-Teacher Analyses & Evidence-Cited Questions via AI...")
+	log.Printf("[Phase 6] Step 6: Generating Per-Teacher Analyses & Evidence-Cited Questions for %d teachers (Bounded Concurrency=3)...", len(teacherReportItems))
 
 	numTeachersWithReports := len(teacherReportItems)
-	for tID, tItems := range teacherReportItems {
-		log.Printf("[Phase 6] Generating interview questions for teacher %s (%d items)...", tID, len(tItems))
-		ta, questions, err := s.generateTeacherAnalysisAndQuestions(
-			ctx, runID, tID, themes, tItems, groupStrategyTotal, numTeachersWithReports, coreQuestions,
-		)
-		if err != nil {
-			errMsg := fmt.Sprintf("failed to generate interview analysis for teacher %s: %v", tID, err)
-			_ = s.analysisRepo.UpdateRunStatus(ctx, runID, "error", &errMsg)
-			return nil, fmt.Errorf("%s", errMsg)
-		}
 
-		if err := s.analysisRepo.SaveTeacherAnalysis(ctx, ta, questions); err != nil {
-			errMsg := fmt.Sprintf("failed to save teacher analysis for %s: %v", tID, err)
-			_ = s.analysisRepo.UpdateRunStatus(ctx, runID, "error", &errMsg)
-			return nil, fmt.Errorf("%s", errMsg)
-		}
+	type teacherTask struct {
+		teacherID string
+		items     []repository.ReportItemContext
 	}
 
-	_ = s.analysisRepo.UpdateRunStatus(ctx, runID, "completed", nil)
-	log.Printf("[Phase 6] Analysis Run %s successfully completed!", runID)
+	var tasks []teacherTask
+	for tID, tItems := range teacherReportItems {
+		tasks = append(tasks, teacherTask{teacherID: tID, items: tItems})
+	}
+	sort.Slice(tasks, func(i, j int) bool {
+		return tasks[i].teacherID < tasks[j].teacherID
+	})
 
-	run.Status = "completed"
-	run.CoreQuestionsStatus = "draft"
-	b, _ := json.Marshal(coreQuestions)
-	run.CoreQuestions = string(b)
-	return run, nil
+	sem := make(chan struct{}, 3)
+	var wg sync.WaitGroup
+	var saveMu sync.Mutex
+	var errMu sync.Mutex
+	var failedTeachers []string
+
+	for _, task := range tasks {
+		wg.Add(1)
+		go func(t teacherTask) {
+			defer wg.Done()
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-ctx.Done():
+				return
+			}
+
+			log.Printf("[Phase 6] [Worker] Analyzing teacher %s (%d items)...", t.teacherID, len(t.items))
+
+			var ta *model.TeacherAnalysis
+			var questions []model.InterviewQuestion
+			var genErr error
+
+			for attempt := 1; attempt <= 3; attempt++ {
+				ta, questions, genErr = s.generateTeacherAnalysisAndQuestions(
+					ctx, runID, t.teacherID, themes, t.items, groupStrategyTotal, numTeachersWithReports, coreQuestions,
+				)
+				if genErr == nil {
+					break
+				}
+				log.Printf("[Phase 6] [Worker] Teacher %s attempt %d failed: %v, retrying...", t.teacherID, attempt, genErr)
+				select {
+				case <-time.After(time.Duration(attempt*attempt) * time.Second):
+				case <-ctx.Done():
+					return
+				}
+			}
+
+			if genErr != nil {
+				log.Printf("[Phase 6] [Worker] ERROR: Teacher %s analysis failed after 3 attempts: %v", t.teacherID, genErr)
+				errMu.Lock()
+				failedTeachers = append(failedTeachers, t.teacherID)
+				errMu.Unlock()
+				return
+			}
+
+			saveMu.Lock()
+			saveErr := s.analysisRepo.SaveTeacherAnalysis(ctx, ta, questions)
+			saveMu.Unlock()
+
+			if saveErr != nil {
+				log.Printf("[Phase 6] [Worker] ERROR: Failed to save teacher analysis for %s: %v", t.teacherID, saveErr)
+				errMu.Lock()
+				failedTeachers = append(failedTeachers, t.teacherID)
+				errMu.Unlock()
+			} else {
+				log.Printf("[Phase 6] [Worker] Teacher %s analysis saved successfully (%d questions)", t.teacherID, len(questions))
+			}
+		}(task)
+	}
+
+	wg.Wait()
+
+	if len(failedTeachers) > 0 && len(failedTeachers) == len(tasks) {
+		failRun(fmt.Errorf("all %d teacher analyses failed", len(failedTeachers)))
+		return
+	}
+
+	bgCtx, bgCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer bgCancel()
+	_ = s.analysisRepo.UpdateRunStatus(bgCtx, runID, "completed", nil)
+	log.Printf("[Phase 6] Analysis Run %s successfully completed! (%d/%d teachers processed)",
+		runID, len(tasks)-len(failedTeachers), len(tasks))
 }
 
 func (s *AnalysisService) generateCategoriesAndThemes(
@@ -357,7 +439,7 @@ func (s *AnalysisService) generateCategoriesAndThemes(
 
 Your task:
 1. Cluster recurring strategies into behavior categories (Bottom-up clustering, no pre-fixed taxonomy).
-2. Group categories into higher-level overarching Themes.
+2. Group categories into a comprehensive, balanced set of 5 to 6 higher-level overarching Themes covering distinct pedagogical dimensions across the corpus (e.g., communicative scaffolding, questioning & wait time, affective & classroom culture, error treatment & feedback, student-centered autonomy). Avoid collapsing into too few generic themes or over-fragmenting into too many narrow themes.
 3. For EACH Theme, provide a clear "reasoning_trace" with grounded evidence explaining why these categories and strategies belong together.
 
 Return ONLY a valid JSON object matching this schema:
@@ -403,18 +485,36 @@ Return ONLY a valid JSON object matching this schema:
 		catID := uuid.New()
 		categoryNameToID[c.Name] = catID
 		desc := c.Description
+
+		patternIDs := make([]uuid.UUID, 0)
+		for _, strat := range c.Strategies {
+			stratNorm := strings.ToLower(strings.TrimSpace(strat))
+			if stratNorm == "" {
+				continue
+			}
+			for _, p := range patterns {
+				if p.Description != nil {
+					descNorm := strings.ToLower(*p.Description)
+					if strings.Contains(descNorm, stratNorm) || strings.Contains(stratNorm, descNorm) {
+						patternIDs = append(patternIDs, p.ID)
+					}
+				}
+			}
+		}
+
 		categories = append(categories, model.Category{
 			ID:            catID,
 			AnalysisRunID: runID,
 			Name:          c.Name,
 			Description:   &desc,
+			PatternIDs:    patternIDs,
 			CreatedAt:     now,
 		})
 	}
 
 	var themes []model.Theme
 	for _, t := range aiResp.Themes {
-		var catIDs []uuid.UUID
+		catIDs := make([]uuid.UUID, 0)
 		for _, catName := range t.CategoryNames {
 			if id, ok := categoryNameToID[catName]; ok {
 				catIDs = append(catIDs, id)
@@ -642,7 +742,7 @@ Generate the teacher analysis and empirical dynamic interview questions with RQ 
 
 	now := time.Now()
 	analysisID := uuid.New()
-	var themeIDs []uuid.UUID
+	themeIDs := make([]uuid.UUID, 0)
 	for _, t := range themes {
 		themeIDs = append(themeIDs, t.ID)
 	}

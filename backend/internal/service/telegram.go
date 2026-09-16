@@ -125,28 +125,28 @@ func (n *DefaultTelegramNotifier) NotifyPipelineCompleted(ctx context.Context, v
 	}
 
 	var sb strings.Builder
-	sb.WriteString("🎬 <b>Phân tích Video hoàn tất!</b>\n\n")
+	sb.WriteString("🎬 <b>Phân tích Video hoàn tất / Video Analysis Complete!</b>\n\n")
 	sb.WriteString(fmt.Sprintf("📹 <b>Video:</b> %s\n", html.EscapeString(title)))
 	sb.WriteString(fmt.Sprintf("🆔 <code>%s</code>\n", video.ID.String()))
-	sb.WriteString(fmt.Sprintf("⏱ <b>Thời lượng video:</b> %s\n", durationStr))
-	sb.WriteString(fmt.Sprintf("⚙️ <b>Chế độ:</b> %s\n", mode))
+	sb.WriteString(fmt.Sprintf("⏱ <b>Thời lượng / Duration:</b> %s\n", durationStr))
+	sb.WriteString(fmt.Sprintf("⚙️ <b>Chế độ / Mode:</b> %s\n", mode))
 
 	if stats != nil {
 		if stats.Duration > 0 {
-			sb.WriteString(fmt.Sprintf("⏳ <b>Thời gian xử lý:</b> %s\n", stats.Duration.Round(time.Second)))
+			sb.WriteString(fmt.Sprintf("⏳ <b>Thời gian xử lý / Processing Time:</b> %s\n", stats.Duration.Round(time.Second)))
 		}
-		sb.WriteString(fmt.Sprintf("🔍 <b>Events trích xuất:</b> %d sự kiện\n", stats.TotalEvents))
-		sb.WriteString(fmt.Sprintf("📋 <b>Checklist mappings:</b> %d mục\n", stats.TotalMapped))
+		sb.WriteString(fmt.Sprintf("🔍 <b>Events:</b> %d sự kiện / events\n", stats.TotalEvents))
+		sb.WriteString(fmt.Sprintf("📋 <b>Checklist mappings:</b> %d mục / items\n", stats.TotalMapped))
 		if stats.HasReport {
-			sb.WriteString("📊 <b>Báo cáo quan sát:</b> Đã tạo thành công ✅\n")
+			sb.WriteString("📊 <b>Báo cáo quan sát / Observation Report:</b> Đã tạo thành công / Generated ✅\n")
 		}
 		if stats.HasCodebook {
-			sb.WriteString("📖 <b>Qualitative Codebook:</b> Đã tổng hợp ✅\n")
+			sb.WriteString("📖 <b>Qualitative Codebook:</b> Đã tổng hợp / Synthesized ✅\n")
 		}
 	}
 
 	if appURL != "" {
-		sb.WriteString(fmt.Sprintf("\n🔗 <a href=\"%s\">Xem chi tiết kết quả phân tích</a>\n", appURL))
+		sb.WriteString(fmt.Sprintf("\n🔗 <a href=\"%s\">Xem chi tiết kết quả / View Analysis Results</a>\n", appURL))
 	}
 
 	msg := sb.String()
@@ -170,21 +170,21 @@ func (n *DefaultTelegramNotifier) NotifyPipelineFailed(ctx context.Context, vide
 	}
 
 	var sb strings.Builder
-	sb.WriteString("⚠️ <b>Cảnh báo: Pipeline phân tích video thất bại!</b>\n\n")
+	sb.WriteString("⚠️ <b>Cảnh báo: Pipeline phân tích video thất bại / Warning: Video Analysis Pipeline Failed!</b>\n\n")
 	sb.WriteString(fmt.Sprintf("📹 <b>Video:</b> %s\n", html.EscapeString(title)))
 	sb.WriteString(fmt.Sprintf("🆔 <code>%s</code>\n", video.ID.String()))
 	if failedStep != "" {
-		sb.WriteString(fmt.Sprintf("🛑 <b>Bước lỗi:</b> <code>%s</code>\n", html.EscapeString(failedStep)))
+		sb.WriteString(fmt.Sprintf("🛑 <b>Bước lỗi / Failed Step:</b> <code>%s</code>\n", html.EscapeString(failedStep)))
 	}
 	if errMsg != "" {
 		displayErr := errMsg
 		if len(displayErr) > 1200 {
-			displayErr = displayErr[:1200] + "... (còn tiếp)"
+			displayErr = displayErr[:1200] + "... (truncated)"
 		}
-		sb.WriteString(fmt.Sprintf("❌ <b>Lỗi chi tiết:</b>\n<code>%s</code>\n", html.EscapeString(displayErr)))
+		sb.WriteString(fmt.Sprintf("❌ <b>Lỗi chi tiết / Error Detail:</b>\n<code>%s</code>\n", html.EscapeString(displayErr)))
 	}
 	if appURL != "" {
-		sb.WriteString(fmt.Sprintf("\n🔗 <a href=\"%s\">Xem video trong hệ thống</a>\n", appURL))
+		sb.WriteString(fmt.Sprintf("\n🔗 <a href=\"%s\">Xem video trong hệ thống / View Video in System</a>\n", appURL))
 	}
 
 	msg := sb.String()
@@ -238,11 +238,11 @@ func (n *DefaultTelegramNotifier) SendTestMessage(ctx context.Context, customMsg
 	}
 
 	if customMsg == "" {
-		customMsg = "🔔 <b>Thông báo thử nghiệm từ hệ thống Video Teaching Research!</b>\n\nKết nối Telegram Bot hoạt động bình thường ✅. Bạn sẽ nhận được thông báo tự động khi quá trình phân tích video hoàn tất."
+		customMsg = "🔔 <b>Thông báo thử nghiệm / Test Notification</b>\n<i>Video Teaching Research System</i>\n\nKết nối Telegram Bot hoạt động bình thường / Telegram Bot connection is active ✅. Bạn sẽ nhận được thông báo tự động khi quá trình phân tích video hoàn tất / You will receive automated alerts when video analysis completes."
 	}
 
 	if n.webhookURL != "" {
-		dummyVideo := &model.Video{Title: "Video Kiểm Thử"}
+		dummyVideo := &model.Video{Title: "Video Kiểm Thử / Test Video"}
 		err := n.sendViaWebhook(ctx, customMsg, "test_notification", dummyVideo, n.appBaseURL)
 		if err != nil {
 			return 0, err

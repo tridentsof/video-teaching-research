@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -122,14 +123,20 @@ func (r *AnalysisRepository) GetLatestRun(ctx context.Context) (*model.AnalysisR
 	return &run, nil
 }
 
-// ListRuns returns all analysis runs ordered by triggered_at desc.
+// ListRuns returns all analysis runs ordered by triggered_at desc with aggregated stats.
 func (r *AnalysisRepository) ListRuns(ctx context.Context) ([]model.AnalysisRun, error) {
 	query := `
-		SELECT id, triggered_at, status, config, error_msg, completed_at,
-		       COALESCE(core_questions_status, 'draft'),
-		       COALESCE(core_questions::text, '[]')
-		FROM analysis_runs
-		ORDER BY triggered_at DESC
+		SELECT ar.id, ar.triggered_at, ar.status, ar.config, ar.error_msg, ar.completed_at,
+		       COALESCE(ar.core_questions_status, 'draft'),
+		       COALESCE(ar.core_questions::text, '[]'),
+		       COALESCE(tc.theme_count, 0),
+		       COALESCE(cc.category_count, 0),
+		       COALESCE(pc.pattern_count, 0)
+		FROM analysis_runs ar
+		LEFT JOIN (SELECT analysis_run_id, count(*) AS theme_count FROM themes GROUP BY analysis_run_id) tc ON tc.analysis_run_id = ar.id
+		LEFT JOIN (SELECT analysis_run_id, count(*) AS category_count FROM categories GROUP BY analysis_run_id) cc ON cc.analysis_run_id = ar.id
+		LEFT JOIN (SELECT analysis_run_id, count(*) AS pattern_count FROM patterns GROUP BY analysis_run_id) pc ON pc.analysis_run_id = ar.id
+		ORDER BY ar.triggered_at DESC
 	`
 	rows, err := r.db.Pool.Query(ctx, query)
 	if err != nil {
@@ -143,6 +150,7 @@ func (r *AnalysisRepository) ListRuns(ctx context.Context) ([]model.AnalysisRun,
 		if err := rows.Scan(
 			&run.ID, &run.TriggeredAt, &run.Status, &run.Config, &run.ErrorMsg, &run.CompletedAt,
 			&run.CoreQuestionsStatus, &run.CoreQuestions,
+			&run.ThemeCount, &run.CategoryCount, &run.PatternCount,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan analysis run: %w", err)
 		}
@@ -205,7 +213,11 @@ func (r *AnalysisRepository) SaveCategories(ctx context.Context, categories []mo
 		VALUES ($1, $2, $3, $4, $5, $6)
 	`
 	for _, c := range categories {
-		batch.Queue(query, c.ID, c.AnalysisRunID, c.Name, c.Description, c.PatternIDs, c.CreatedAt)
+		pIDs := c.PatternIDs
+		if pIDs == nil {
+			pIDs = []uuid.UUID{}
+		}
+		batch.Queue(query, c.ID, c.AnalysisRunID, c.Name, c.Description, pIDs, c.CreatedAt)
 	}
 	br := r.db.Pool.SendBatch(ctx, batch)
 	defer br.Close()
@@ -229,7 +241,11 @@ func (r *AnalysisRepository) SaveThemes(ctx context.Context, themes []model.Them
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
 	for _, t := range themes {
-		batch.Queue(query, t.ID, t.AnalysisRunID, t.Name, t.Description, t.ReasoningTrace, t.CategoryIDs, t.Status, t.CreatedAt)
+		catIDs := t.CategoryIDs
+		if catIDs == nil {
+			catIDs = []uuid.UUID{}
+		}
+		batch.Queue(query, t.ID, t.AnalysisRunID, t.Name, t.Description, t.ReasoningTrace, catIDs, t.Status, t.CreatedAt)
 	}
 	br := r.db.Pool.SendBatch(ctx, batch)
 	defer br.Close()
@@ -321,8 +337,12 @@ func (r *AnalysisRepository) SaveTeacherAnalysis(
 		INSERT INTO teacher_analyses (id, analysis_run_id, teacher_id, theme_ids, context_summary, markdown_content, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
+	thIDs := ta.ThemeIDs
+	if thIDs == nil {
+		thIDs = []uuid.UUID{}
+	}
 	if _, err := tx.Exec(ctx, taQuery,
-		ta.ID, ta.AnalysisRunID, ta.TeacherID, ta.ThemeIDs, ta.ContextSummary, ta.MarkdownContent, ta.CreatedAt,
+		ta.ID, ta.AnalysisRunID, ta.TeacherID, thIDs, ta.ContextSummary, ta.MarkdownContent, ta.CreatedAt,
 	); err != nil {
 		return fmt.Errorf("failed to insert teacher analysis: %w", err)
 	}
@@ -406,6 +426,47 @@ func (r *AnalysisRepository) UpdateInterviewQuestion(ctx context.Context, qID uu
 	_, err := r.db.Pool.Exec(ctx, query, questionText, rqCategory, qID)
 	if err != nil {
 		return fmt.Errorf("failed to update interview question %s: %w", qID, err)
+	}
+	return nil
+}
+
+// GetActiveRun returns any run that is currently in-progress (not completed or error).
+func (r *AnalysisRepository) GetActiveRun(ctx context.Context) (*model.AnalysisRun, error) {
+	query := `
+		SELECT id, triggered_at, status, config, error_msg, completed_at,
+		       COALESCE(core_questions_status, 'draft'),
+		       COALESCE(core_questions, '[]')
+		FROM analysis_runs
+		WHERE status NOT IN ('completed', 'error')
+		ORDER BY triggered_at DESC
+		LIMIT 1
+	`
+	row := r.db.Pool.QueryRow(ctx, query)
+	var run model.AnalysisRun
+	if err := row.Scan(
+		&run.ID, &run.TriggeredAt, &run.Status, &run.Config, &run.ErrorMsg, &run.CompletedAt,
+		&run.CoreQuestionsStatus, &run.CoreQuestions,
+	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get active run: %w", err)
+	}
+	return &run, nil
+}
+
+// CleanOrphanedRuns marks runs that were interrupted by server restart as error.
+func (r *AnalysisRepository) CleanOrphanedRuns(ctx context.Context) error {
+	query := `
+		UPDATE analysis_runs
+		SET status = 'error',
+		    error_msg = 'interrupted by server restart',
+		    completed_at = NOW()
+		WHERE status NOT IN ('completed', 'error')
+	`
+	_, err := r.db.Pool.Exec(ctx, query)
+	if err != nil {
+		return fmt.Errorf("failed to clean orphaned analysis runs: %w", err)
 	}
 	return nil
 }

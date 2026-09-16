@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import { useToast } from '@/components/ToastProvider';
+import { FeatureWorkflowBanner } from '@/components/FeatureWorkflowBanner';
 import {
   api,
   PedagogicalAnalyticsData,
@@ -613,6 +614,9 @@ export default function AnalyticsPage() {
           </div>
         </div>
       </section>
+
+      {/* Feature Workflow & Automation Guidance */}
+      <FeatureWorkflowBanner featureKey="analytics" />
 
       {/* Filter Bar */}
       <section style={{

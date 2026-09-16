@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup: Feature Workflow & Automation Guidance — Observation Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #FBF9F5;
+      --sidebar-bg: #F4EFE6;
+      --card-bg: #FFFFFF;
+      --card-border: #E8E3D9;
+      --card-border-soft: #F0EAE1;
+      --text-main: #1A1612;
+      --text-muted: #736B63;
+      --text-subtle: #A39B92;
+      
+      --accent: #9E4A28; /* Terracotta */
+      --accent-hover: #843D1F;
+      --accent-soft: #F5EBE6;
+      
+      --accent-green: #2D6A4F;
+      --accent-green-soft: #EAF4EE;
+      
+      --accent-blue: #1D5C8A;
+      --accent-blue-soft: #EBF3F9;
+      
+      --accent-amber: #B26A00;
+      --accent-amber-soft: #FEF7EA;
+
+      --accent-purple: #6D28D9;
+      --accent-purple-soft: #F3E8FF;
+
+      --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-serif: 'Instrument Serif', Georgia, serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --shadow-sm: 0 1px 3px rgba(40, 30, 20, 0.04);
+      --shadow-md: 0 8px 24px -4px rgba(40, 30, 20, 0.08);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      font-size: 14px;
+      line-height: 1.5;
+      padding: 32px 24px;
+    }
+
+    .container {
+      max-width: 1180px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    /* Header Controls */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .title-group h1 {
+      font-family: var(--font-serif);
+      font-size: 34px;
+      font-weight: 400;
+      color: var(--accent);
+      letter-spacing: -0.5px;
+    }
+    .title-group p {
+      color: var(--text-muted);
+      font-size: 14px;
+      margin-top: 4px;
+    }
+    .control-pills {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .pill-btn {
+      padding: 7px 14px;
+      border-radius: 999px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--card-border);
+      background: #FFF;
+      color: var(--text-muted);
+      transition: all 0.15s ease;
+    }
+    .pill-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .pill-btn.active {
+      background: var(--accent);
+      color: #FFF;
+      border-color: var(--accent);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Feature Tab Switcher */
+    .feature-tabs-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: var(--sidebar-bg);
+      padding: 14px 18px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--card-border);
+    }
+    .feature-tabs-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+    .feature-tabs {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .feature-tab {
+      padding: 8px 14px;
+      background: #FFF;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+      cursor: pointer;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+    .feature-tab:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .feature-tab.active {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Mock Page Frame */
+    .mock-page-frame {
+      background: #FFF;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .mock-page-title {
+      font-family: var(--font-serif);
+      font-size: 30px;
+      font-weight: 400;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Option Sections */
+    .option-section {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 20px;
+      background: #FAF8F5;
+      border-radius: var(--radius-md);
+      border: 1px dashed #DDD4C6;
+    }
+    .option-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .option-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .option-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    /* OPTION 1: Ribbon Stepper & Status Badge */
+    .wf-ribbon {
+      background: #FFFFFF;
+      border: 1px solid var(--card-border);
+      border-left: 4px solid var(--accent);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: var(--shadow-sm);
+    }
+    .wf-ribbon-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .wf-step-indicator {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .wf-step-pill {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 6px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid rgba(158, 74, 40, 0.2);
+    }
+    .wf-step-name {
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--text-main);
+    }
+    .wf-predecessor-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+      background: #F4EFE6;
+      padding: 3px 10px;
+      border-radius: 6px;
+      border: 1px solid #E5DEC9;
+    }
+    .wf-auto-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 999px;
+    }
+    .wf-auto-badge.auto {
+      background: var(--accent-green-soft);
+      color: var(--accent-green);
+      border: 1px solid rgba(45, 106, 79, 0.25);
+    }
+    .wf-auto-badge.manual {
+      background: var(--accent-amber-soft);
+      color: var(--accent-amber);
+      border: 1px solid rgba(178, 106, 0, 0.25);
+    }
+    .wf-auto-badge.reference {
+      background: var(--accent-blue-soft);
+      color: var(--accent-blue);
+      border: 1px solid rgba(29, 92, 138, 0.25);
+    }
+    .wf-ribbon-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      padding-top: 8px;
+      border-top: 1px dashed var(--card-border-soft);
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    /* OPTION 2: Two-Tone Split Diagnostic Card */
+    .wf-card-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 768px) {
+      .wf-card-split { grid-template-columns: 1fr; }
+    }
+    .wf-subcard {
+      background: #FFFFFF;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .wf-subcard-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-subtle);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .wf-subcard-val {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .wf-subcard-note {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* OPTION 3: Compact Inline Context Bar */
+    .wf-compact-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      background: linear-gradient(90deg, #FBF8F3 0%, #FFFFFF 100%);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      padding: 10px 16px;
+      font-size: 12.5px;
+    }
+    .wf-compact-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .wf-compact-seq {
+      font-weight: 700;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .wf-compact-divider {
+      color: var(--card-border);
+    }
+    .wf-compact-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <div class="top-bar">
+      <div class="title-group">
+        <h1>Feature Workflow & Automation Guidance</h1>
+        <p id="subheading">Diễn giải thứ tự luồng quy trình và cơ chế tự động hoá trên từng tính năng</p>
+      </div>
+      <div class="control-pills">
+        <span style="font-size: 12px; font-weight: 600; color: var(--text-muted);">Language:</span>
+        <button class="pill-btn active" id="btn-vi" onclick="setLanguage('vi')">Tiếng Việt</button>
+        <button class="pill-btn" id="btn-en" onclick="setLanguage('en')">English</button>
+      </div>
+    </div>
+
+    <!-- Feature Switcher -->
+    <div class="feature-tabs-wrap">
+      <div class="feature-tabs-label">
+        <span id="tab-group-title">Chọn màn hình tính năng để xem trước diễn giải (Select Feature Screen):</span>
+        <span id="feature-count">8 tính năng chính</span>
+      </div>
+      <div class="feature-tabs" id="feature-tabs-container">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+
+    <!-- Main Mockup Preview Area -->
+    <div class="mock-page-frame">
+      <div class="mock-page-title" id="mock-page-title">
+        <!-- Dynamic -->
+      </div>
+
+      <!-- DESIGN OPTION 1 (RECOMMENDED) -->
+      <div class="option-section">
+        <div class="option-header">
+          <div class="option-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M14 9l3 3-3 3"/></svg>
+            <span id="opt1-heading">Lựa chọn 1: Ruy-băng Luồng Nghiên Cứu & Huy Hiệu Trạng Thái Tự Động (Khuyến nghị)</span>
+          </div>
+          <span class="option-badge">Recommended • Clean & Contextual</span>
+        </div>
+
+        <div class="wf-ribbon" id="opt1-content">
+          <!-- Injected via JS -->
+        </div>
+      </div>
+
+      <!-- DESIGN OPTION 2 -->
+      <div class="option-section">
+        <div class="option-header">
+          <div class="option-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            <span id="opt2-heading">Lựa chọn 2: Thẻ Đôi Tách Biệt: Thứ Tự Bước & Trạng Thái Tự Động</span>
+          </div>
+          <span class="option-badge">Modular Two-Tone</span>
+        </div>
+
+        <div class="wf-card-split" id="opt2-content">
+          <!-- Injected via JS -->
+        </div>
+      </div>
+
+      <!-- DESIGN OPTION 3 -->
+      <div class="option-section">
+        <div class="option-header">
+          <div class="option-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h7"/></svg>
+            <span id="opt3-heading">Lựa chọn 3: Thanh Ngữ Cảnh Tinh Gọn (Inline Minimalist Breadcrumb Bar)</span>
+          </div>
+          <span class="option-badge">Ultra Compact</span>
+        </div>
+
+        <div class="wf-compact-bar" id="opt3-content">
+          <!-- Injected via JS -->
+        </div>
+      </div>
+
+      <!-- Mock page body placeholder -->
+      <div style="padding: 24px; border: 1px dashed var(--card-border); border-radius: var(--radius-sm); text-align: center; color: var(--text-subtle); font-size: 13px;">
+        <span id="mock-body-note">[Nội dung chính của màn hình tính năng hiển thị tiếp nối tại đây...]</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentLang = 'vi';
+    let currentFeatureKey = 'codebook';
+
+    const FEATURES = {
+      videos: {
+        icon: '🎥',
+        titleVi: 'Kho Video Bài Giảng (Video Repository)',
+        titleEn: 'Classroom Video Repository',
+        stepVi: 'Bước 1 / 5: Trung Tâm Dữ Liệu',
+        stepEn: 'Step 1 / 5: Central Data Hub',
+        predecessorVi: 'Bắt đầu ngay khi tải video lên hệ thống',
+        predecessorEn: 'Starts upon video ingestion',
+        autoMode: 'auto',
+        autoTextVi: 'Tự động chạy Pipeline khi có video mới',
+        autoTextEn: 'Auto-runs Pipeline on video upload',
+        descVi: 'Khi tải video lên, hệ thống tự động khởi chạy chuỗi xử lý AI (Chunking ➔ Trích xuất sự kiện ➔ Ánh xạ tiêu chí ➔ Tạo báo cáo). Bạn có thể theo dõi tiến độ thời gian thực hoặc bấm chạy lại từng video.',
+        descEn: 'Upon uploading, the system triggers the AI pipeline (Chunking ➔ Event Extraction ➔ Rubric Mapping ➔ Report). Track live progress or re-run anytime.'
+      },
+      upload: {
+        icon: '☁️',
+        titleVi: 'Tải Lên Video Mới (Upload Video)',
+        titleEn: 'Upload Classroom Video',
+        stepVi: 'Bước 1.0: Nạp Dữ Liệu Video',
+        stepEn: 'Step 1.0: Ingestion Setup',
+        predecessorVi: 'Bước khởi đầu quy trình (Chuẩn bị tệp MP4 bài giảng)',
+        predecessorEn: 'Initial step (Prepare MP4 lesson files)',
+        autoMode: 'auto',
+        autoTextVi: 'Tự động bắt đầu phân tích sau khi tải xong',
+        autoTextEn: 'Auto-triggers analysis right after upload',
+        descVi: 'Ngay sau khi tệp video MP4 tải lên hoàn tất, hệ thống tự động kích hoạt tiến trình phân tích trực tiếp. Bật "Auto-Chunking" để chia nhỏ video 5 phút giúp tối ưu tốc độ và không bị gián đoạn.',
+        descEn: 'As soon as the MP4 video is uploaded, real-time multimodal analysis starts automatically. Enable Auto-Chunking for 5-minute parallel processing.'
+      },
+      checklists: {
+        icon: '☑️',
+        titleVi: 'Khung Tiêu Chí Quan Sát (Observation Checklist)',
+        titleEn: 'Observation Checklist Framework',
+        stepVi: 'Bước Nền Tảng (Foundational Schema)',
+        stepEn: 'Foundation: Observation Framework',
+        predecessorVi: 'Thiết lập ban đầu (Trước khi phân tích video)',
+        predecessorEn: 'Pre-configured before video analysis',
+        autoMode: 'reference',
+        autoTextVi: 'Được AI tham chiếu tự động khi phân tích',
+        autoTextEn: 'Auto-referenced by AI during analysis',
+        descVi: 'Khung tiêu chí chuẩn 5 phần (A: Giàn giáo, B: Đặt câu hỏi, C: Khen ngợi, D: Công cụ số, E: Học sinh tự chủ). Mô hình AI tự động đọc bảng kiểm này trong bước Mapping để đối soát và đánh giá từng sự kiện video.',
+        descEn: 'Standard 5-section rubric (A-E). AI models automatically load these criteria during Step 3 (Mapping) to score pedagogical events.'
+      },
+      codebook: {
+        icon: '📖',
+        titleVi: 'Sổ Mã Quan Sát Định Tính (Code Book)',
+        titleEn: 'Qualitative Observation Code Book',
+        stepVi: 'Bước 2 / 5: Mã Hóa Định Tính',
+        stepEn: 'Step 2 / 5: Qualitative Coding',
+        predecessorVi: 'Chạy sau khi Video phân tích xong (Step: report_generated)',
+        predecessorEn: 'Runs after Video Analysis completes (Step: report_generated)',
+        autoMode: 'auto',
+        autoTextVi: 'Tự động tạo mã sau khi video hoàn tất phân tích',
+        autoTextEn: 'Auto-generates codes upon video completion',
+        descVi: 'Tính năng này trích xuất tự động bảng mã sư phạm (Định nghĩa, Tiêu chí đưa vào/loại trừ, Dẫn chứng trích đoạn) từ các sự kiện video đã hoàn thành. Bạn có thể xem riêng từng video hoặc xuất sổ mã tổng hợp.',
+        descEn: 'Automatically extracts pedagogical codebook (Definitions, Inclusion/Exclusion criteria, Grounded quotes) from completed videos. Export single or combined.'
+      },
+      reports: {
+        icon: '📄',
+        titleVi: 'Báo Cáo & Thống Kê (Reports & Stats)',
+        titleEn: 'Lesson Reports & Observation Summaries',
+        stepVi: 'Bước 2.5 / 5: Báo Cáo Từng Tiết',
+        stepEn: 'Step 2.5 / 5: Individual Lesson Reports',
+        predecessorVi: 'Chạy sau khi Video phân tích xong (Step: report_generated)',
+        predecessorEn: 'Runs after Video Analysis completes (Step: report_generated)',
+        autoMode: 'auto',
+        autoTextVi: 'Tự động sinh báo cáo đầy đủ ngay khi phân tích xong',
+        autoTextEn: 'Auto-generated immediately when analysis finishes',
+        descVi: 'Toàn bộ biên bản quan sát, phân loại theo rubric và thống kê thời lượng được tạo tự động 100% khi quy trình phân tích video kết thúc. Sẵn sàng xem chi tiết và xuất Word/DOCX chuyên khảo.',
+        descEn: 'Comprehensive observation transcripts, rubric mapping, and duration stats are 100% auto-generated upon video pipeline completion. Ready for Word export.'
+      },
+      analytics: {
+        icon: '📈',
+        titleVi: 'Phân Tích & Xu Hướng Sư Phạm (Analytics & Trends)',
+        titleEn: 'Pedagogical Analytics & Longitudinal Trends',
+        stepVi: 'Bước 3 / 5: Đối Sánh Toàn Tập Mẫu',
+        stepEn: 'Step 3 / 5: Corpus-Wide Benchmarking',
+        predecessorVi: 'Chạy sau khi có một hoặc nhiều video hoàn tất phân tích',
+        predecessorEn: 'Runs after 1 or more videos finish analysis',
+        autoMode: 'auto',
+        autoTextVi: 'Tự động tổng hợp thời gian thực (Real-time Sync)',
+        autoTextEn: 'Real-time Auto-aggregation from analyzed videos',
+        descVi: 'Không cần bấm nút chạy hay đợi xử lý theo đợt. Ngay khi bất kỳ video nào phân tích xong, các biểu đồ (Xu hướng tiến triển, Radar 5 chiều, Dòng chảy tiết học, Ma trận phong cách) tự động cập nhật ngay lập tức.',
+        descEn: 'No manual batch run needed. All longitudinal charts (Trajectory, 5D Radar, Lesson Stream, Pedagogical Quadrant) auto-refresh in real time as videos finish.'
+      },
+      themes: {
+        icon: '🕸️',
+        titleVi: 'Chiến Lược & Chủ Đề Cốt Lõi (Teaching Themes)',
+        titleEn: 'Teaching Themes & Inductive Synthesis',
+        stepVi: 'Bước 4 / 5: Quy Nạp Chủ Đề Grounded Theory',
+        stepEn: 'Step 4 / 5: Grounded Theory Synthesis',
+        predecessorVi: 'Chạy sau khi toàn bộ tập video đã được phân tích đầy đủ',
+        predecessorEn: 'Runs after the video corpus is fully analyzed',
+        autoMode: 'manual',
+        autoTextVi: 'Chạy thủ công theo yêu cầu (Bấm "Khởi chạy phân tích")',
+        autoTextEn: 'Manual / On-demand run (Click "Run Analysis")',
+        descVi: 'Do là tiến trình suy luận quy nạp AI chuyên sâu qua 5 giai đoạn (Gom cụm ➔ Phát hiện Patterns ➔ Grounded Theory ➔ Tổng hợp câu hỏi RQ1-RQ3 ➔ Hồ sơ giáo viên), bạn chủ động bấm nút khởi chạy khi tập mẫu sẵn sàng.',
+        descEn: 'Because this is a multi-stage deep AI inductive process (5 stages across entire corpus), researchers trigger it manually once sufficient video data is collected.'
+      },
+      interview: {
+        icon: '🎙️',
+        titleVi: 'Bộ Câu Hỏi Phỏng Vấn Sâu (Interview Studio)',
+        titleEn: 'Teacher Interview Guide Studio',
+        stepVi: 'Bước 5 / 5: Hướng Dẫn Phỏng Vấn Hậu Quan Sát',
+        stepEn: 'Step 5 / 5: Post-Observation Protocol',
+        predecessorVi: 'Chạy sau khi phân tích video và hoàn tất tổng hợp Themes',
+        predecessorEn: 'Runs after video analysis & Teaching Themes synthesis',
+        autoMode: 'manual',
+        autoTextVi: 'Bán tự động: Tự liên kết bằng chứng, bấm phê duyệt bộ câu hỏi',
+        autoTextEn: 'Semi-automated: Auto-links evidence, manual review',
+        descVi: 'Hệ thống tự động liên kết bằng chứng quan sát của từng giáo viên từ các video đã phân tích. Bộ câu hỏi cốt lõi 22 câu (RQ1–RQ3) có thể được phê duyệt hoặc AI tổng hợp lại theo nhu cầu nghiên cứu.',
+        descEn: 'System auto-associates observed teacher evidence with questions. Core 22 questions (RQ1–RQ3) can be approved or re-synthesized by AI on demand.'
+      }
+    };
+
+    function setLanguage(lang) {
+      currentLang = lang;
+      document.getElementById('btn-vi').className = lang === 'vi' ? 'pill-btn active' : 'pill-btn';
+      document.getElementById('btn-en').className = lang === 'en' ? 'pill-btn active' : 'pill-btn';
+      
+      document.getElementById('subheading').innerText = lang === 'vi' 
+        ? 'Diễn giải thứ tự luồng quy trình và cơ chế tự động hoá trên từng tính năng'
+        : 'Explaining pipeline step order and automation capabilities across all research features';
+      
+      document.getElementById('tab-group-title').innerText = lang === 'vi'
+        ? 'Chọn màn hình tính năng để xem trước diễn giải:'
+        : 'Select Feature Screen to preview guidance:';
+      
+      document.getElementById('opt1-heading').innerText = lang === 'vi'
+        ? 'Lựa chọn 1: Ruy-băng Luồng Nghiên Cứu & Huy Hiệu Trạng Thái Tự Động (Khuyến nghị)'
+        : 'Option 1: Research Workflow Ribbon & Automation Pill (Recommended)';
+      
+      document.getElementById('opt2-heading').innerText = lang === 'vi'
+        ? 'Lựa chọn 2: Thẻ Đôi Tách Biệt: Thứ Tự Bước & Trạng Thái Tự Động'
+        : 'Option 2: Two-Tone Split Diagnostic Card';
+
+      document.getElementById('opt3-heading').innerText = lang === 'vi'
+        ? 'Lựa chọn 3: Thanh Ngữ Cảnh Tinh Gọn (Inline Minimalist Breadcrumb Bar)'
+        : 'Option 3: Inline Minimalist Breadcrumb Bar';
+
+      renderTabs();
+      renderContent();
+    }
+
+    function selectFeature(key) {
+      currentFeatureKey = key;
+      renderTabs();
+      renderContent();
+    }
+
+    function renderTabs() {
+      const container = document.getElementById('feature-tabs-container');
+      container.innerHTML = Object.entries(FEATURES).map(([k, f]) => {
+        const isActive = k === currentFeatureKey;
+        const name = currentLang === 'vi' ? f.titleVi.split(' (')[0] : f.titleEn;
+        return `
+          <button class="feature-tab ${isActive ? 'active' : ''}" onclick="selectFeature('${k}')">
+            <span>${f.icon}</span>
+            <span>${name}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function getBadgeConfig(mode) {
+      if (mode === 'auto') {
+        return {
+          icon: '⚡',
+          labelVi: 'Tự động chạy sau phân tích video',
+          labelEn: 'Auto-runs after video analysis',
+          cls: 'auto'
+        };
+      }
+      if (mode === 'manual') {
+        return {
+          icon: '✋',
+          labelVi: 'Chạy thủ công theo yêu cầu (On-Demand)',
+          labelEn: 'Manual / On-demand trigger',
+          cls: 'manual'
+        };
+      }
+      return {
+        icon: '🔄',
+        labelVi: 'Khung mẫu tiền đề & Tham chiếu tự động',
+        labelEn: 'Foundational Rubric (Auto-referenced)',
+        cls: 'reference'
+      };
+    }
+
+    function renderContent() {
+      const f = FEATURES[currentFeatureKey];
+      const isVi = currentLang === 'vi';
+      const b = getBadgeConfig(f.autoMode);
+
+      document.getElementById('mock-page-title').innerHTML = `
+        <span>${f.icon}</span>
+        <span>${isVi ? f.titleVi : f.titleEn}</span>
+      `;
+
+      // OPTION 1 RENDER
+      document.getElementById('opt1-content').innerHTML = `
+        <div class="wf-ribbon-top">
+          <div class="wf-step-indicator">
+            <span class="wf-step-pill">${isVi ? f.stepVi : f.stepEn}</span>
+            <span class="wf-predecessor-pill">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
+              <span><strong>${isVi ? 'Chạy sau:' : 'Runs after:'}</strong> ${isVi ? f.predecessorVi : f.predecessorEn}</span>
+            </span>
+          </div>
+          <div class="wf-auto-badge ${b.cls}">
+            <span>${b.icon}</span>
+            <span>${isVi ? f.autoTextVi : f.autoTextEn}</span>
+          </div>
+        </div>
+        <div class="wf-ribbon-desc">
+          <svg width="16" height="16" style="flex-shrink:0; margin-top:2px; color:var(--accent)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <div>
+            <strong>${isVi ? 'Hướng dẫn thao tác & Cơ chế:' : 'Operational Guide & Mechanism:'}</strong>
+            ${isVi ? f.descVi : f.descEn}
+          </div>
+        </div>
+      `;
+
+      // OPTION 2 RENDER
+      document.getElementById('opt2-content').innerHTML = `
+        <div class="wf-subcard">
+          <div class="wf-subcard-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>${isVi ? 'Vị trí luồng & Bước tiền đề' : 'Pipeline Position & Predecessor'}</span>
+          </div>
+          <div class="wf-subcard-val">
+            <span style="color:var(--accent)">↳</span>
+            <span>${isVi ? f.predecessorVi : f.predecessorEn}</span>
+          </div>
+          <div class="wf-subcard-note">${isVi ? f.stepVi : f.stepEn}</div>
+        </div>
+
+        <div class="wf-subcard">
+          <div class="wf-subcard-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span>${isVi ? 'Cơ chế tự động hoá (Automation Mode)' : 'Automation Capability'}</span>
+          </div>
+          <div class="wf-subcard-val">
+            <span class="wf-auto-badge ${b.cls}" style="padding:2px 8px; font-size:11.5px;">
+              ${b.icon} ${isVi ? f.autoTextVi : f.autoTextEn}
+            </span>
+          </div>
+          <div class="wf-subcard-note">${isVi ? f.descVi : f.descEn}</div>
+        </div>
+      `;
+
+      // OPTION 3 RENDER
+      document.getElementById('opt3-content').innerHTML = `
+        <div class="wf-compact-left">
+          <span class="wf-compact-seq">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m10 8 4 4-4 4"/></svg>
+            ${isVi ? f.stepVi : f.stepEn}
+          </span>
+          <span class="wf-compact-divider">|</span>
+          <span><strong>${isVi ? 'Chạy sau:' : 'Runs after:'}</strong> ${isVi ? f.predecessorVi : f.predecessorEn}</span>
+        </div>
+        <div class="wf-compact-right">
+          <span class="wf-auto-badge ${b.cls}" style="font-size:11px; padding:3px 9px;">
+            ${b.icon} ${isVi ? f.autoTextVi : f.autoTextEn}
+          </span>
+        </div>
+      `;
+    }
+
+    // Init
+    renderTabs();
+    renderContent();
+  </script>
+</body>
+</html>

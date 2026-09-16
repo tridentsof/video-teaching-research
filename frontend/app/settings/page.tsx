@@ -1176,7 +1176,7 @@ export default function SettingsPage() {
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
                         <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
-                          {assignedM?.display_name || assignedM?.model_id || cfg.model_catalog_id || 'Chưa chọn model'}
+                          {assignedM?.display_name || assignedM?.model_id || cfg.model_catalog_id || (language === 'vi' ? 'Chưa chọn model' : 'No model selected')}
                         </span>
                         <span>•</span>
                         {(() => {
@@ -1762,29 +1762,29 @@ export default function SettingsPage() {
                 gap: '8px',
               }}>
                 <div style={{ fontSize: '15px', fontWeight: 700, color: '#38BDF8', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>Phân tích Video hoàn tất!</span>
+                  <span>{language === 'vi' ? '🎉 Phân tích Video hoàn tất!' : '🎉 Video Analysis Complete!'}</span>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px', fontSize: '12.5px' }}>
-                  <div><b>Video:</b> Giảng dạy tiếng Anh - Lớp 10A1</div>
+                  <div><b>Video:</b> {language === 'vi' ? 'Giảng dạy tiếng Anh - Lớp 10A1' : 'English Teaching - Grade 10A1'}</div>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#94A3B8' }}>ID: 8833bde7-0760-4398-9326-70af38d5a45e</div>
-                  <div><b>Thời lượng video:</b> 42 phút 15 giây</div>
-                  <div><b>Chế độ:</b> Chunking (Phân đoạn song song)</div>
-                  <div><b>Thời gian xử lý:</b> 3 phút 20 giây</div>
-                  <div><b>Events trích xuất:</b> 28 sự kiện</div>
-                  <div><b>Checklist mappings:</b> 14 mục</div>
-                  <div style={{ color: '#4ADE80' }}><b>Báo cáo quan sát:</b> Đã tạo thành công</div>
-                  <div style={{ color: '#4ADE80' }}><b>Qualitative Codebook:</b> Đã tổng hợp</div>
+                  <div><b>{language === 'vi' ? 'Thời lượng video:' : 'Video duration:'}</b> {language === 'vi' ? '42 phút 15 giây' : '42m 15s'}</div>
+                  <div><b>{language === 'vi' ? 'Chế độ:' : 'Mode:'}</b> {language === 'vi' ? 'Chunking (Phân đoạn song song)' : 'Chunking (Parallel segments)'}</div>
+                  <div><b>{language === 'vi' ? 'Thời gian xử lý:' : 'Processing time:'}</b> {language === 'vi' ? '3 phút 20 giây' : '3m 20s'}</div>
+                  <div><b>{language === 'vi' ? 'Events trích xuất:' : 'Extracted events:'}</b> {language === 'vi' ? '28 sự kiện' : '28 events'}</div>
+                  <div><b>Checklist mappings:</b> {language === 'vi' ? '14 mục' : '14 items'}</div>
+                  <div style={{ color: '#4ADE80' }}><b>{language === 'vi' ? 'Báo cáo quan sát:' : 'Observation report:'}</b> {language === 'vi' ? 'Đã tạo thành công' : 'Generated successfully'}</div>
+                  <div style={{ color: '#4ADE80' }}><b>Qualitative Codebook:</b> {language === 'vi' ? 'Đã tổng hợp' : 'Synthesized'}</div>
                 </div>
 
                 <div style={{ borderTop: '1px solid #334155', paddingTop: '8px', marginTop: '6px' }}>
                   <span style={{ color: '#38BDF8', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}>
-                    🔗 Xem chi tiết kết quả phân tích trong hệ thống
+                    {language === 'vi' ? '🔗 Xem chi tiết kết quả phân tích trong hệ thống' : '🔗 View complete analysis details in system'}
                   </span>
                 </div>
 
                 <div style={{ alignSelf: 'flex-end', fontSize: '10px', color: '#64748B', marginTop: '-4px' }}>
-                  16:45 • Đã gửi
+                  16:45 • {language === 'vi' ? 'Đã gửi' : 'Delivered'}
                 </div>
               </div>
 

@@ -5,6 +5,7 @@ import { Checklist, ChecklistItem, api } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n';
 import { useToast } from '@/components/ToastProvider';
 import { CheckSquare, Plus, Trash2, Save, Sparkles } from 'lucide-react';
+import { FeatureWorkflowBanner } from '@/components/FeatureWorkflowBanner';
 
 const sectionNames: Record<string, string> = {
   A: 'Section A. Establishing Online Rules and Routines',
@@ -15,7 +16,7 @@ const sectionNames: Record<string, string> = {
 };
 
 export default function ChecklistPage() {
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
   const toast = useToast();
   const [checklist, setChecklist] = useState<Checklist | null>(null);
   const [items, setItems] = useState<ChecklistItem[]>([]);
@@ -57,17 +58,17 @@ export default function ChecklistPage() {
           // Section D
           { id: '18', checklist_id: '01', section: 'D', text: 'Teacher models target language', sort_order: 1 },
           { id: '19', checklist_id: '01', section: 'D', text: 'Teacher provides sentence starters', sort_order: 2 },
-          { id: '20', checklist_id: '01', section: 'D', text: 'Teacher uses prompts', sort_order: 3 },
-          { id: '21', checklist_id: '01', section: 'D', text: 'Teacher gives praise and encouragement', sort_order: 4 },
-          { id: '22', checklist_id: '01', section: 'D', text: 'Teacher provides corrective feedback', sort_order: 5 },
-          { id: '23', checklist_id: '01', section: 'D', text: 'Teacher adjusts support based on learners\' responses', sort_order: 6 },
+          { id: '20', checklist_id: '01', section: 'D', text: 'Teacher breaks down complex tasks', sort_order: 3 },
+          { id: '21', checklist_id: '01', section: 'D', text: 'Teacher offers praise for effort', sort_order: 4 },
+          { id: '22', checklist_id: '01', section: 'D', text: 'Teacher uses positive feedback', sort_order: 5 },
+          { id: '23', checklist_id: '01', section: 'D', text: 'Teacher supports struggling learners', sort_order: 6 },
           // Section E
-          { id: '24', checklist_id: '01', section: 'E', text: 'Teacher uses the chat box', sort_order: 1 },
-          { id: '25', checklist_id: '01', section: 'E', text: 'Teacher uses reaction icons', sort_order: 2 },
-          { id: '26', checklist_id: '01', section: 'E', text: 'Teacher uses breakout rooms', sort_order: 3 },
-          { id: '27', checklist_id: '01', section: 'E', text: 'Teacher shares screen', sort_order: 4 },
-          { id: '28', checklist_id: '01', section: 'E', text: 'Teacher uses a digital whiteboard', sort_order: 5 },
-          { id: '29', checklist_id: '01', section: 'E', text: 'Teacher uses polls or annotation tools', sort_order: 6 },
+          { id: '24', checklist_id: '01', section: 'E', text: 'Teacher shares screen effectively', sort_order: 1 },
+          { id: '25', checklist_id: '01', section: 'E', text: 'Teacher uses interactive whiteboard/annotate', sort_order: 2 },
+          { id: '26', checklist_id: '01', section: 'E', text: 'Teacher uses audio/video media', sort_order: 3 },
+          { id: '27', checklist_id: '01', section: 'E', text: 'Teacher uses digital games/quizzes', sort_order: 4 },
+          { id: '28', checklist_id: '01', section: 'E', text: 'Teacher manages chat/reactions', sort_order: 5 },
+          { id: '29', checklist_id: '01', section: 'E', text: 'Teacher handles technical glitches smoothly', sort_order: 6 },
         ];
         setChecklist({ id: '01', name: 'Observation Checklist', version: 'v1.0' });
         setItems(defaultItems);
@@ -76,7 +77,9 @@ export default function ChecklistPage() {
   }, []);
 
   const handleItemTextChange = (id: string, newText: string) => {
-    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, text: newText } : it)));
+    setItems((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, text: newText } : it))
+    );
   };
 
   const handleAddItem = (section: string) => {
@@ -84,16 +87,16 @@ export default function ChecklistPage() {
       id: `new-${Date.now()}`,
       checklist_id: checklist?.id || '01',
       section,
-      text: 'New classroom observation criterion',
+      text: language === 'vi' ? 'Chỉ báo quan sát lớp học mới' : 'New classroom observation criterion',
       sort_order: items.filter((i) => i.section === section).length + 1,
     };
     setItems((prev) => [...prev, newItem]);
-    toast.info(`Added new criterion to Section ${section}`);
+    toast.info(language === 'vi' ? `Đã thêm tiêu chí mới vào Phần ${section}` : `Added new criterion to Section ${section}`);
   };
 
   const handleDeleteItem = (id: string) => {
     setItems((prev) => prev.filter((it) => it.id !== id));
-    toast.info('Criterion removed from draft');
+    toast.info(language === 'vi' ? 'Đã xóa tiêu chí khỏi bản thảo' : 'Criterion removed from draft');
   };
 
   const handleSave = async () => {
@@ -104,14 +107,20 @@ export default function ChecklistPage() {
         checklist.id,
         items.map((i) => ({ section: i.section, text: i.text, sort_order: i.sort_order }))
       );
-      toast.success('Observation checklist updated and synced successfully!', {
-        title: 'Checklist Saved',
-        duration: 3500,
-      });
+      toast.success(
+        language === 'vi' ? 'Đã cập nhật và đồng bộ bảng kiểm thành công!' : 'Observation checklist updated and synced successfully!',
+        {
+          title: language === 'vi' ? 'Đã lưu bảng kiểm' : 'Checklist Saved',
+          duration: 3500,
+        }
+      );
     } catch (err: any) {
-      toast.error(`Save failed: ${err.message}`, {
-        title: 'Checklist Error',
-      });
+      toast.error(
+        `${language === 'vi' ? 'Lỗi lưu bảng kiểm: ' : 'Save failed: '}${err.message}`,
+        {
+          title: language === 'vi' ? 'Lỗi bảng kiểm' : 'Checklist Error',
+        }
+      );
     } finally {
       setSaving(false);
     }
@@ -150,6 +159,9 @@ export default function ChecklistPage() {
         </button>
       </div>
 
+      {/* Feature Workflow & Automation Guidance */}
+      <FeatureWorkflowBanner featureKey="checklists" />
+
       {/* Sections List */}
       {['A', 'B', 'C', 'D', 'E'].map((sec) => {
         const secItems = items.filter((i) => i.section === sec);
@@ -174,7 +186,7 @@ export default function ChecklistPage() {
                 fontWeight: 400,
                 color: 'var(--text-main)',
               }}>
-                {sectionNames[sec] || `Section ${sec}`}
+                {t(`checklistsSec${sec}` as any) || sectionNames[sec] || `Section ${sec}`}
               </h3>
               <button
                 onClick={() => handleAddItem(sec)}

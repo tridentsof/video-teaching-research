@@ -173,8 +173,10 @@ export const activityLogService = {
     }
   },
 
-  exportCSV(logs: ActivityLogItem[]): void {
-    const headers = ['ID', 'Thời gian', 'Phân tầng', 'Phân hệ', 'Hành động', 'Thực thể', 'Tác tử', 'Vai trò', 'Trạng thái', 'Mô tả'];
+  exportCSV(logs: ActivityLogItem[], lang: 'en' | 'vi' = 'vi'): void {
+    const headers = lang === 'vi'
+      ? ['ID', 'Thời gian', 'Phân tầng', 'Phân hệ', 'Hành động', 'Thực thể', 'Tác tử', 'Vai trò', 'Trạng thái', 'Mô tả']
+      : ['ID', 'Timestamp', 'Category', 'Module', 'Action', 'Target Entity', 'Actor', 'Role', 'Status', 'Summary'];
     const rows = logs.map((l) => [
       l.id,
       l.created_at,

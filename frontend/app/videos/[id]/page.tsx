@@ -433,14 +433,14 @@ export default function VideoDetailPage() {
       case 'completed':
         return t('statusCompleted');
       case 'review_pending':
-        return 'Chờ duyệt';
+        return t('statusReviewPending');
       case 'mapped':
-        return 'Đã ánh xạ';
+        return t('statusMapped');
       case 'failed':
       case 'error':
         return t('commonFailed');
       case 'cancelled':
-        return 'Cancelled';
+        return t('statusCancelled');
       default:
         return status.replace('_', ' ');
     }
@@ -913,11 +913,11 @@ export default function VideoDetailPage() {
               {retrying || isRunning
                 ? t('commonInProgress')
                 : isModeChanged
-                ? `${t('rerunPipeline')} (Từ Đầu)`
+                ? `${t('rerunPipeline')} (${t('rerunFromStart')})`
                 : isVideoFailed
-                ? 'Resume Analysis'
+                ? `${t('resumeFromStep')} Analysis`
                 : isVideoCancelled
-                ? 'Resume from Checkpoint'
+                ? `${t('resumeFromStep')} Checkpoint`
                 : t('rerunPipeline')}
             </span>
           </button>
@@ -1196,7 +1196,7 @@ export default function VideoDetailPage() {
                         </span>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           <Timer size={12} color="var(--accent)" />
-                          <span>Còn lại: <strong>~{activeUpload.etaSeconds > 0 ? `${activeUpload.etaSeconds}s` : '...'}</strong></span>
+                          <span>{t('liveUploadRemaining')}: <strong>~{activeUpload.etaSeconds > 0 ? `${activeUpload.etaSeconds}s` : '...'}</strong></span>
                         </span>
                       </div>
                     </div>
@@ -1249,7 +1249,7 @@ export default function VideoDetailPage() {
                 </p>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '6px', padding: '3px 8px', borderRadius: '4px', backgroundColor: 'rgba(220, 38, 38, 0.08)', color: '#991B1B', fontSize: '11px', fontWeight: 600 }}>
                   <Sparkles size={12} color="#DC2626" />
-                  <span>Smart Resume saves video tokens by reusing completed checkpoints.</span>
+                  <span>{t('smartResumeBadge')}</span>
                 </div>
               </div>
             </div>
@@ -1260,7 +1260,7 @@ export default function VideoDetailPage() {
                   onClick={() => handleRerun('resume')}
                   disabled={retrying}
                   className="btn btn-primary btn-sm"
-                  title="Resume pipeline from failed step and reuse existing extractions"
+                  title="Resume pipeline"
                   style={{
                     backgroundColor: '#DC2626',
                     borderColor: '#B91C1C',
@@ -1269,14 +1269,14 @@ export default function VideoDetailPage() {
                   }}
                 >
                   {retrying ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                  <span>Resume from {failedStepName || 'Failed Step'}</span>
+                  <span>{t('resumeFromStep')} {failedStepName || 'Failed Step'}</span>
                 </button>
               ) : (
                 <button
                   onClick={() => handleRerun('restart')}
                   disabled={retrying}
                   className="btn btn-primary btn-sm"
-                  title="Chế độ phân tích đã đổi — phân tích lại sạch từ Step 1"
+                  title={t('rerunModeChanged')}
                   style={{
                     backgroundColor: '#D97706',
                     borderColor: '#B45309',
@@ -1285,7 +1285,7 @@ export default function VideoDetailPage() {
                   }}
                 >
                   {retrying ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
-                  <span>Chạy lại từ đầu ({rerunChunking ? '10-min Segments' : 'Full Video'})</span>
+                  <span>{t('rerunFromStart')} ({rerunChunking ? '10-min Segments' : 'Full Video'})</span>
                 </button>
               )}
 
@@ -1293,7 +1293,7 @@ export default function VideoDetailPage() {
                 onClick={() => handleRerun('restart')}
                 disabled={retrying}
                 className="btn btn-secondary btn-sm"
-                title="Purge all cached checkpoints and restart entire pipeline from Step 1"
+                title="Restart pipeline from Step 1"
                 style={{
                   padding: '8px 14px',
                   color: '#7F1D1D',
@@ -1302,7 +1302,7 @@ export default function VideoDetailPage() {
                 }}
               >
                 <RotateCcw size={14} />
-                <span>Restart All</span>
+                <span>{t('restartAll')}</span>
               </button>
             </div>
           </div>
@@ -1391,14 +1391,14 @@ export default function VideoDetailPage() {
               </div>
               <div>
                 <h4 style={{ fontSize: '16px', fontWeight: 700, color: '#92400E' }}>
-                  Phân tích bị dừng {failedStepName ? `tại ${failedStepName}` : ''}
+                  {t('analysisHaltedAt')} {failedStepName ? failedStepName : ''}
                 </h4>
                 <p style={{ fontSize: '13px', color: '#78350F', marginTop: '4px' }}>
-                  Bạn đã dừng pipeline. Các bước đã hoàn thành vẫn được lưu — bạn có thể tiếp tục từ chỗ dừng mà không tốn thêm token.
+                  {t('analysisStoppedByUserDesc')}
                 </p>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '6px', padding: '3px 8px', borderRadius: '4px', backgroundColor: 'rgba(217, 119, 6, 0.08)', color: '#92400E', fontSize: '11px', fontWeight: 600 }}>
                   <Sparkles size={12} color="#D97706" />
-                  <span>Smart Resume: tiếp tục từ checkpoint, không phải chạy lại từ đầu.</span>
+                  <span>{t('smartResumeBadge')}</span>
                 </div>
               </div>
             </div>
@@ -1409,7 +1409,7 @@ export default function VideoDetailPage() {
                   onClick={() => handleRerun('resume')}
                   disabled={retrying}
                   className="btn btn-primary btn-sm"
-                  title="Tiếp tục pipeline từ bước bị dừng, tái sử dụng checkpoint đã có"
+                  title="Resume from checkpoint"
                   style={{
                     backgroundColor: '#D97706',
                     borderColor: '#B45309',
@@ -1418,14 +1418,14 @@ export default function VideoDetailPage() {
                   }}
                 >
                   {retrying ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                  <span>Tiếp tục từ {failedStepName || 'Checkpoint'}</span>
+                  <span>{t('resumeFromStep')} {failedStepName || 'Checkpoint'}</span>
                 </button>
               ) : (
                 <button
                   onClick={() => handleRerun('restart')}
                   disabled={retrying}
                   className="btn btn-primary btn-sm"
-                  title="Chế độ phân tích đã đổi — phân tích lại sạch từ Step 1"
+                  title={t('rerunModeChanged')}
                   style={{
                     backgroundColor: '#D97706',
                     borderColor: '#B45309',
@@ -1434,7 +1434,7 @@ export default function VideoDetailPage() {
                   }}
                 >
                   {retrying ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
-                  <span>Chạy lại từ đầu ({rerunChunking ? '10-min Segments' : 'Full Video'})</span>
+                  <span>{t('rerunFromStart')} ({rerunChunking ? '10-min Segments' : 'Full Video'})</span>
                 </button>
               )}
 
@@ -1442,7 +1442,7 @@ export default function VideoDetailPage() {
                 onClick={() => handleRerun('restart')}
                 disabled={retrying}
                 className="btn btn-secondary btn-sm"
-                title="Xóa toàn bộ checkpoint và chạy lại pipeline từ Step 1"
+                title="Restart all from Step 1"
                 style={{
                   padding: '8px 14px',
                   color: '#92400E',
@@ -1451,7 +1451,7 @@ export default function VideoDetailPage() {
                 }}
               >
                 <RotateCcw size={14} />
-                <span>Chạy lại từ đầu</span>
+                <span>{t('rerunFromStart')}</span>
               </button>
             </div>
           </div>
@@ -1677,7 +1677,7 @@ export default function VideoDetailPage() {
                 color: '#475569',
                 lineHeight: 1.4,
               }}>
-                <strong>💡 {t('commonNote') || 'Lưu ý'}:</strong> {t('editVideoModalDesc')}
+                <strong>💡 {t('commonNote')}:</strong> {t('editVideoModalDesc')}
               </div>
 
               {/* Modal Actions */}

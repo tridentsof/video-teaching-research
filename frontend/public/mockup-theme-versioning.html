@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đề xuất Giao diện Versioning & Lịch sử Phân tích — Video Teaching Research</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+            serif: ['Newsreader', 'Georgia', 'serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f5f3ff',
+              100: '#ede9fe',
+              500: '#8b5cf6',
+              600: '#7c3aed',
+              700: '#6d28d9',
+            },
+            accent: '#B45309',
+            gold: '#D97706',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #0b0f19; color: #f3f4f6; }
+    .glass-panel {
+      background: rgba(17, 24, 39, 0.75);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .badge-pill {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .badge-completed {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .badge-active {
+      background: rgba(124, 58, 237, 0.2);
+      color: #c4b5fd;
+      border: 1px solid rgba(124, 58, 237, 0.4);
+    }
+    .badge-theme {
+      background: rgba(217, 119, 6, 0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(217, 119, 6, 0.3);
+    }
+  </style>
+</head>
+<body class="min-h-screen font-sans antialiased p-6 md:p-10 text-gray-200">
+
+  <!-- Top Navigation & Concept Switcher -->
+  <header class="max-w-7xl mx-auto mb-8 border-b border-gray-800 pb-6">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+      <div>
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 to-violet-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          </div>
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2 font-serif">
+              Teaching Themes Versioning & Analysis History
+              <span class="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-sans font-medium">Design Mockups</span>
+            </h1>
+            <p class="text-sm text-gray-400 mt-0.5">3 Phương án thiết kế xem lại lịch sử các lần chạy phân tích và lựa chọn Theme mong muốn</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Switcher between Option A, B, C -->
+      <div class="flex items-center bg-gray-900/90 p-1.5 rounded-xl border border-gray-800 shadow-inner">
+        <button onclick="switchConcept('concept-a')" id="btn-concept-a" class="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 bg-amber-600 text-white shadow-md flex items-center gap-2">
+          <span>Phương án 1 (Khuyên Dùng)</span>
+          <span class="text-[10px] bg-amber-800/60 px-1.5 py-0.5 rounded text-amber-200 font-mono">Selector & Modal Table</span>
+        </button>
+        <button onclick="switchConcept('concept-b')" id="btn-concept-b" class="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 text-gray-400 hover:text-white flex items-center gap-2">
+          <span>Phương án 2</span>
+          <span class="text-[10px] bg-gray-800 px-1.5 py-0.5 rounded text-gray-400 font-mono">Dual Tab (Themes / Runs)</span>
+        </button>
+        <button onclick="switchConcept('concept-c')" id="btn-concept-c" class="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 text-gray-400 hover:text-white flex items-center gap-2">
+          <span>Phương án 3</span>
+          <span class="text-[10px] bg-gray-800 px-1.5 py-0.5 rounded text-gray-400 font-mono">Git-style Timeline Sidebar</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto space-y-8">
+
+    <!-- ========================================================================= -->
+    <!-- OPTION A: Quick Switcher Bar on Top + Detailed History Modal / Drawer     -->
+    <!-- ========================================================================= -->
+    <section id="concept-a" class="concept-view block space-y-6">
+      <div class="bg-gradient-to-r from-amber-500/10 via-purple-500/5 to-transparent p-4 rounded-xl border border-amber-500/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h3 class="text-base font-semibold text-amber-300 flex items-center gap-2">
+            <span>✨ Phương án 1: Version Bar + Bảng Lịch Sử Modal (Drawer)</span>
+            <span class="badge-pill bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Tối ưu thao tác & Tinh gọn</span>
+          </h3>
+          <p class="text-xs text-gray-300 mt-1">
+            Giữ nguyên giao diện Cây Themes trực quan, thêm thanh chọn phiên nhanh trên Header kèm nút <strong>"Lịch sử các lần chạy (History)"</strong> để mở bảng chi tiết khi cần đối chiếu hoặc chuyển phiên.
+          </p>
+        </div>
+        <button onclick="toggleModal('runs-modal')" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-gray-900 font-bold text-xs rounded-lg shadow transition flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+          Mở Bảng Lịch Sử Phiên Chạy
+        </button>
+      </div>
+
+      <!-- The Page Header with Version Switcher -->
+      <div class="glass-panel p-6 rounded-2xl border border-gray-800">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-gray-800/80">
+          <div>
+            <div class="flex items-center gap-3">
+              <h2 class="text-2xl font-serif text-amber-500">Chiến Lược Giảng Dạy & Chủ Đề</h2>
+              <span class="badge-pill badge-theme">Grounded Theory Analysis</span>
+            </div>
+            <p class="text-sm text-gray-400 mt-1">Quy nạp đa tầng từ dữ liệu quan sát video lớp học thành các chủ đề sư phạm cốt lõi</p>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex items-center gap-3">
+            <button class="px-4 py-2 bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-800/50 rounded-lg text-xs font-medium flex items-center gap-2 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+              Xóa phiên đang xem
+            </button>
+            <button class="px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-gray-950 rounded-lg text-xs font-bold shadow-lg shadow-amber-500/20 flex items-center gap-2 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              Chạy Phân Tích Mới
+            </button>
+          </div>
+        </div>
+
+        <!-- VERSION SELECTOR BAR (KEY COMPONENT) -->
+        <div class="mt-4 pt-2 flex flex-wrap items-center justify-between gap-4 bg-gray-900/60 p-3.5 rounded-xl border border-gray-800">
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
+              Phiên Phân Tích:
+            </span>
+
+            <!-- Dropdown selector -->
+            <div class="relative">
+              <select onchange="simulateSelectRun(this.value)" class="bg-gray-800 text-gray-100 text-xs font-medium rounded-lg border border-gray-700 px-3 py-1.5 pr-8 focus:ring-2 focus:ring-amber-500 focus:outline-none appearance-none cursor-pointer">
+                <option value="run-4" selected>Run #4 • 16/09/2026 20:25 (Mới nhất) — 6 Themes, 14 Cụm</option>
+                <option value="run-3">Run #3 • 16/09/2026 12:40 — 5 Themes, 12 Cụm</option>
+                <option value="run-2">Run #2 • 15/09/2026 15:10 — 4 Themes, 10 Cụm</option>
+                <option value="run-1">Run #1 • 14/09/2026 09:30 — 3 Themes, 8 Cụm (Baseline)</option>
+              </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+              </div>
+            </div>
+
+            <!-- Active Tag -->
+            <span class="badge-pill badge-active">Đang xem</span>
+            <span class="badge-pill badge-completed">Hoàn tất (2m 14s)</span>
+          </div>
+
+          <!-- Run summary stats & modal toggle button -->
+          <div class="flex items-center gap-4 text-xs text-gray-400">
+            <div>Phát hiện: <strong class="text-amber-400 font-mono text-sm" id="stat-theme-count">6</strong> Themes • <strong class="text-gray-200 font-mono text-sm">14</strong> Cụm • <strong class="text-gray-200 font-mono text-sm">48</strong> Chiến lược</div>
+            <button onclick="toggleModal('runs-modal')" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded-lg text-xs font-medium flex items-center gap-1.5 transition">
+              <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+              Xem tất cả 4 phiên (Bảng Table)
+            </button>
+          </div>
+        </div>
+
+        <!-- PREVIEW OF THEMES CONTENT FOR THE SELECTED RUN -->
+        <div class="mt-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <h4 class="text-sm font-semibold uppercase tracking-wider text-gray-400">Danh sách 6 Themes phát hiện từ Run #4</h4>
+            <span class="text-xs text-gray-400">Model: <code class="text-amber-300">gemini-3.7-flash</code> (Prompt 5-6 themes)</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Theme Card 1 -->
+            <div class="glass-panel p-4 rounded-xl border border-amber-500/30 hover:border-amber-500/60 transition shadow">
+              <div class="flex items-start justify-between">
+                <span class="text-xs font-mono text-amber-400 font-bold">THEME 1</span>
+                <span class="badge-pill bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Confirmed</span>
+              </div>
+              <h5 class="text-sm font-semibold text-white mt-1.5">Scaffolding Through Wait Time & Active Listening</h5>
+              <p class="text-xs text-gray-400 mt-1 line-clamp-2">Giáo viên chủ động kéo dài thời gian chờ 3–5 giây sau câu hỏi giúp học sinh cải thiện đáng kể khả năng phản hồi tự nguyện.</p>
+              <div class="mt-3 pt-2 border-t border-gray-800 text-[11px] text-gray-400 flex items-center justify-between">
+                <span>3 Cụm • 11 Chiến lược</span>
+                <span class="text-amber-400 font-mono font-medium">96 lần xuất hiện</span>
+              </div>
+            </div>
+
+            <!-- Theme Card 2 -->
+            <div class="glass-panel p-4 rounded-xl border border-gray-800 hover:border-gray-700 transition shadow">
+              <div class="flex items-start justify-between">
+                <span class="text-xs font-mono text-amber-400 font-bold">THEME 2</span>
+                <span class="badge-pill bg-amber-500/10 text-amber-400 border border-amber-500/20">Draft</span>
+              </div>
+              <h5 class="text-sm font-semibold text-white mt-1.5">Multimodal Elicitation & Visual Anchoring</h5>
+              <p class="text-xs text-gray-400 mt-1 line-clamp-2">Kết hợp cử chỉ, tranh ảnh thực tế và màn hình tương tác để gợi mở từ vựng và cấu trúc câu mà không lạm dụng tiếng mẹ đẻ.</p>
+              <div class="mt-3 pt-2 border-t border-gray-800 text-[11px] text-gray-400 flex items-center justify-between">
+                <span>2 Cụm • 8 Chiến lược</span>
+                <span class="text-amber-400 font-mono font-medium">74 lần xuất hiện</span>
+              </div>
+            </div>
+
+            <!-- Theme Card 3 -->
+            <div class="glass-panel p-4 rounded-xl border border-gray-800 hover:border-gray-700 transition shadow">
+              <div class="flex items-start justify-between">
+                <span class="text-xs font-mono text-amber-400 font-bold">THEME 3</span>
+                <span class="badge-pill bg-amber-500/10 text-amber-400 border border-amber-500/20">Draft</span>
+              </div>
+              <h5 class="text-sm font-semibold text-white mt-1.5">Affective Support & Gamified Positive Reinforcement</h5>
+              <p class="text-xs text-gray-400 mt-1 line-clamp-2">Sử dụng hệ thống huy hiệu, lời khen cụ thể và trò chơi ngắn để giảm lo âu ngôn ngữ (Foreign Language Anxiety) của học viên.</p>
+              <div class="mt-3 pt-2 border-t border-gray-800 text-[11px] text-gray-400 flex items-center justify-between">
+                <span>2 Cụm • 9 Chiến lược</span>
+                <span class="text-amber-400 font-mono font-medium">68 lần xuất hiện</span>
+              </div>
+            </div>
+
+            <!-- Theme Card 4 -->
+            <div class="glass-panel p-4 rounded-xl border border-gray-800 hover:border-gray-700 transition shadow">
+              <div class="flex items-start justify-between">
+                <span class="text-xs font-mono text-amber-400 font-bold">THEME 4</span>
+                <span class="badge-pill bg-amber-500/10 text-amber-400 border border-amber-500/20">Draft</span>
+              </div>
+              <h5 class="text-sm font-semibold text-white mt-1.5">Form-Focused Feedback via Gentle Recasting</h5>
+              <p class="text-xs text-gray-400 mt-1 line-clamp-2">Sửa lỗi phát âm và ngữ pháp gián tiếp thông qua nhắc lại tự nhiên (recast) thay vì ngắt lời học sinh khi đang giao tiếp.</p>
+              <div class="mt-3 pt-2 border-t border-gray-800 text-[11px] text-gray-400 flex items-center justify-between">
+                <span>3 Cụm • 7 Chiến lược</span>
+                <span class="text-amber-400 font-mono font-medium">55 lần xuất hiện</span>
+              </div>
+            </div>
+
+            <!-- Theme Card 5 -->
+            <div class="glass-panel p-4 rounded-xl border border-gray-800 hover:border-gray-700 transition shadow">
+              <div class="flex items-start justify-between">
+                <span class="text-xs font-mono text-amber-400 font-bold">THEME 5</span>
+                <span class="badge-pill bg-amber-500/10 text-amber-400 border border-amber-500/20">Draft</span>
+              </div>
+              <h5 class="text-sm font-semibold text-white mt-1.5">Collaborative Peer Scaffolding & Group Autonomy</h5>
+              <p class="text-xs text-gray-400 mt-1 line-clamp-2">Tổ chức ghép cặp xoay vòng giúp học sinh hỗ trợ lẫn nhau trước khi trình bày trước cả lớp.</p>
+              <div class="mt-3 pt-2 border-t border-gray-800 text-[11px] text-gray-400 flex items-center justify-between">
+                <span>2 Cụm • 7 Chiến lược</span>
+                <span class="text-amber-400 font-mono font-medium">49 lần xuất hiện</span>
+              </div>
+            </div>
+
+            <!-- Theme Card 6 -->
+            <div class="glass-panel p-4 rounded-xl border border-gray-800 hover:border-gray-700 transition shadow">
+              <div class="flex items-start justify-between">
+                <span class="text-xs font-mono text-amber-400 font-bold">THEME 6</span>
+                <span class="badge-pill bg-amber-500/10 text-amber-400 border border-amber-500/20">Draft</span>
+              </div>
+              <h5 class="text-sm font-semibold text-white mt-1.5">Dynamic Discourse Management & Clarification Requests</h5>
+              <p class="text-xs text-gray-400 mt-1 line-clamp-2">Liên tục sử dụng các câu hỏi thăm dò (probing questions) và yêu cầu làm rõ để đẩy học sinh vượt qua ngưỡng giao tiếp tối thiểu.</p>
+              <div class="mt-3 pt-2 border-t border-gray-800 text-[11px] text-gray-400 flex items-center justify-between">
+                <span>2 Cụm • 6 Chiến lược</span>
+                <span class="text-amber-400 font-mono font-medium">42 lần xuất hiện</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL / DRAWER FOR FULL RUNS TABLE -->
+      <div id="runs-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+          <!-- Modal Header -->
+          <div class="p-6 border-b border-gray-800 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              </div>
+              <div>
+                <h3 class="text-lg font-bold text-white">Lịch Sử Các Đợt Phân Tích (Analysis Runs Versioning)</h3>
+                <p class="text-xs text-gray-400">Xem và chọn bất kỳ phiên chạy nào để kiểm tra kết quả Theme, Cụm và Chiến lược tương ứng</p>
+              </div>
+            </div>
+            <button onclick="toggleModal('runs-modal')" class="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+          </div>
+
+          <!-- Modal Table -->
+          <div class="p-6 overflow-y-auto">
+            <div class="overflow-x-auto rounded-xl border border-gray-800">
+              <table class="w-full text-left text-xs text-gray-300">
+                <thead class="bg-gray-800/80 uppercase text-[11px] font-semibold text-gray-400 tracking-wider">
+                  <tr>
+                    <th class="py-3 px-4">Phiên Chạy (Run)</th>
+                    <th class="py-3 px-4">Thời Gian Khởi Chạy</th>
+                    <th class="py-3 px-4 text-center">Trạng Thái</th>
+                    <th class="py-3 px-4 text-center">Số Themes</th>
+                    <th class="py-3 px-4 text-center">Số Cụm</th>
+                    <th class="py-3 px-4 text-center">Chiến Lược</th>
+                    <th class="py-3 px-4">Core Questions</th>
+                    <th class="py-3 px-4 text-right">Thao Tác</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-800/60 bg-gray-900/40">
+                  <!-- Row 1: Active Run -->
+                  <tr class="bg-amber-500/10 border-l-4 border-amber-500">
+                    <td class="py-3.5 px-4 font-mono font-semibold text-white">
+                      <div class="flex items-center gap-2">
+                        <span>#4</span>
+                        <code class="text-amber-300 font-mono text-[11px]">89c2fa1b</code>
+                        <span class="badge-pill badge-active text-[10px]">Đang xem</span>
+                      </div>
+                      <div class="text-[10px] text-gray-400 font-sans mt-0.5">Prompt 5-6 Themes (Gemini 3.7 Flash)</div>
+                    </td>
+                    <td class="py-3.5 px-4">
+                      <div>16/09/2026 20:25:39</div>
+                      <div class="text-[10px] text-gray-400">Thời lượng: 2m 14s</div>
+                    </td>
+                    <td class="py-3.5 px-4 text-center">
+                      <span class="badge-pill badge-completed">completed</span>
+                    </td>
+                    <td class="py-3.5 px-4 text-center font-bold text-amber-400 font-mono text-sm">6</td>
+                    <td class="py-3.5 px-4 text-center font-mono">14</td>
+                    <td class="py-3.5 px-4 text-center font-mono">48</td>
+                    <td class="py-3.5 px-4">
+                      <span class="badge-pill bg-blue-500/15 text-blue-400 border border-blue-500/30">8 Core (Draft)</span>
+                    </td>
+                    <td class="py-3.5 px-4 text-right">
+                      <button class="px-2.5 py-1 bg-amber-500 text-gray-950 font-bold rounded text-[11px] shadow">Đang xem</button>
+                    </td>
+                  </tr>
+
+                  <!-- Row 2: Run #3 -->
+                  <tr class="hover:bg-gray-800/40 transition">
+                    <td class="py-3.5 px-4 font-mono font-semibold text-gray-200">
+                      <div class="flex items-center gap-2">
+                        <span>#3</span>
+                        <code class="text-gray-400 font-mono text-[11px]">f320be44</code>
+                      </div>
+                      <div class="text-[10px] text-gray-400 font-sans mt-0.5">Phân tích chuẩn (Claude 3.7 Sonnet)</div>
+                    </td>
+                    <td class="py-3.5 px-4">
+                      <div>16/09/2026 12:40:12</div>
+                      <div class="text-[10px] text-gray-400">Thời lượng: 1m 58s</div>
+                    </td>
+                    <td class="py-3.5 px-4 text-center">
+                      <span class="badge-pill badge-completed">completed</span>
+                    </td>
+                    <td class="py-3.5 px-4 text-center font-bold text-gray-300 font-mono text-sm">5</td>
+                    <td class="py-3.5 px-4 text-center font-mono">12</td>
+                    <td class="py-3.5 px-4 text-center font-mono">46</td>
+                    <td class="py-3.5 px-4">
+                      <span class="badge-pill bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">7 Core (Approved)</span>
+                    </td>
+                    <td class="py-3.5 px-4 text-right">
+                      <div class="flex items-center justify-end gap-2">
+                        <button onclick="simulateSelectRun('run-3')" class="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded text-[11px] transition">Xem phiên này</button>
+                        <button class="p-1 text-gray-500 hover:text-red-400 transition" title="Xóa phiên"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <!-- Row 3: Run #2 -->
+                  <tr class="hover:bg-gray-800/40 transition">
+                    <td class="py-3.5 px-4 font-mono font-semibold text-gray-200">
+                      <div class="flex items-center gap-2">
+                        <span>#2</span>
+                        <code class="text-gray-400 font-mono text-[11px]">7a11029c</code>
+                      </div>
+                      <div class="text-[10px] text-gray-400 font-sans mt-0.5">Phân tích thử nghiệm lần 2</div>
+                    </td>
+                    <td class="py-3.5 px-4">
+                      <div>15/09/2026 15:10:04</div>
+                      <div class="text-[10px] text-gray-400">Thời lượng: 2m 05s</div>
+                    </td>
+                    <td class="py-3.5 px-4 text-center">
+                      <span class="badge-pill badge-completed">completed</span>
+                    </td>
+                    <td class="py-3.5 px-4 text-center font-bold text-gray-300 font-mono text-sm">4</td>
+                    <td class="py-3.5 px-4 text-center font-mono">10</td>
+                    <td class="py-3.5 px-4 text-center font-mono">42</td>
+                    <td class="py-3.5 px-4">
+                      <span class="badge-pill bg-blue-500/15 text-blue-400 border border-blue-500/30">6 Core (Draft)</span>
+                    </td>
+                    <td class="py-3.5 px-4 text-right">
+                      <div class="flex items-center justify-end gap-2">
+                        <button onclick="simulateSelectRun('run-2')" class="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded text-[11px] transition">Xem phiên này</button>
+                        <button class="p-1 text-gray-500 hover:text-red-400 transition" title="Xóa phiên"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <!-- Row 4: Run #1 -->
+                  <tr class="hover:bg-gray-800/40 transition">
+                    <td class="py-3.5 px-4 font-mono font-semibold text-gray-200">
+                      <div class="flex items-center gap-2">
+                        <span>#1</span>
+                        <code class="text-gray-400 font-mono text-[11px]">1004ab32</code>
+                      </div>
+                      <div class="text-[10px] text-gray-400 font-sans mt-0.5">Lần chạy khởi tạo ban đầu</div>
+                    </td>
+                    <td class="py-3.5 px-4">
+                      <div>14/09/2026 09:30:00</div>
+                      <div class="text-[10px] text-gray-400">Thời lượng: 1m 45s</div>
+                    </td>
+                    <td class="py-3.5 px-4 text-center">
+                      <span class="badge-pill badge-completed">completed</span>
+                    </td>
+                    <td class="py-3.5 px-4 text-center font-bold text-gray-300 font-mono text-sm">3</td>
+                    <td class="py-3.5 px-4 text-center font-mono">8</td>
+                    <td class="py-3.5 px-4 text-center font-mono">35</td>
+                    <td class="py-3.5 px-4">
+                      <span class="badge-pill bg-gray-500/15 text-gray-400 border border-gray-500/30">None</span>
+                    </td>
+                    <td class="py-3.5 px-4 text-right">
+                      <div class="flex items-center justify-end gap-2">
+                        <button onclick="simulateSelectRun('run-1')" class="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded text-[11px] transition">Xem phiên này</button>
+                        <button class="p-1 text-gray-500 hover:text-red-400 transition" title="Xóa phiên"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Modal Footer -->
+          <div class="p-4 bg-gray-800/50 border-t border-gray-800 flex items-center justify-between text-xs text-gray-400">
+            <span>Tổng cộng: 4 phiên phân tích đã lưu</span>
+            <button onclick="toggleModal('runs-modal')" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition font-medium">Đóng</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- OPTION B: Dual Tab (Tab 1: Active Themes & Tree / Tab 2: Runs Table)     -->
+    <!-- ========================================================================= -->
+    <section id="concept-b" class="concept-view hidden space-y-6">
+      <div class="bg-gradient-to-r from-blue-500/10 via-purple-500/5 to-transparent p-4 rounded-xl border border-blue-500/20 flex items-center justify-between">
+        <div>
+          <h3 class="text-base font-semibold text-blue-300 flex items-center gap-2">
+            <span>📊 Phương án 2: Tách thành 2 Tabs chính ngay trên trang</span>
+          </h3>
+          <p class="text-xs text-gray-300 mt-1">
+            Tab 1 là <strong>"Cây Themes & Chiến Lược"</strong> của phiên được chọn. Tab 2 là <strong>"Bảng Lịch Sử Các Phiên"</strong> để tra cứu toàn màn hình, so sánh các chỉ số giữa các lần chạy.
+          </p>
+        </div>
+      </div>
+
+      <!-- Tab header -->
+      <div class="flex items-center gap-3 border-b border-gray-800 pb-3">
+        <button onclick="switchSubTabB('tab-themes')" id="subtab-btn-themes" class="px-5 py-2.5 rounded-xl font-semibold text-sm bg-blue-600 text-white shadow-md flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+          Chủ Đề & Cây Chiến Lược (Run #4)
+        </button>
+        <button onclick="switchSubTabB('tab-history')" id="subtab-btn-history" class="px-5 py-2.5 rounded-xl font-semibold text-sm bg-gray-800 text-gray-400 hover:text-white flex items-center gap-2 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+          Bảng Lịch Sử Các Lần Chạy (4 Phiên)
+        </button>
+      </div>
+
+      <!-- Tab 2 Content (History Table) -->
+      <div id="subtab-history-content" class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h4 class="text-lg font-bold text-white">Quản Lý Lịch Sử Phân Tích</h4>
+            <p class="text-xs text-gray-400">Chọn một phiên bất kỳ để nạp vào Cây Themes hoặc so sánh hiệu quả giữa các model/prompt</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="text" placeholder="Tìm kiếm phiên hoặc model..." class="bg-gray-800 border border-gray-700 text-xs px-3 py-2 rounded-lg text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500 w-60">
+          </div>
+        </div>
+
+        <!-- Metric summary cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div class="bg-gray-800/60 p-4 rounded-xl border border-gray-700/60">
+            <span class="text-xs text-gray-400 uppercase">Tổng số phiên chạy</span>
+            <div class="text-2xl font-mono font-bold text-white mt-1">4</div>
+          </div>
+          <div class="bg-gray-800/60 p-4 rounded-xl border border-gray-700/60">
+            <span class="text-xs text-gray-400 uppercase">Số Theme trung bình</span>
+            <div class="text-2xl font-mono font-bold text-amber-400 mt-1">4.5</div>
+          </div>
+          <div class="bg-gray-800/60 p-4 rounded-xl border border-gray-700/60">
+            <span class="text-xs text-gray-400 uppercase">Thời gian chạy TB</span>
+            <div class="text-2xl font-mono font-bold text-blue-400 mt-1">1m 59s</div>
+          </div>
+          <div class="bg-gray-800/60 p-4 rounded-xl border border-gray-700/60">
+            <span class="text-xs text-gray-400 uppercase">Phiên có Core Approved</span>
+            <div class="text-2xl font-mono font-bold text-emerald-400 mt-1">1 / 4</div>
+          </div>
+        </div>
+
+        <!-- Full Table -->
+        <div class="overflow-x-auto rounded-xl border border-gray-800">
+          <table class="w-full text-left text-xs text-gray-300">
+            <thead class="bg-gray-800/90 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+              <tr>
+                <th class="py-3 px-4">Phiên</th>
+                <th class="py-3 px-4">Thời gian</th>
+                <th class="py-3 px-4 text-center">Trạng thái</th>
+                <th class="py-3 px-4 text-center">Số Themes</th>
+                <th class="py-3 px-4 text-center">Cụm</th>
+                <th class="py-3 px-4 text-center">Chiến lược</th>
+                <th class="py-3 px-4">Hành động</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-800 bg-gray-900/30">
+              <tr class="bg-blue-500/10 border-l-4 border-blue-500">
+                <td class="py-3.5 px-4 font-mono font-semibold text-white">#4 (89c2fa1b) <span class="badge-pill badge-active text-[10px] ml-2">Đang active</span></td>
+                <td class="py-3.5 px-4">16/09/2026 20:25</td>
+                <td class="py-3.5 px-4 text-center"><span class="badge-pill badge-completed">completed</span></td>
+                <td class="py-3.5 px-4 text-center font-bold text-amber-400 font-mono text-sm">6</td>
+                <td class="py-3.5 px-4 text-center font-mono">14</td>
+                <td class="py-3.5 px-4 text-center font-mono">48</td>
+                <td class="py-3.5 px-4">
+                  <span class="text-blue-400 font-medium">Đang chọn xem</span>
+                </td>
+              </tr>
+              <tr class="hover:bg-gray-800/40">
+                <td class="py-3.5 px-4 font-mono font-semibold text-gray-300">#3 (f320be44)</td>
+                <td class="py-3.5 px-4">16/09/2026 12:40</td>
+                <td class="py-3.5 px-4 text-center"><span class="badge-pill badge-completed">completed</span></td>
+                <td class="py-3.5 px-4 text-center font-bold text-gray-300 font-mono text-sm">5</td>
+                <td class="py-3.5 px-4 text-center font-mono">12</td>
+                <td class="py-3.5 px-4 text-center font-mono">46</td>
+                <td class="py-3.5 px-4">
+                  <button class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-semibold">Chọn xem phiên này</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- OPTION C: Master-Detail Sidebar Timeline (Git-style)                     -->
+    <!-- ========================================================================= -->
+    <section id="concept-c" class="concept-view hidden space-y-6">
+      <div class="bg-gradient-to-r from-emerald-500/10 via-purple-500/5 to-transparent p-4 rounded-xl border border-emerald-500/20 flex items-center justify-between">
+        <div>
+          <h3 class="text-base font-semibold text-emerald-300 flex items-center gap-2">
+            <span>🌿 Phương án 3: Bảng điều khiển 2 cột (Sidebar Timeline + Cây Theme)</span>
+          </h3>
+          <p class="text-xs text-gray-300 mt-1">
+            Cột bên trái là danh sách các phiên dạng Snapshot/Timeline với đầy đủ thông số (Themes, Cụm, Thời gian). Nhấp vào bất kỳ phiên nào ở bên trái thì nội dung cây bên phải thay đổi tức thì.
+          </p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Left Sidebar (Runs Timeline) -->
+        <div class="lg:col-span-4 glass-panel p-4 rounded-2xl border border-gray-800 space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-gray-800">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-gray-300 flex items-center gap-2">
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              Lịch Sử Các Phiên (4)
+            </h4>
+            <button class="text-[11px] text-emerald-400 hover:underline">+ Chạy mới</button>
+          </div>
+
+          <div class="space-y-3">
+            <!-- Run Item 4 (Active) -->
+            <div class="p-3.5 rounded-xl bg-emerald-500/10 border-2 border-emerald-500 cursor-pointer shadow">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-mono font-bold text-white">Phiên #4 • 89c2fa1b</span>
+                <span class="badge-pill bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px]">Đang xem</span>
+              </div>
+              <div class="text-xs text-gray-300 mt-2 font-medium">Prompt 5-6 Themes (Gemini Flash)</div>
+              <div class="mt-2.5 flex items-center justify-between text-[11px] text-gray-400 border-t border-gray-800/80 pt-2">
+                <span>16/09 20:25</span>
+                <span class="text-amber-400 font-mono font-bold">6 Themes • 14 Cụm</span>
+              </div>
+            </div>
+
+            <!-- Run Item 3 -->
+            <div class="p-3.5 rounded-xl bg-gray-900/60 border border-gray-800 hover:border-gray-700 cursor-pointer transition">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-mono font-bold text-gray-300">Phiên #3 • f320be44</span>
+                <span class="badge-pill badge-completed text-[10px]">completed</span>
+              </div>
+              <div class="text-xs text-gray-400 mt-2">Phân tích chuẩn (Claude Sonnet)</div>
+              <div class="mt-2.5 flex items-center justify-between text-[11px] text-gray-500 border-t border-gray-800/80 pt-2">
+                <span>16/09 12:40</span>
+                <span class="text-gray-300 font-mono">5 Themes • 12 Cụm</span>
+              </div>
+            </div>
+
+            <!-- Run Item 2 -->
+            <div class="p-3.5 rounded-xl bg-gray-900/60 border border-gray-800 hover:border-gray-700 cursor-pointer transition">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-mono font-bold text-gray-300">Phiên #2 • 7a11029c</span>
+                <span class="badge-pill badge-completed text-[10px]">completed</span>
+              </div>
+              <div class="text-xs text-gray-400 mt-2">Phân tích thử nghiệm lần 2</div>
+              <div class="mt-2.5 flex items-center justify-between text-[11px] text-gray-500 border-t border-gray-800/80 pt-2">
+                <span>15/09 15:10</span>
+                <span class="text-gray-300 font-mono">4 Themes • 10 Cụm</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Main: Themes details of selected run -->
+        <div class="lg:col-span-8 glass-panel p-6 rounded-2xl border border-gray-800 space-y-4">
+          <div class="flex items-center justify-between border-b border-gray-800 pb-4">
+            <div>
+              <h4 class="text-lg font-bold text-white">Kết quả Phiên #4 (89c2fa1b)</h4>
+              <p class="text-xs text-gray-400 mt-0.5">Thời gian chạy: 16/09/2026 20:25:39 • Thời lượng: 2m 14s</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg text-xs font-medium border border-gray-700">Xuất Word/JSON</button>
+            </div>
+          </div>
+
+          <div class="bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl flex items-center justify-between text-xs">
+            <span>Phiên này phát hiện <strong>6 Themes</strong> (đáp ứng đúng định hướng 5-6 themes vừa cập nhật).</span>
+            <span class="font-mono text-amber-400 font-bold">14 Categories / 48 Strategies</span>
+          </div>
+
+          <div class="space-y-3 text-xs text-gray-300">
+            <div class="p-3 bg-gray-900/50 rounded-lg border border-gray-800">
+              <strong class="text-white text-sm">Theme 1: Scaffolding Through Wait Time & Active Listening</strong>
+              <p class="text-gray-400 mt-1">Across classroom observations, teachers who provided extended wait times exhibited higher student voluntary responses...</p>
+            </div>
+            <div class="p-3 bg-gray-900/50 rounded-lg border border-gray-800">
+              <strong class="text-white text-sm">Theme 2: Multimodal Elicitation & Visual Anchoring</strong>
+              <p class="text-gray-400 mt-1">Combining physical gestures, authentic visual cards, and interactive board prompts...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    function switchConcept(conceptId) {
+      document.querySelectorAll('.concept-view').forEach(el => el.classList.add('hidden'));
+      document.getElementById(conceptId).classList.remove('hidden');
+
+      // Update button active state
+      ['concept-a', 'concept-b', 'concept-c'].forEach(id => {
+        const btn = document.getElementById('btn-' + id);
+        if (id === conceptId) {
+          btn.className = "px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 bg-amber-600 text-white shadow-md flex items-center gap-2";
+        } else {
+          btn.className = "px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 text-gray-400 hover:text-white flex items-center gap-2";
+        }
+      });
+    }
+
+    function toggleModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal.classList.contains('hidden')) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      } else {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    function simulateSelectRun(runVal) {
+      const countMap = { 'run-4': 6, 'run-3': 5, 'run-2': 4, 'run-1': 3 };
+      const themeCount = countMap[runVal] || 5;
+      const el = document.getElementById('stat-theme-count');
+      if (el) el.innerText = themeCount;
+      toggleModal('runs-modal');
+    }
+  </script>
+</body>
+</html>

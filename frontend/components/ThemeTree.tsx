@@ -12,7 +12,7 @@ interface ThemeTreeProps {
 }
 
 export const ThemeTree: React.FC<ThemeTreeProps> = ({ themes, onRefresh }) => {
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
   const toast = useToast();
   const [expandedThemes, setExpandedThemes] = useState<Record<string, boolean>>({});
   const [editingThemeId, setEditingThemeId] = useState<string | null>(null);
@@ -36,36 +36,41 @@ export const ThemeTree: React.FC<ThemeTreeProps> = ({ themes, onRefresh }) => {
     try {
       await api.updateTheme(themeId, editName, editDesc, 'draft');
       setEditingThemeId(null);
-      toast.success('Qualitative theme definition updated successfully', {
-        title: 'Theme Saved',
-      });
+      toast.success(
+        language === 'vi' ? 'Đã cập nhật định nghĩa chủ đề định tính thành công' : 'Qualitative theme definition updated successfully',
+        { title: language === 'vi' ? 'Đã lưu chủ đề' : 'Theme Saved' }
+      );
       onRefresh();
     } catch (err: any) {
-      toast.error(`Failed to update theme: ${err.message}`, {
-        title: 'Update Error',
-      });
+      toast.error(
+        `${language === 'vi' ? 'Cập nhật thất bại: ' : 'Failed to update theme: '}${err.message}`,
+        { title: language === 'vi' ? 'Lỗi cập nhật' : 'Update Error' }
+      );
     }
   };
 
   const handleConfirm = async (themeId: string) => {
     try {
       await api.confirmTheme(themeId);
-      toast.success('Theme validated and confirmed into Core Categories', {
-        title: 'Theme Confirmed',
-      });
+      toast.success(
+        language === 'vi' ? 'Chủ đề đã được xác thực và đưa vào danh mục chính thức' : 'Theme validated and confirmed into Core Categories',
+        { title: language === 'vi' ? 'Đã xác nhận chủ đề' : 'Theme Confirmed' }
+      );
       onRefresh();
     } catch (err: any) {
-      toast.error(`Failed to confirm theme: ${err.message}`, {
-        title: 'Confirmation Error',
-      });
+      toast.error(
+        `${language === 'vi' ? 'Xác nhận thất bại: ' : 'Failed to confirm theme: '}${err.message}`,
+        { title: language === 'vi' ? 'Lỗi xác nhận' : 'Confirmation Error' }
+      );
     }
   };
 
   const handleMergeSubmit = async () => {
     if (!mergeSource || !mergeTarget || mergeSource === mergeTarget) {
-      toast.warning('Please select two distinct themes to merge.', {
-        title: 'Selection Required',
-      });
+      toast.warning(
+        language === 'vi' ? 'Vui lòng chọn hai chủ đề khác nhau để gộp.' : 'Please select two distinct themes to merge.',
+        { title: language === 'vi' ? 'Cần chọn chủ đề' : 'Selection Required' }
+      );
       return;
     }
     try {
@@ -73,14 +78,16 @@ export const ThemeTree: React.FC<ThemeTreeProps> = ({ themes, onRefresh }) => {
       setIsMerging(false);
       setMergeSource('');
       setMergeTarget('');
-      toast.success('Themes merged into unified category with linked evidence', {
-        title: 'Merge Complete',
-      });
+      toast.success(
+        language === 'vi' ? 'Đã gộp chủ đề thành danh mục thống nhất' : 'Themes merged into unified category with linked evidence',
+        { title: language === 'vi' ? 'Gộp hoàn tất' : 'Merge Complete' }
+      );
       onRefresh();
     } catch (err: any) {
-      toast.error(`Merge failed: ${err.message}`, {
-        title: 'Merge Error',
-      });
+      toast.error(
+        `${language === 'vi' ? 'Gộp thất bại: ' : 'Merge failed: '}${err.message}`,
+        { title: language === 'vi' ? 'Lỗi gộp' : 'Merge Error' }
+      );
     }
   };
 
@@ -151,10 +158,10 @@ export const ThemeTree: React.FC<ThemeTreeProps> = ({ themes, onRefresh }) => {
           }}>
             <Layers size={32} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
             <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-main)' }}>
-              Chưa có dữ liệu Teaching Themes
+              {t('themesEmptyTitle')}
             </p>
             <p style={{ fontSize: '13px', marginTop: '4px', maxWidth: '460px', margin: '4px auto 0' }}>
-              Hãy nhấn nút &ldquo;Analyze All 24 Lessons&rdquo; để khởi chạy phân tích Grounded Theory tổng hợp từ các bài giảng đã hoàn thành.
+              {t('themesEmptyDesc')}
             </p>
           </div>
         )}

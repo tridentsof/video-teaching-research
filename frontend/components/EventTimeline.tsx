@@ -158,7 +158,7 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({ events }) => {
 
                 {/* Badge */}
                 <span className={`badge ${badgeClass}`}>
-                  {evt.event_type}
+                  {evt.event_type === 'visual' ? t('filterVisual') : evt.event_type === 'audio' ? t('filterAudio') : t('filterContext')}
                 </span>
 
                 {/* Description */}

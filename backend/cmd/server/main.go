@@ -113,6 +113,7 @@ func main() {
 		mappingRepo := repository.NewMappingRepository(db)
 		reportRepo := repository.NewReportRepository(db)
 		analysisRepo := repository.NewAnalysisRepository(db)
+		_ = analysisRepo.CleanOrphanedRuns(context.Background())
 
 		chunkingSvc := service.NewChunkingService(chunkRepo, videoRepo, blobStorage, cfg.FFmpegPath, cfg.ChunkDurationSec, cfg.ChunkOverlapSec)
 		extractionSvc := service.NewExtractionService(rawEventRepo, chunkRepo, videoRepo, blobStorage, geminiProvider, cfg.MaxConcurrentChunks)

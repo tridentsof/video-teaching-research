@@ -296,22 +296,22 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
               {t(step.labelKey)}
               {isDone && (
                 <span style={{ display: 'block', fontSize: '10px', color: 'var(--accent-green)', fontWeight: 600 }}>
-                  ✓ Done
+                  {t('stepStatusDone')}
                 </span>
               )}
               {isFailedNode && (
                 <span style={{ display: 'block', fontSize: '10px', color: '#DC2626', fontWeight: 700 }}>
-                  ✕ Failed
+                  {t('stepStatusFailed')}
                 </span>
               )}
               {isCancelledNode && (
                 <span style={{ display: 'block', fontSize: '10px', color: '#D97706', fontWeight: 700 }}>
-                  ⊘ Cancelled
+                  {t('stepStatusCancelled')}
                 </span>
               )}
               {isStepSkipped && (
                 <span style={{ display: 'block', fontSize: '10px', color: '#6B7280', fontWeight: 600 }}>
-                  - Skipped
+                  {t('stepStatusSkipped')}
                 </span>
               )}
               {isUploading && idx === 0 && (
@@ -321,7 +321,7 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
               )}
               {isActive && isRunning && (!isUploading || idx !== 0) && (
                 <span style={{ display: 'block', fontSize: '10px', color: 'var(--accent)', fontWeight: 600 }}>
-                  In Progress
+                  {t('stepStatusInProgress')}
                 </span>
               )}
             </span>
