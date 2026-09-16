@@ -34,12 +34,14 @@ import {
   Zap,
   X,
   FileText,
+  FolderArchive,
 } from 'lucide-react';
 import Link from 'next/link';
+import JSZip from 'jszip';
 import { generateInterviewGuideWord, downloadInterviewWordBlob } from '@/lib/interviewWordExport';
 
 export default function InterviewStudioPage() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const toast = useToast();
 
   // Navigation tab state
@@ -55,6 +57,8 @@ export default function InterviewStudioPage() {
   const [latestRunId, setLatestRunId] = useState<string | null>(null);
   const [isLiveFromBackend, setIsLiveFromBackend] = useState(false);
   const [isExportingWord, setIsExportingWord] = useState(false);
+  const [isExportingAll, setIsExportingAll] = useState(false);
+  const [exportProgress, setExportProgress] = useState({ current: 0, total: 0 });
 
   // Core & Dynamic Questions
   const [coreQuestions, setCoreQuestions] = useState<InterviewQuestion[]>([]);
@@ -373,15 +377,80 @@ export default function InterviewStudioPage() {
         coreQuestions: activeCore,
         dynamicQuestions: dynamicQuestions,
         teacherAnalysis: teacherAnalysis,
+        lang: language as ('en' | 'vi'),
       });
       const filename = `Teacher_Interview_Guide_${selectedTeacher}_${new Date().toISOString().slice(0, 10)}.docx`;
       downloadInterviewWordBlob(blob, filename);
-      toast.success(`Đã xuất phỏng vấn ${selectedTeacher} ra file Word (.docx) thành công!`);
+      toast.success(t('interviewExportWordSuccess').replace('{teacher}', selectedTeacher));
     } catch (err: any) {
       console.error('Export word error:', err);
-      toast.error('Lỗi khi xuất file Word: ' + (err.message || 'Thử lại sau'));
+      toast.error(t('interviewExportAllError') + (err.message || 'Thử lại sau'));
     } finally {
       setIsExportingWord(false);
+    }
+  };
+
+  const handleExportAllWord = async () => {
+    if (!teacherList || teacherList.length === 0) return;
+    setIsExportingAll(true);
+    setExportProgress({ current: 0, total: teacherList.length });
+
+    try {
+      const zip = new JSZip();
+      const activeCore = synthesizedCore.length > 0 ? synthesizedCore : coreQuestions;
+      const dateStr = new Date().toISOString().slice(0, 10);
+
+      for (let i = 0; i < teacherList.length; i++) {
+        const tId = teacherList[i];
+        setExportProgress({ current: i + 1, total: teacherList.length });
+
+        let core = activeCore;
+        let dyn: InterviewQuestion[] = [];
+        let analysis: TeacherAnalysis | null = null;
+
+        if (tId === selectedTeacher && isLiveFromBackend) {
+          dyn = dynamicQuestions;
+          analysis = teacherAnalysis;
+        } else {
+          try {
+            const data = await api.getTeacherAnalysis(latestRunId || 'latest', tId);
+            if (data && data.interview_questions) {
+              if (core.length === 0) {
+                core = data.interview_questions.filter((q) => q.type === 'core');
+              }
+              dyn = data.interview_questions.filter((q) => q.type === 'dynamic');
+              analysis = data.teacher_analysis || null;
+            }
+          } catch (fetchErr) {
+            console.warn(`Could not load full teacher analysis for ${tId}:`, fetchErr);
+          }
+        }
+
+        const docBlob = await generateInterviewGuideWord({
+          teacherId: tId,
+          coreQuestions: core,
+          dynamicQuestions: dyn,
+          teacherAnalysis: analysis,
+          lang: language as ('en' | 'vi'),
+        });
+
+        const docFilename = `Teacher_Interview_Guide_${tId}_${dateStr}.docx`;
+        zip.file(docFilename, docBlob);
+      }
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const zipFilename = `Teacher_Interview_Guides_All_${dateStr}.zip`;
+      downloadInterviewWordBlob(zipBlob, zipFilename);
+
+      toast.success(
+        t('interviewExportAllSuccess').replace('{count}', String(teacherList.length))
+      );
+    } catch (err: any) {
+      console.error('Batch export word error:', err);
+      toast.error(t('interviewExportAllError') + (err.message || 'Thử lại sau'));
+    } finally {
+      setIsExportingAll(false);
+      setExportProgress({ current: 0, total: 0 });
     }
   };
 
@@ -643,20 +712,40 @@ export default function InterviewStudioPage() {
               })}
             </div>
 
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={handleCopy} className="btn btn-secondary" style={{ fontSize: '13px', padding: '7px 14px' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                onClick={handleCopy}
+                className="btn btn-secondary"
+                style={{ fontSize: '13px', padding: '7px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
                 {copied ? <Check size={15} color="var(--accent-green)" /> : <Copy size={15} />}
                 <span>{copied ? t('commonCopied') : t('commonCopyQuestions')}</span>
               </button>
               <button
                 onClick={handleExportWord}
-                disabled={isExportingWord}
-                className="btn btn-primary"
-                style={{ fontSize: '13px', padding: '7px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}
-                title="Xuất phiếu phỏng vấn giáo viên ra định dạng Microsoft Word (.docx) chuẩn học thuật"
+                disabled={isExportingWord || isExportingAll}
+                className="btn btn-secondary"
+                style={{ fontSize: '13px', padding: '7px 15px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                title={t('interviewExportWordTooltip')}
               >
                 {isExportingWord ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />}
-                <span>{isExportingWord ? 'Đang xuất Word...' : 'Xuất File Word (.docx)'}</span>
+                <span>{isExportingWord ? t('interviewExportingWord') : t('interviewExportWord')}</span>
+              </button>
+              <button
+                onClick={handleExportAllWord}
+                disabled={isExportingWord || isExportingAll}
+                className="btn btn-primary"
+                style={{ fontSize: '13px', padding: '7px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                title={t('interviewExportAllTooltip')}
+              >
+                {isExportingAll ? <Loader2 size={15} className="animate-spin" /> : <FolderArchive size={15} />}
+                <span>
+                  {isExportingAll
+                    ? t('interviewExportingAllWord')
+                        .replace('{current}', String(exportProgress.current))
+                        .replace('{total}', String(exportProgress.total))
+                    : t('interviewExportAllWord')}
+                </span>
               </button>
             </div>
           </div>

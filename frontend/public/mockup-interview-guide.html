@@ -67,11 +67,18 @@
 
     <!-- Tab switcher -->
     <div class="flex items-center bg-gray-900/90 p-1.5 rounded-xl border border-gray-800 shadow-inner">
-      <button onclick="switchTab('studio')" id="btn-studio" class="px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 bg-indigo-600 text-white shadow-md">
-        🎙️ Interview Studio (12 Teachers)
+      <button onclick="switchTab('studio')" id="btn-studio" class="px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 bg-indigo-600 text-white shadow-md flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"></path></svg>
+        <span id="tab-studio-label">Phòng Phỏng Vấn (12 GV)</span>
       </button>
-      <button onclick="switchTab('bank')" id="btn-bank" class="px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 text-gray-400 hover:text-gray-200">
-        📚 Base Questions Bank (22 Canonical)
+      <button onclick="switchTab('bank')" id="btn-bank" class="px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 text-gray-400 hover:text-gray-200 flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+        <span id="tab-bank-label">Ngân Hàng 22 Câu Hỏi Gốc</span>
+      </button>
+      <!-- Language Switcher in mockup -->
+      <button onclick="toggleMockupLanguage()" class="ml-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-800 hover:bg-gray-700 text-indigo-300 border border-gray-700 flex items-center gap-1.5 transition">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"></path></svg>
+        <span id="mockup-lang-badge">VI / EN</span>
       </button>
     </div>
   </header>
@@ -86,67 +93,50 @@
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <div class="flex items-center gap-3 mb-1.5">
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                ⚡ Cách A: AI Proposal Review Gate
+              <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                <span id="flow-a-tag">Luồng A: AI Proposal Review Gate</span>
               </span>
-              <span class="text-xs text-gray-400">Analysis Run: <code class="text-indigo-300 font-mono">run-2024-03-01</code></span>
+              <span class="text-xs text-gray-400">Analysis Run: <code class="text-indigo-300 font-mono">run-latest</code></span>
             </div>
-            <h2 class="text-lg font-bold text-white">Synthesized Core Questions (8 items for all 12 teachers)</h2>
-            <p class="text-sm text-gray-400 mt-1 max-w-3xl">
+            <h2 id="core-title" class="text-lg font-bold text-white">Synthesized Core Questions (8 items for all 12 teachers)</h2>
+            <p id="core-desc" class="text-sm text-gray-400 mt-1 max-w-3xl">
               AI đã tổng hợp từ 22 câu hỏi bán cấu trúc gốc và các teaching themes phát hiện từ 24 video. Bạn có thể xem, tinh chỉnh câu hỏi trước khi nhấn Approve để sinh câu hỏi đào sâu cho từng giáo viên.
             </p>
           </div>
           <div class="flex items-center gap-3 shrink-0">
-            <button class="px-4 py-2 text-xs font-semibold rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition">
-              🔄 AI Re-synthesize
+            <button class="px-4 py-2 text-xs font-semibold rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 flex items-center gap-1.5 transition">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+              <span id="resynth-label">AI Re-synthesize</span>
             </button>
-            <button class="px-5 py-2 text-xs font-bold rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-600/20 transition">
-              ✓ Approve Core Questions
+            <button class="px-5 py-2 text-xs font-bold rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-600/20 flex items-center gap-1.5 transition">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+              <span id="approve-label">Approve Core Questions</span>
             </button>
           </div>
         </div>
 
         <!-- Collapsible preview of 8 Core Questions -->
         <div class="mt-4 pt-4 border-t border-gray-800/80 grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div class="p-3 rounded-xl bg-gray-900/60 border border-gray-800 flex items-start gap-3">
-            <span class="text-xs font-mono px-2 py-0.5 rounded badge-rq1 shrink-0 mt-0.5">RQ1</span>
-            <div class="text-xs text-gray-300">
-              <div class="font-medium text-white">1. Organizing lesson & classroom routines</div>
-              <p class="text-gray-400 mt-0.5">Could you describe how you manage an online English speaking lesson from beginning to end, and how you establish classroom rules and routines?</p>
-            </div>
+          <div class="p-3 rounded-xl bg-gray-900/60 border border-gray-800 text-xs text-gray-300 flex items-start gap-2">
+            <span class="badge-rq1 px-1.5 py-0.5 rounded font-mono font-bold text-[10px]">RQ1</span>
+            <span>How do you establish verbal turns and structured nomination routines during speaking tasks?</span>
           </div>
-          <div class="p-3 rounded-xl bg-gray-900/60 border border-gray-800 flex items-start gap-3">
-            <span class="text-xs font-mono px-2 py-0.5 rounded badge-rq1 shrink-0 mt-0.5">RQ1</span>
-            <div class="text-xs text-gray-300">
-              <div class="font-medium text-white">2. Turn-taking & wait-time management</div>
-              <p class="text-gray-400 mt-0.5">How do you manage turn-taking and wait time during speaking activities to ensure young learners have equitable opportunities to participate?</p>
-            </div>
-          </div>
-          <div class="p-3 rounded-xl bg-gray-900/60 border border-gray-800 flex items-start gap-3">
-            <span class="text-xs font-mono px-2 py-0.5 rounded badge-rq2 shrink-0 mt-0.5">RQ2</span>
-            <div class="text-xs text-gray-300">
-              <div class="font-medium text-white">4. Management's role in speaking confidence</div>
-              <p class="text-gray-400 mt-0.5">In your view, what role does classroom management play in promoting speaking participation and influencing learners' confidence?</p>
-            </div>
-          </div>
-          <div class="p-3 rounded-xl bg-gray-900/60 border border-gray-800 flex items-start gap-3">
-            <span class="text-xs font-mono px-2 py-0.5 rounded badge-rq3 shrink-0 mt-0.5">RQ3</span>
-            <div class="text-xs text-gray-300">
-              <div class="font-medium text-white">7. Supporting hesitant & reluctant learners</div>
-              <p class="text-gray-400 mt-0.5">How do you usually support and manage learners who are reluctant to speak or have difficulty speaking English during live lessons?</p>
-            </div>
+          <div class="p-3 rounded-xl bg-gray-900/60 border border-gray-800 text-xs text-gray-300 flex items-start gap-2">
+            <span class="badge-rq2 px-1.5 py-0.5 rounded font-mono font-bold text-[10px]">RQ2</span>
+            <span>What criteria do you rely on to assess learner willingness to communicate in webcam setups?</span>
           </div>
         </div>
       </div>
 
-      <!-- Teacher Selection & Interview Content -->
+      <!-- Main Layout: Sidebar & Content -->
       <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
 
-        <!-- Teacher Sidebar -->
-        <div class="glass-panel p-5 rounded-2xl h-fit space-y-4">
-          <div class="flex items-center justify-between pb-3 border-b border-gray-800">
-            <span class="text-xs font-bold uppercase tracking-wider text-gray-400">Select Teacher</span>
-            <span class="text-xs bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded font-mono">12 Participants</span>
+        <!-- Teacher Selector Sidebar -->
+        <div class="glass-panel p-5 rounded-2xl space-y-4 h-fit">
+          <div class="flex items-center justify-between">
+            <h3 id="sidebar-teachers-heading" class="text-sm font-bold text-gray-300 uppercase tracking-wider">Select Teacher</h3>
+            <span class="text-xs text-indigo-400 font-mono font-medium">12 Teachers</span>
           </div>
           <div class="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-3 gap-2">
             <button class="py-2.5 rounded-xl font-mono text-sm font-bold bg-indigo-600 text-white shadow-md shadow-indigo-600/30">T01</button>
@@ -162,12 +152,20 @@
             <button class="py-2.5 rounded-xl font-mono text-sm font-medium bg-gray-900/80 hover:bg-gray-800 text-gray-300 border border-gray-800 transition">T11</button>
             <button class="py-2.5 rounded-xl font-mono text-sm font-medium bg-gray-900/80 hover:bg-gray-800 text-gray-300 border border-gray-800 transition">T12</button>
           </div>
+
+          <!-- Action Buttons with SVG Icons (NO EMOJI) -->
           <div class="pt-3 border-t border-gray-800 space-y-2">
-            <button class="w-full py-2.5 px-3 rounded-xl bg-gray-900 hover:bg-gray-800 text-xs font-semibold text-gray-300 border border-gray-800 flex items-center justify-center gap-2">
-              📋 Copy Markdown
+            <button class="w-full py-2.5 px-3 rounded-xl bg-gray-900 hover:bg-gray-800 text-xs font-semibold text-gray-300 border border-gray-800 flex items-center justify-center gap-2 transition">
+              <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+              <span id="btn-copy-label">Sao Chép Câu Hỏi</span>
             </button>
-            <button class="w-full py-2.5 px-3 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-xs font-semibold text-indigo-300 border border-indigo-500/30 flex items-center justify-center gap-2">
-              📄 Export Word / PDF
+            <button class="w-full py-2.5 px-3 rounded-xl bg-gray-900 hover:bg-gray-800 text-xs font-semibold text-indigo-300 border border-gray-800 flex items-center justify-center gap-2 transition">
+              <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+              <span id="btn-word-label">Xuất File Word (.docx)</span>
+            </button>
+            <button id="btn-export-all-mockup" onclick="simulateExportAll()" class="w-full py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white shadow-md shadow-indigo-600/30 flex items-center justify-center gap-2 transition">
+              <svg id="all-export-icon" class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+              <span id="btn-all-label">Xuất Tất Cả GV (.zip)</span>
             </button>
           </div>
         </div>
@@ -195,7 +193,8 @@
             <div class="flex items-center justify-between border-b border-gray-800 pb-3">
               <div>
                 <h4 class="text-base font-bold text-white flex items-center gap-2">
-                  <span>🎯 Participant-Specific Follow-Up Questions</span>
+                  <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"></circle><circle cx="12" cy="12" r="6" stroke-width="2"></circle><circle cx="12" cy="12" r="2" stroke-width="2"></circle></svg>
+                  <span>Participant-Specific Follow-Up Questions</span>
                   <span class="text-xs px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 font-normal">Grounded in T01's Event Log</span>
                 </h4>
                 <p class="text-xs text-gray-400 mt-0.5">Questions directly targeting RQ1 (Strategies), RQ2 (Perceptions), and RQ3 (Challenges & Solutions)</p>
@@ -408,6 +407,8 @@
   </main>
 
   <script>
+    let currentLang = 'vi';
+
     function switchTab(tab) {
       const studioTab = document.getElementById('tab-studio');
       const bankTab = document.getElementById('tab-bank');
@@ -417,14 +418,60 @@
       if (tab === 'studio') {
         studioTab.classList.remove('hidden');
         bankTab.classList.add('hidden');
-        btnStudio.className = 'px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 bg-indigo-600 text-white shadow-md';
-        btnBank.className = 'px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 text-gray-400 hover:text-gray-200';
+        btnStudio.className = 'px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 bg-indigo-600 text-white shadow-md flex items-center gap-2';
+        btnBank.className = 'px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 text-gray-400 hover:text-gray-200 flex items-center gap-2';
       } else {
         bankTab.classList.remove('hidden');
         studioTab.classList.add('hidden');
-        btnBank.className = 'px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 bg-indigo-600 text-white shadow-md';
-        btnStudio.className = 'px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 text-gray-400 hover:text-gray-200';
+        btnBank.className = 'px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 bg-indigo-600 text-white shadow-md flex items-center gap-2';
+        btnStudio.className = 'px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 text-gray-400 hover:text-gray-200 flex items-center gap-2';
       }
+    }
+
+    function toggleMockupLanguage() {
+      currentLang = currentLang === 'vi' ? 'en' : 'vi';
+      const isVi = currentLang === 'vi';
+      document.getElementById('mockup-lang-badge').innerText = isVi ? 'VI (Song ngữ)' : 'EN (Bilingual)';
+      document.getElementById('tab-studio-label').innerText = isVi ? 'Phòng Phỏng Vấn (12 GV)' : 'Interview Studio (12 Teachers)';
+      document.getElementById('tab-bank-label').innerText = isVi ? 'Ngân Hàng 22 Câu Hỏi Gốc' : '22 Baseline Questions Bank';
+      document.getElementById('flow-a-tag').innerText = isVi ? 'Luồng A: AI Proposal Review Gate' : 'Flow A: AI Proposal Review Gate';
+      document.getElementById('core-title').innerText = isVi ? 'Core Questions Đã Phê Duyệt (Áp dụng đồng bộ 12 GV)' : 'Synthesized Core Questions (8 items for all 12 teachers)';
+      document.getElementById('sidebar-teachers-heading').innerText = isVi ? 'Chọn Giáo Viên' : 'Select Teacher';
+      document.getElementById('btn-copy-label').innerText = isVi ? 'Sao Chép Câu Hỏi' : 'Copy Questions';
+      document.getElementById('btn-word-label').innerText = isVi ? 'Xuất File Word (.docx)' : 'Export Word (.docx)';
+      document.getElementById('btn-all-label').innerText = isVi ? 'Xuất Tất Cả GV (.zip)' : 'Export All Teachers (.zip)';
+      document.getElementById('resynth-label').innerText = isVi ? 'AI Tổng Hợp Lại' : 'AI Re-synthesize';
+      document.getElementById('approve-label').innerText = isVi ? 'Phê Duyệt Core Questions' : 'Approve Core Questions';
+    }
+
+    function simulateExportAll() {
+      const btn = document.getElementById('btn-export-all-mockup');
+      const label = document.getElementById('btn-all-label');
+      const icon = document.getElementById('all-export-icon');
+      
+      btn.disabled = true;
+      btn.classList.add('opacity-80');
+      icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>';
+      icon.classList.add('animate-spin');
+
+      let step = 1;
+      const total = 12;
+      const interval = setInterval(() => {
+        const isVi = currentLang === 'vi';
+        label.innerText = isVi ? `Đang xuất (${step}/${total})...` : `Exporting (${step}/${total})...`;
+        step += 3;
+        if (step > total) {
+          clearInterval(interval);
+          setTimeout(() => {
+            icon.classList.remove('animate-spin');
+            icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>';
+            label.innerText = isVi ? 'Xuất Tất Cả GV (.zip)' : 'Export All Teachers (.zip)';
+            btn.disabled = false;
+            btn.classList.remove('opacity-80');
+            alert(isVi ? 'Đã xuất thành công toàn bộ 12 phiếu phỏng vấn GV thành các file Word riêng biệt trong tệp ZIP!' : 'Successfully exported individual Word guides for all 12 teachers in ZIP archive!');
+          }, 400);
+        }
+      }, 400);
     }
   </script>
 </body>

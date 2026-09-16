@@ -22,6 +22,7 @@ export interface ExportInterviewGuideData {
   dynamicQuestions: InterviewQuestion[];
   teacherAnalysis?: TeacherAnalysis | null;
   generatedDate?: string;
+  lang?: 'en' | 'vi';
 }
 
 const FONT_NAME = 'Calibri';
@@ -52,7 +53,19 @@ const CELL_BORDERS_NONE = {
   right: NO_BORDER,
 };
 
-function getRQFullTitle(rq?: string): string {
+function getRQFullTitle(rq?: string, lang: 'en' | 'vi' = 'en'): string {
+  if (lang === 'vi') {
+    switch (rq) {
+      case 'RQ1':
+        return 'RQ1: Chiến lược Quản lý Lớp học (Strategies)';
+      case 'RQ2':
+        return 'RQ2: Nhận thức & Đánh giá của GV (Perceptions)';
+      case 'RQ3':
+        return 'RQ3: Thách thức & Giải pháp (Challenges)';
+      default:
+        return rq || 'Tìm hiểu Chung';
+    }
+  }
   switch (rq) {
     case 'RQ1':
       return 'RQ1: Classroom Strategies';
@@ -93,9 +106,12 @@ function getRQTextColor(rq?: string): string {
 
 export async function generateInterviewGuideWord(data: ExportInterviewGuideData): Promise<Blob> {
   const { teacherId, coreQuestions, dynamicQuestions, teacherAnalysis, generatedDate } = data;
-  const dateStr = generatedDate || new Date().toLocaleDateString('en-GB', {
+  const lang = data.lang || 'en';
+  const isVi = lang === 'vi';
+
+  const dateStr = generatedDate || new Date().toLocaleDateString(isVi ? 'vi-VN' : 'en-GB', {
     day: '2-digit',
-    month: 'short',
+    month: isVi ? '2-digit' : 'short',
     year: 'numeric',
   });
 
@@ -110,7 +126,9 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
       spacing: { before: 0, after: 120 },
       children: [
         new TextRun({
-          text: 'SEMI-STRUCTURED TEACHER INTERVIEW PROTOCOL',
+          text: isVi
+            ? 'QUY TRÌNH PHỎNG VẤN BÁN CẤU TRÚC GIÁO VIÊN'
+            : 'SEMI-STRUCTURED TEACHER INTERVIEW PROTOCOL',
           font: FONT_NAME,
           size: 32, // 16pt
           bold: true,
@@ -123,7 +141,9 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
       spacing: { before: 0, after: 80 },
       children: [
         new TextRun({
-          text: "Research: Primary EFL Teachers' Online Classroom Management Strategies & Student Speaking Participation",
+          text: isVi
+            ? 'Nghiên cứu: Chiến Lược Quản Lý Lớp Học Trực Tuyến Của GV Tiếng Anh Tiểu Học & Sự Tham Gia Nói Của Học Sinh'
+            : "Research: Primary EFL Teachers' Online Classroom Management Strategies & Student Speaking Participation",
           font: FONT_NAME,
           size: 22, // 11pt
           italics: true,
@@ -136,7 +156,9 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
       spacing: { before: 0, after: 240 },
       children: [
         new TextRun({
-          text: 'Theoretical Framework: Multi-Lesson Video Observation & Grounded Theory Strategy Synthesis',
+          text: isVi
+            ? 'Khung Lý Thuyết: Quan Sát Video Đa Tiết Dạy & Tổng Hợp Chiến Lược Theo Lý Thuyết Quy Nạp (Grounded Theory)'
+            : 'Theoretical Framework: Multi-Lesson Video Observation & Grounded Theory Strategy Synthesis',
           font: FONT_NAME,
           size: 19, // 9.5pt
           color: '6B7280',
@@ -162,7 +184,7 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
               margins: { top: 120, bottom: 120, left: 140, right: 140 },
               children: [
                 new Paragraph({
-                  children: [new TextRun({ text: 'Participant ID:', font: FONT_NAME, bold: true, size: 20 })],
+                  children: [new TextRun({ text: isVi ? 'Mã Giáo Viên:' : 'Participant ID:', font: FONT_NAME, bold: true, size: 20 })],
                 }),
               ],
             }),
@@ -185,7 +207,7 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
               margins: { top: 120, bottom: 120, left: 140, right: 140 },
               children: [
                 new Paragraph({
-                  children: [new TextRun({ text: 'Date Generated:', font: FONT_NAME, bold: true, size: 20 })],
+                  children: [new TextRun({ text: isVi ? 'Ngày Xuất Bản:' : 'Date Generated:', font: FONT_NAME, bold: true, size: 20 })],
                 }),
               ],
             }),
@@ -212,7 +234,7 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
               margins: { top: 120, bottom: 120, left: 140, right: 140 },
               children: [
                 new Paragraph({
-                  children: [new TextRun({ text: 'Protocol Type:', font: FONT_NAME, bold: true, size: 20 })],
+                  children: [new TextRun({ text: isVi ? 'Hình Thức:' : 'Protocol Type:', font: FONT_NAME, bold: true, size: 20 })],
                 }),
               ],
             }),
@@ -223,7 +245,7 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
               margins: { top: 120, bottom: 120, left: 140, right: 140 },
               children: [
                 new Paragraph({
-                  children: [new TextRun({ text: 'Semi-Structured Interview', font: FONT_NAME, size: 20 })],
+                  children: [new TextRun({ text: isVi ? 'Phỏng Vấn Bán Cấu Trúc' : 'Semi-Structured Interview', font: FONT_NAME, size: 20 })],
                 }),
               ],
             }),
@@ -235,7 +257,7 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
               margins: { top: 120, bottom: 120, left: 140, right: 140 },
               children: [
                 new Paragraph({
-                  children: [new TextRun({ text: 'Core Guide Status:', font: FONT_NAME, bold: true, size: 20 })],
+                  children: [new TextRun({ text: isVi ? 'Trạng Thái Guide:' : 'Core Guide Status:', font: FONT_NAME, bold: true, size: 20 })],
                 }),
               ],
             }),
@@ -246,7 +268,7 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
               margins: { top: 120, bottom: 120, left: 140, right: 140 },
               children: [
                 new Paragraph({
-                  children: [new TextRun({ text: 'Approved & Aligned with RQ1–RQ3', font: FONT_NAME, bold: true, size: 20, color: '166534' })],
+                  children: [new TextRun({ text: isVi ? 'Đã Phê Duyệt & Khớp RQ1–RQ3' : 'Approved & Aligned with RQ1–RQ3', font: FONT_NAME, bold: true, size: 20, color: '166534' })],
                 }),
               ],
             }),
@@ -266,7 +288,7 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
       spacing: { before: 200, after: 120 },
       children: [
         new TextRun({
-          text: 'RESEARCH INQUIRY SCOPE (RQ1 – RQ3)',
+          text: isVi ? 'PHẠM VI CÂU HỎI NGHIÊN CỨU (RQ1 – RQ3)' : 'RESEARCH INQUIRY SCOPE (RQ1 – RQ3)',
           font: FONT_NAME,
           bold: true,
           size: 24, // 12pt
@@ -299,7 +321,9 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
                 new Paragraph({
                   children: [
                     new TextRun({
-                      text: 'What classroom management strategies do primary EFL teachers use in online English speaking classes?',
+                      text: isVi
+                        ? 'Các giáo viên tiếng Anh tiểu học sử dụng những chiến lược quản lý lớp học nào trong các tiết học nói tiếng Anh trực tuyến?'
+                        : 'What classroom management strategies do primary EFL teachers use in online English speaking classes?',
                       font: FONT_NAME,
                       size: 20,
                     }),
@@ -331,7 +355,9 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
                 new Paragraph({
                   children: [
                     new TextRun({
-                      text: "How do teachers perceive the role/effectiveness of classroom management strategies in promoting learners' speaking participation?",
+                      text: isVi
+                        ? "Giáo viên nhìn nhận như thế nào về vai trò/hiệu quả của các chiến lược quản lý lớp học trong việc thúc đẩy sự tham gia nói của học sinh?"
+                        : "How do teachers perceive the role/effectiveness of classroom management strategies in promoting learners' speaking participation?",
                       font: FONT_NAME,
                       size: 20,
                     }),
@@ -363,7 +389,9 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
                 new Paragraph({
                   children: [
                     new TextRun({
-                      text: 'What challenges do teachers encounter in managing online English speaking classes, and how do they address these challenges?',
+                      text: isVi
+                        ? 'Giáo viên gặp những thách thức nào khi quản lý các lớp học nói tiếng Anh trực tuyến và họ giải quyết các thách thức này như thế nào?'
+                        : 'What challenges do teachers encounter in managing online English speaking classes, and how do they address these challenges?',
                       font: FONT_NAME,
                       size: 20,
                     }),
@@ -388,7 +416,9 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
         spacing: { before: 180, after: 120 },
         children: [
           new TextRun({
-            text: `1. TEACHER PEDAGOGICAL PROFILE & CLASSROOM CONTEXT (${teacherId})`,
+            text: isVi
+              ? `1. HỒ SƠ SƯ PHẠM & BỐI CẢNH LỚP HỌC (${teacherId})`
+              : `1. TEACHER PEDAGOGICAL PROFILE & CLASSROOM CONTEXT (${teacherId})`,
             font: FONT_NAME,
             bold: true,
             size: 24,
@@ -464,7 +494,7 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
       spacing: { before: 240, after: 80 },
       children: [
         new TextRun({
-          text: '2. CORE SEMI-STRUCTURED INTERVIEW QUESTIONS',
+          text: isVi ? '2. BỘ CÂU HỎI PHỎNG VẤN BÁN CẤU TRÚC CỐT LÕI' : '2. CORE SEMI-STRUCTURED INTERVIEW QUESTIONS',
           font: FONT_NAME,
           bold: true,
           size: 24,
@@ -476,7 +506,9 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
       spacing: { before: 0, after: 140 },
       children: [
         new TextRun({
-          text: 'These core questions represent the common protocol grounded in the 22 canonical semi-structured interview questions, synthesized across 24 lessons to cover RQ1–RQ3 consistently for all 12 teachers.',
+          text: isVi
+            ? 'Bộ câu hỏi cốt lõi này đại diện cho quy trình chung được tổng hợp từ 22 câu hỏi bán cấu trúc chuẩn qua 24 tiết dạy, bao quát nhất quán RQ1–RQ3 cho tất cả 12 giáo viên.'
+            : 'These core questions represent the common protocol grounded in the 22 canonical semi-structured interview questions, synthesized across 24 lessons to cover RQ1–RQ3 consistently for all 12 teachers.',
           font: FONT_NAME,
           size: 19,
           italics: true,
@@ -499,7 +531,7 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
           children: [
             new Paragraph({
               alignment: AlignmentType.CENTER,
-              children: [new TextRun({ text: 'No.', font: FONT_NAME, bold: true, size: 20, color: 'FFFFFF' })],
+              children: [new TextRun({ text: isVi ? 'STT' : 'No.', font: FONT_NAME, bold: true, size: 20, color: 'FFFFFF' })],
             }),
           ],
         }),
@@ -511,7 +543,7 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
           margins: { top: 120, bottom: 120, left: 120, right: 120 },
           children: [
             new Paragraph({
-              children: [new TextRun({ text: 'Research Question', font: FONT_NAME, bold: true, size: 20, color: 'FFFFFF' })],
+              children: [new TextRun({ text: isVi ? 'Câu Hỏi Nghiên Cứu' : 'Research Question', font: FONT_NAME, bold: true, size: 20, color: 'FFFFFF' })],
             }),
           ],
         }),
@@ -525,7 +557,7 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
             new Paragraph({
               children: [
                 new TextRun({
-                  text: 'Interview Question & Methodological Rationale',
+                  text: isVi ? 'Nội Dung Câu Hỏi & Cơ Sở Phương Pháp Luận' : 'Interview Question & Methodological Rationale',
                   font: FONT_NAME,
                   bold: true,
                   size: 20,
@@ -567,7 +599,7 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
           spacing: { before: 0, after: 60 },
           children: [
             new TextRun({
-              text: 'Rationale: ',
+              text: isVi ? 'Cơ sở lý do: ' : 'Rationale: ',
               font: FONT_NAME,
               bold: true,
               italics: true,
@@ -612,7 +644,7 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
               new Paragraph({
                 children: [
                   new TextRun({
-                    text: getRQFullTitle(rq),
+                    text: getRQFullTitle(rq, lang),
                     font: FONT_NAME,
                     bold: true,
                     size: 19,
@@ -651,7 +683,9 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
       spacing: { before: 240, after: 80 },
       children: [
         new TextRun({
-          text: `3. PARTICIPANT-SPECIFIC FOLLOW-UP QUESTIONS (${teacherId})`,
+          text: isVi
+            ? `3. CÂU HỎI PHỎNG VẤN SÂU RIÊNG BIỆT CHO GIÁO VIÊN (${teacherId})`
+            : `3. PARTICIPANT-SPECIFIC FOLLOW-UP QUESTIONS (${teacherId})`,
           font: FONT_NAME,
           bold: true,
           size: 24,
@@ -663,7 +697,9 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
       spacing: { before: 0, after: 140 },
       children: [
         new TextRun({
-          text: `These targeted follow-up inquiries are directly grounded in ${teacherId}'s chronological classroom interaction log (verbatim quotes, wait times, turn-taking routines, and digital tool interventions) to probe pedagogical intentions.`,
+          text: isVi
+            ? `Các câu hỏi đào sâu này được thiết kế trực tiếp từ nhật ký tương tác lớp học theo trình tự thời gian của ${teacherId} (lời thoại nguyên văn, khoảng lặng chờ đợi, quy trình lượt lời và công cụ kỹ thuật số) để tìm hiểu sâu ý đồ sư phạm.`
+            : `These targeted follow-up inquiries are directly grounded in ${teacherId}'s chronological classroom interaction log (verbatim quotes, wait times, turn-taking routines, and digital tool interventions) to probe pedagogical intentions.`,
           font: FONT_NAME,
           size: 19,
           italics: true,
@@ -679,7 +715,9 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
         spacing: { before: 100, after: 100 },
         children: [
           new TextRun({
-            text: `(No participant-specific follow-up questions generated yet for ${teacherId}. Please click "Approve & Generate Guides" in Interview Studio to generate empirical inquiries).`,
+            text: isVi
+              ? `(Chưa có câu hỏi phỏng vấn sâu riêng biệt cho ${teacherId}. Vui lòng nhấn "Phê Duyệt & Sinh Câu Hỏi Sâu" trong Interview Studio để sinh câu hỏi thực nghiệm).`
+              : `(No participant-specific follow-up questions generated yet for ${teacherId}. Please click "Approve & Generate Guides" in Interview Studio to generate empirical inquiries).`,
             font: FONT_NAME,
             size: 20,
             italics: true,
@@ -702,7 +740,7 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,
-                children: [new TextRun({ text: 'No.', font: FONT_NAME, bold: true, size: 20, color: 'FFFFFF' })],
+                children: [new TextRun({ text: isVi ? 'STT' : 'No.', font: FONT_NAME, bold: true, size: 20, color: 'FFFFFF' })],
               }),
             ],
           }),
@@ -714,7 +752,7 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
             margins: { top: 120, bottom: 120, left: 100, right: 100 },
             children: [
               new Paragraph({
-                children: [new TextRun({ text: 'Target RQ', font: FONT_NAME, bold: true, size: 20, color: 'FFFFFF' })],
+                children: [new TextRun({ text: isVi ? 'Mục Tiêu RQ' : 'Target RQ', font: FONT_NAME, bold: true, size: 20, color: 'FFFFFF' })],
               }),
             ],
           }),
@@ -728,7 +766,7 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
               new Paragraph({
                 children: [
                   new TextRun({
-                    text: 'Classroom Evidence & Timestamps',
+                    text: isVi ? 'Dẫn Chứng & Mốc Thời Gian Lớp Học' : 'Classroom Evidence & Timestamps',
                     font: FONT_NAME,
                     bold: true,
                     size: 20,
@@ -748,7 +786,7 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
               new Paragraph({
                 children: [
                   new TextRun({
-                    text: 'In-Depth Follow-up Question',
+                    text: isVi ? 'Câu Hỏi Phỏng Vấn Sâu Cụ Thể' : 'In-Depth Follow-up Question',
                     font: FONT_NAME,
                     bold: true,
                     size: 20,
@@ -803,7 +841,7 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
           new Paragraph({
             children: [
               new TextRun({
-                text: 'Based on multi-lesson recurring interactions.',
+                text: isVi ? 'Dựa trên chuỗi tương tác nhiều tiết học.' : 'Based on multi-lesson recurring interactions.',
                 font: FONT_NAME,
                 italics: true,
                 size: 18,
@@ -851,7 +889,7 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
                 new Paragraph({
                   children: [
                     new TextRun({
-                      text: rq === 'RQ1' ? 'Strategies' : rq === 'RQ2' ? 'Perceptions' : 'Challenges',
+                      text: rq === 'RQ1' ? (isVi ? 'Chiến Lược' : 'Strategies') : rq === 'RQ2' ? (isVi ? 'Cảm Nhận' : 'Perceptions') : (isVi ? 'Thách Thức' : 'Challenges'),
                       font: FONT_NAME,
                       size: 17,
                       color: getRQTextColor(rq),
@@ -910,7 +948,7 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
       spacing: { before: 240, after: 100 },
       children: [
         new TextRun({
-          text: '4. INTERVIEWER REFLECTION & FIELD NOTES',
+          text: isVi ? '4. GHI CHÚ QUAN SÁT & SUY NGẪM SAU PHỎNG VẤN' : '4. INTERVIEWER REFLECTION & FIELD NOTES',
           font: FONT_NAME,
           bold: true,
           size: 24,
@@ -932,7 +970,7 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
                   spacing: { before: 0, after: 80 },
                   children: [
                     new TextRun({
-                      text: 'Key Participant Responses & Emergent Pedagogical Insights:',
+                      text: isVi ? 'Phản Hồi Trọng Tâm Của Giáo Viên & Phát Hiện Sư Phạm Mới Nổi:' : 'Key Participant Responses & Emergent Pedagogical Insights:',
                       font: FONT_NAME,
                       bold: true,
                       size: 20,
@@ -944,7 +982,9 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
                   spacing: { before: 60, after: 60 },
                   children: [
                     new TextRun({
-                      text: '• Observed alignment between stated beliefs and video classroom practice:\n',
+                      text: isVi
+                        ? '• Mức độ phù hợp giữa quan điểm sư phạm được chia sẻ và hành vi thực tế trên video lớp học:\n'
+                        : '• Observed alignment between stated beliefs and video classroom practice:\n',
                       font: FONT_NAME,
                       size: 19,
                       color: '9CA3AF',
@@ -955,7 +995,9 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
                   spacing: { before: 60, after: 60 },
                   children: [
                     new TextRun({
-                      text: '• Unexpected constraints mentioned by participant (institutional, technical, learner-level):\n',
+                      text: isVi
+                        ? '• Rào cản/thách thức bất ngờ được giáo viên đề cập (thể chế, kỹ thuật công nghệ, năng lực người học):\n'
+                        : '• Unexpected constraints mentioned by participant (institutional, technical, learner-level):\n',
                       font: FONT_NAME,
                       size: 19,
                       color: '9CA3AF',
@@ -966,7 +1008,9 @@ export async function generateInterviewGuideWord(data: ExportInterviewGuideData)
                   spacing: { before: 60, after: 120 },
                   children: [
                     new TextRun({
-                      text: '• Additional follow-up reflections or researcher memos:\n\n\n\n',
+                      text: isVi
+                        ? '• Suy ngẫm bổ sung của người phỏng vấn hoặc ghi chú nghiên cứu (Researcher Memos):\n\n\n\n'
+                        : '• Additional follow-up reflections or researcher memos:\n\n\n\n',
                       font: FONT_NAME,
                       size: 19,
                       color: '9CA3AF',

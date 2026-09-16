@@ -651,6 +651,15 @@ export const translations: TranslationDict = {
     en: 'No specific follow-up questions generated yet for this teacher. Click "Approve & Generate Guides" in the banner above.',
     vi: 'Chưa có câu hỏi đào sâu riêng biệt cho giáo viên này. Nhấn "Approve & Generate Guides" ở banner trên để sinh câu hỏi.'
   },
+  interviewExportWord: { en: 'Export Word (.docx)', vi: 'Xuất File Word (.docx)' },
+  interviewExportingWord: { en: 'Exporting Word...', vi: 'Đang xuất Word...' },
+  interviewExportWordSuccess: { en: 'Successfully exported interview guide for {teacher} to Word (.docx)!', vi: 'Đã xuất phiếu phỏng vấn {teacher} ra file Word (.docx) thành công!' },
+  interviewExportAllWord: { en: 'Export All Teachers (.zip)', vi: 'Xuất Tất Cả GV (.zip)' },
+  interviewExportingAllWord: { en: 'Exporting ({current}/{total})...', vi: 'Đang xuất ({current}/{total})...' },
+  interviewExportAllSuccess: { en: 'Successfully exported separate Word files for all {count} teachers into ZIP archive!', vi: 'Đã xuất thành công toàn bộ {count} phiếu phỏng vấn GV thành các file Word riêng biệt trong tệp ZIP!' },
+  interviewExportAllError: { en: 'Error exporting Word files: ', vi: 'Lỗi khi xuất toàn bộ file Word: ' },
+  interviewExportWordTooltip: { en: 'Export interview guide for current teacher to Microsoft Word (.docx)', vi: 'Xuất phiếu phỏng vấn giáo viên hiện tại ra định dạng Microsoft Word (.docx) chuẩn học thuật' },
+  interviewExportAllTooltip: { en: 'Download a ZIP archive containing individual Word (.docx) documents for every teacher (not merged)', vi: 'Tải về tệp ZIP chứa các file Word (.docx) riêng biệt cho từng giáo viên (không gộp file)' },
   interviewNarrativeTitle: { en: 'Pedagogical Narrative Synthesis', vi: 'Hồ Sơ & Tổng Hợp Sư Phạm' },
   interviewNarrativeSubtitle: {
     en: 'Qualitative synthesis of instructional style, pacing, and communicative patterns',
