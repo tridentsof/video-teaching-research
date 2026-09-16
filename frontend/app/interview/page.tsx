@@ -721,22 +721,28 @@ export default function InterviewStudioPage() {
                 {copied ? <Check size={15} color="var(--accent-green)" /> : <Copy size={15} />}
                 <span>{copied ? t('commonCopied') : t('commonCopyQuestions')}</span>
               </button>
+              {/* 2 Export Buttons Song Song (1 cho từng Teacher, 1 cho Tất Cả) */}
               <button
                 onClick={handleExportWord}
                 disabled={isExportingWord || isExportingAll}
                 className="btn btn-secondary"
-                style={{ fontSize: '13px', padding: '7px 15px', display: 'flex', alignItems: 'center', gap: '6px' }}
-                title={t('interviewExportWordTooltip')}
+                style={{ fontSize: '13px', padding: '7px 15px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
+                title={t('interviewExportWordTooltip').replace('{teacher}', selectedTeacher)}
               >
-                {isExportingWord ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />}
-                <span>{isExportingWord ? t('interviewExportingWord') : t('interviewExportWord')}</span>
+                {isExportingWord ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} color="var(--accent)" />}
+                <span>
+                  {isExportingWord
+                    ? t('interviewExportingWord')
+                    : t('interviewExportSingleTeacher').replace('{teacher}', selectedTeacher)}
+                </span>
               </button>
+
               <button
                 onClick={handleExportAllWord}
                 disabled={isExportingWord || isExportingAll}
                 className="btn btn-primary"
-                style={{ fontSize: '13px', padding: '7px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}
-                title={t('interviewExportAllTooltip')}
+                style={{ fontSize: '13px', padding: '7px 16px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
+                title={t('interviewExportAllTooltip').replace('{count}', String(teacherList.length))}
               >
                 {isExportingAll ? <Loader2 size={15} className="animate-spin" /> : <FolderArchive size={15} />}
                 <span>
@@ -744,7 +750,7 @@ export default function InterviewStudioPage() {
                     ? t('interviewExportingAllWord')
                         .replace('{current}', String(exportProgress.current))
                         .replace('{total}', String(exportProgress.total))
-                    : t('interviewExportAllWord')}
+                    : t('interviewExportAllTeachers').replace('{count}', String(teacherList.length))}
                 </span>
               </button>
             </div>
