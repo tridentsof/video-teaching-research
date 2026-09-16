@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teacher Interview Studio & Question Bank — Research Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            },
+            rq1: { light: '#10b981', dark: '#059669', bg: 'rgba(16, 185, 129, 0.12)' },
+            rq2: { light: '#3b82f6', dark: '#2563eb', bg: 'rgba(59, 130, 246, 0.12)' },
+            rq3: { light: '#f59e0b', dark: '#d97706', bg: 'rgba(245, 158, 11, 0.12)' },
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #0b0f19; color: #f3f4f6; }
+    .glass-panel {
+      background: rgba(17, 24, 39, 0.75);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .badge-rq1 { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-rq2 { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .badge-rq3 { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-bg  { background: rgba(156, 163, 175, 0.15); color: #d1d5db; border: 1px solid rgba(156, 163, 175, 0.3); }
+  </style>
+</head>
+<body class="min-h-screen font-sans antialiased p-6 md:p-10">
+
+  <!-- Header -->
+  <header class="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-gray-800 pb-6">
+    <div>
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+            Teacher Interview Guide Studio
+            <span class="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium">RQ1–RQ3 Grounded Theory</span>
+          </h1>
+          <p class="text-sm text-gray-400 mt-0.5">Semi-structured interview methodology with rich multimodal interaction logs</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab switcher -->
+    <div class="flex items-center bg-gray-900/90 p-1.5 rounded-xl border border-gray-800 shadow-inner">
+      <button onclick="switchTab('studio')" id="btn-studio" class="px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 bg-indigo-600 text-white shadow-md">
+        🎙️ Interview Studio (12 Teachers)
+      </button>
+      <button onclick="switchTab('bank')" id="btn-bank" class="px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 text-gray-400 hover:text-gray-200">
+        📚 Base Questions Bank (22 Canonical)
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto">
+
+    <!-- ==================== TAB 1: INTERVIEW STUDIO ==================== -->
+    <div id="tab-studio" class="space-y-6">
+
+      <!-- Flow A Approval Banner -->
+      <div class="glass-panel p-6 rounded-2xl border-l-4 border-l-amber-500 shadow-xl relative overflow-hidden">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-3 mb-1.5">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                ⚡ Cách A: AI Proposal Review Gate
+              </span>
+              <span class="text-xs text-gray-400">Analysis Run: <code class="text-indigo-300 font-mono">run-2024-03-01</code></span>
+            </div>
+            <h2 class="text-lg font-bold text-white">Synthesized Core Questions (8 items for all 12 teachers)</h2>
+            <p class="text-sm text-gray-400 mt-1 max-w-3xl">
+              AI đã tổng hợp từ 22 câu hỏi bán cấu trúc gốc và các teaching themes phát hiện từ 24 video. Bạn có thể xem, tinh chỉnh câu hỏi trước khi nhấn Approve để sinh câu hỏi đào sâu cho từng giáo viên.
+            </p>
+          </div>
+          <div class="flex items-center gap-3 shrink-0">
+            <button class="px-4 py-2 text-xs font-semibold rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition">
+              🔄 AI Re-synthesize
+            </button>
+            <button class="px-5 py-2 text-xs font-bold rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-600/20 transition">
+              ✓ Approve Core Questions
+            </button>
+          </div>
+        </div>
+
+        <!-- Collapsible preview of 8 Core Questions -->
+        <div class="mt-4 pt-4 border-t border-gray-800/80 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="p-3 rounded-xl bg-gray-900/60 border border-gray-800 flex items-start gap-3">
+            <span class="text-xs font-mono px-2 py-0.5 rounded badge-rq1 shrink-0 mt-0.5">RQ1</span>
+            <div class="text-xs text-gray-300">
+              <div class="font-medium text-white">1. Organizing lesson & classroom routines</div>
+              <p class="text-gray-400 mt-0.5">Could you describe how you manage an online English speaking lesson from beginning to end, and how you establish classroom rules and routines?</p>
+            </div>
+          </div>
+          <div class="p-3 rounded-xl bg-gray-900/60 border border-gray-800 flex items-start gap-3">
+            <span class="text-xs font-mono px-2 py-0.5 rounded badge-rq1 shrink-0 mt-0.5">RQ1</span>
+            <div class="text-xs text-gray-300">
+              <div class="font-medium text-white">2. Turn-taking & wait-time management</div>
+              <p class="text-gray-400 mt-0.5">How do you manage turn-taking and wait time during speaking activities to ensure young learners have equitable opportunities to participate?</p>
+            </div>
+          </div>
+          <div class="p-3 rounded-xl bg-gray-900/60 border border-gray-800 flex items-start gap-3">
+            <span class="text-xs font-mono px-2 py-0.5 rounded badge-rq2 shrink-0 mt-0.5">RQ2</span>
+            <div class="text-xs text-gray-300">
+              <div class="font-medium text-white">4. Management's role in speaking confidence</div>
+              <p class="text-gray-400 mt-0.5">In your view, what role does classroom management play in promoting speaking participation and influencing learners' confidence?</p>
+            </div>
+          </div>
+          <div class="p-3 rounded-xl bg-gray-900/60 border border-gray-800 flex items-start gap-3">
+            <span class="text-xs font-mono px-2 py-0.5 rounded badge-rq3 shrink-0 mt-0.5">RQ3</span>
+            <div class="text-xs text-gray-300">
+              <div class="font-medium text-white">7. Supporting hesitant & reluctant learners</div>
+              <p class="text-gray-400 mt-0.5">How do you usually support and manage learners who are reluctant to speak or have difficulty speaking English during live lessons?</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Teacher Selection & Interview Content -->
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+        <!-- Teacher Sidebar -->
+        <div class="glass-panel p-5 rounded-2xl h-fit space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-gray-800">
+            <span class="text-xs font-bold uppercase tracking-wider text-gray-400">Select Teacher</span>
+            <span class="text-xs bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded font-mono">12 Participants</span>
+          </div>
+          <div class="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-3 gap-2">
+            <button class="py-2.5 rounded-xl font-mono text-sm font-bold bg-indigo-600 text-white shadow-md shadow-indigo-600/30">T01</button>
+            <button class="py-2.5 rounded-xl font-mono text-sm font-medium bg-gray-900/80 hover:bg-gray-800 text-gray-300 border border-gray-800 transition">T02</button>
+            <button class="py-2.5 rounded-xl font-mono text-sm font-medium bg-gray-900/80 hover:bg-gray-800 text-gray-300 border border-gray-800 transition">T03</button>
+            <button class="py-2.5 rounded-xl font-mono text-sm font-medium bg-gray-900/80 hover:bg-gray-800 text-gray-300 border border-gray-800 transition">T04</button>
+            <button class="py-2.5 rounded-xl font-mono text-sm font-medium bg-gray-900/80 hover:bg-gray-800 text-gray-300 border border-gray-800 transition">T05</button>
+            <button class="py-2.5 rounded-xl font-mono text-sm font-medium bg-gray-900/80 hover:bg-gray-800 text-gray-300 border border-gray-800 transition">T06</button>
+            <button class="py-2.5 rounded-xl font-mono text-sm font-medium bg-gray-900/80 hover:bg-gray-800 text-gray-300 border border-gray-800 transition">T07</button>
+            <button class="py-2.5 rounded-xl font-mono text-sm font-medium bg-gray-900/80 hover:bg-gray-800 text-gray-300 border border-gray-800 transition">T08</button>
+            <button class="py-2.5 rounded-xl font-mono text-sm font-medium bg-gray-900/80 hover:bg-gray-800 text-gray-300 border border-gray-800 transition">T09</button>
+            <button class="py-2.5 rounded-xl font-mono text-sm font-medium bg-gray-900/80 hover:bg-gray-800 text-gray-300 border border-gray-800 transition">T10</button>
+            <button class="py-2.5 rounded-xl font-mono text-sm font-medium bg-gray-900/80 hover:bg-gray-800 text-gray-300 border border-gray-800 transition">T11</button>
+            <button class="py-2.5 rounded-xl font-mono text-sm font-medium bg-gray-900/80 hover:bg-gray-800 text-gray-300 border border-gray-800 transition">T12</button>
+          </div>
+          <div class="pt-3 border-t border-gray-800 space-y-2">
+            <button class="w-full py-2.5 px-3 rounded-xl bg-gray-900 hover:bg-gray-800 text-xs font-semibold text-gray-300 border border-gray-800 flex items-center justify-center gap-2">
+              📋 Copy Markdown
+            </button>
+            <button class="w-full py-2.5 px-3 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-xs font-semibold text-indigo-300 border border-indigo-500/30 flex items-center justify-center gap-2">
+              📄 Export Word / PDF
+            </button>
+          </div>
+        </div>
+
+        <!-- Questions & Evidence Content -->
+        <div class="lg:col-span-3 space-y-6">
+
+          <!-- Teacher Profile & Context Card -->
+          <div class="glass-panel p-6 rounded-2xl">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-xl font-bold text-white flex items-center gap-2.5">
+                Participant Interview Guide: <span class="text-indigo-400 font-mono">Teacher T01</span>
+              </h3>
+              <span class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
+                2 Lessons Analyzed (V01, V02)
+              </span>
+            </div>
+            <p class="text-sm text-gray-300 leading-relaxed bg-gray-900/50 p-4 rounded-xl border border-gray-800">
+              <strong class="text-indigo-300 font-medium">Pedagogical Profile:</strong> Teacher T01 demonstrates a highly structured pacing approach with deliberate wait-time intervals (avg 5.2s) and structured nomination routines. Pacing adjustments occur primarily when lower-confidence learners hesitate, shifting from verbal prompts to digital whiteboard visual cues.
+            </p>
+          </div>
+
+          <!-- Section: Follow-up Questions with RQ Badges & Evidence -->
+          <div class="glass-panel p-6 rounded-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+              <div>
+                <h4 class="text-base font-bold text-white flex items-center gap-2">
+                  <span>🎯 Participant-Specific Follow-Up Questions</span>
+                  <span class="text-xs px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 font-normal">Grounded in T01's Event Log</span>
+                </h4>
+                <p class="text-xs text-gray-400 mt-0.5">Questions directly targeting RQ1 (Strategies), RQ2 (Perceptions), and RQ3 (Challenges & Solutions)</p>
+              </div>
+            </div>
+
+            <!-- Follow-up Card 1 (RQ1) -->
+            <div class="p-4 rounded-xl bg-gray-900/70 border border-gray-800 hover:border-emerald-500/40 transition space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-mono font-bold px-2.5 py-1 rounded badge-rq1 flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> RQ1 — Strategies
+                </span>
+                <span class="text-xs text-gray-400 font-mono">Follow-up #1</span>
+              </div>
+              <p class="text-sm text-gray-100 font-medium">
+                "In video V01 at timestamp 04:32, after asking an open question to the whole group, you intentionally waited 6 seconds before nominating a specific student. What pedagogical factors determined this waiting window with young learners?"
+              </p>
+              <!-- Evidence box -->
+              <div class="p-3 rounded-lg bg-gray-950/80 border border-gray-800/80 text-xs font-mono text-emerald-400/90 space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-gray-400">Timestamp:</span> <span class="text-white font-semibold">04:32</span>
+                  <span class="text-gray-600">•</span>
+                  <span class="text-gray-400">Occurrences:</span> 14 times (+40% vs group avg)
+                </div>
+                <div>
+                  <span class="text-gray-400">Spoken words:</span> <span class="text-gray-200">"Take your time, look at the picture first..."</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Follow-up Card 2 (RQ2) -->
+            <div class="p-4 rounded-xl bg-gray-900/70 border border-gray-800 hover:border-blue-500/40 transition space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-mono font-bold px-2.5 py-1 rounded badge-rq2 flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span> RQ2 — Teachers' Perceptions
+                </span>
+                <span class="text-xs text-gray-400 font-mono">Follow-up #2</span>
+              </div>
+              <p class="text-sm text-gray-100 font-medium">
+                "When learners responded to your verbal praise ('Excellent job! High five!') at 12:15, several quieter students raised their hands in subsequent turns. How do you perceive the direct impact of positive reinforcement on learners' speaking willingness?"
+              </p>
+              <!-- Evidence box -->
+              <div class="p-3 rounded-lg bg-gray-950/80 border border-gray-800/80 text-xs font-mono text-blue-400/90 space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-gray-400">Timestamp:</span> <span class="text-white font-semibold">12:15</span>
+                  <span class="text-gray-600">•</span>
+                  <span class="text-gray-400">Strategy:</span> Praise & Positive Reinforcement
+                </div>
+                <div>
+                  <span class="text-gray-400">Spoken quote:</span> <span class="text-gray-200">"Excellent job, high five! Who wants to be next?"</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Follow-up Card 3 (RQ3) -->
+            <div class="p-4 rounded-xl bg-gray-900/70 border border-gray-800 hover:border-amber-500/40 transition space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-mono font-bold px-2.5 py-1 rounded badge-rq3 flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> RQ3 — Challenges & Solutions
+                </span>
+                <span class="text-xs text-gray-400 font-mono">Follow-up #3</span>
+              </div>
+              <p class="text-sm text-gray-100 font-medium">
+                "At timestamp 21:05 in lesson V02, a student had microphone issues and became reluctant to speak. You pivoted to using the chat box and visual reaction icons. How do you navigate these technical disruptions to prevent learners from disengaging?"
+              </p>
+              <!-- Evidence box -->
+              <div class="p-3 rounded-lg bg-gray-950/80 border border-gray-800/80 text-xs font-mono text-amber-400/90 space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-gray-400">Timestamp:</span> <span class="text-white font-semibold">21:05</span>
+                  <span class="text-gray-600">•</span>
+                  <span class="text-gray-400">Event:</span> Audio hesitation & chat box fallback
+                </div>
+                <div>
+                  <span class="text-gray-400">Spoken quote:</span> <span class="text-gray-200">"It's okay Nam, type your answer in the chat box, I'm watching!"</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 2: BASE QUESTIONS BANK ==================== -->
+    <div id="tab-bank" class="space-y-6 hidden">
+      <div class="glass-panel p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            Base Semi-structured Question Bank
+            <span class="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium">22 Canonical Questions</span>
+          </h2>
+          <p class="text-sm text-gray-400 mt-1">
+            Ngân hàng 22 câu hỏi bán cấu trúc gốc phân theo Section A, B (RQ1), C (RQ2), D (RQ3) và Closing. Cho phép CRUD và reset về mặc định.
+          </p>
+        </div>
+        <div class="flex items-center gap-3">
+          <button class="px-4 py-2 text-xs font-semibold rounded-xl bg-gray-900 hover:bg-gray-800 text-gray-300 border border-gray-800 transition">
+            ↺ Reset to Default (22 Questions)
+          </button>
+          <button class="px-4 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition">
+            + Add New Question
+          </button>
+        </div>
+      </div>
+
+      <!-- Question List Table / Cards -->
+      <div class="space-y-4">
+        <!-- Section A -->
+        <div class="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2 pt-2">
+          <span>Section A. Background Information (5 questions)</span>
+        </div>
+        <div class="glass-panel rounded-2xl overflow-hidden divide-y divide-gray-800/80">
+          <div class="p-4 flex items-start justify-between gap-4 hover:bg-gray-900/30 transition">
+            <div class="flex items-start gap-3">
+              <span class="text-xs font-mono font-bold px-2 py-0.5 rounded badge-bg shrink-0 mt-0.5">Q1</span>
+              <div>
+                <p class="text-sm text-gray-200 font-medium">Could you briefly introduce yourself and describe your current teaching position?</p>
+                <span class="text-xs text-gray-400 font-mono">Category: BACKGROUND • Order: 1</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0 text-xs">
+              <button class="text-indigo-400 hover:text-indigo-300 font-medium">Edit</button>
+              <span class="text-gray-700">|</span>
+              <button class="text-rose-400 hover:text-rose-300 font-medium">Delete</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section B -->
+        <div class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-2 pt-2">
+          <span>Section B. Classroom Management Strategies (RQ1) (6 questions)</span>
+        </div>
+        <div class="glass-panel rounded-2xl overflow-hidden divide-y divide-gray-800/80">
+          <div class="p-4 flex items-start justify-between gap-4 hover:bg-gray-900/30 transition">
+            <div class="flex items-start gap-3">
+              <span class="text-xs font-mono font-bold px-2 py-0.5 rounded badge-rq1 shrink-0 mt-0.5">Q6</span>
+              <div>
+                <p class="text-sm text-gray-200 font-medium">Could you describe how you usually manage an online English speaking lesson from the beginning to the end?</p>
+                <span class="text-xs text-gray-400 font-mono">Category: RQ1 (Strategies) • Order: 6</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0 text-xs">
+              <button class="text-indigo-400 hover:text-indigo-300 font-medium">Edit</button>
+              <span class="text-gray-700">|</span>
+              <button class="text-rose-400 hover:text-rose-300 font-medium">Delete</button>
+            </div>
+          </div>
+          <div class="p-4 flex items-start justify-between gap-4 hover:bg-gray-900/30 transition">
+            <div class="flex items-start gap-3">
+              <span class="text-xs font-mono font-bold px-2 py-0.5 rounded badge-rq1 shrink-0 mt-0.5">Q8</span>
+              <div>
+                <p class="text-sm text-gray-200 font-medium">How do you manage turn-taking during speaking activities?</p>
+                <span class="text-xs text-gray-400 font-mono">Category: RQ1 (Strategies) • Order: 8</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0 text-xs">
+              <button class="text-indigo-400 hover:text-indigo-300 font-medium">Edit</button>
+              <span class="text-gray-700">|</span>
+              <button class="text-rose-400 hover:text-rose-300 font-medium">Delete</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section C -->
+        <div class="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center gap-2 pt-2">
+          <span>Section C. Teachers' Perceptions (RQ2) (5 questions)</span>
+        </div>
+        <div class="glass-panel rounded-2xl overflow-hidden divide-y divide-gray-800/80">
+          <div class="p-4 flex items-start justify-between gap-4 hover:bg-gray-900/30 transition">
+            <div class="flex items-start gap-3">
+              <span class="text-xs font-mono font-bold px-2 py-0.5 rounded badge-rq2 shrink-0 mt-0.5">Q12</span>
+              <div>
+                <p class="text-sm text-gray-200 font-medium">In your opinion, what role does classroom management play in promoting speaking participation among primary learners?</p>
+                <span class="text-xs text-gray-400 font-mono">Category: RQ2 (Perceptions) • Order: 12</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0 text-xs">
+              <button class="text-indigo-400 hover:text-indigo-300 font-medium">Edit</button>
+              <span class="text-gray-700">|</span>
+              <button class="text-rose-400 hover:text-rose-300 font-medium">Delete</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section D -->
+        <div class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2 pt-2">
+          <span>Section D. Challenges (RQ3) (5 questions)</span>
+        </div>
+        <div class="glass-panel rounded-2xl overflow-hidden divide-y divide-gray-800/80">
+          <div class="p-4 flex items-start justify-between gap-4 hover:bg-gray-900/30 transition">
+            <div class="flex items-start gap-3">
+              <span class="text-xs font-mono font-bold px-2 py-0.5 rounded badge-rq3 shrink-0 mt-0.5">Q17</span>
+              <div>
+                <p class="text-sm text-gray-200 font-medium">What challenges do you most frequently encounter when managing online English speaking classes?</p>
+                <span class="text-xs text-gray-400 font-mono">Category: RQ3 (Challenges) • Order: 17</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0 text-xs">
+              <button class="text-indigo-400 hover:text-indigo-300 font-medium">Edit</button>
+              <span class="text-gray-700">|</span>
+              <button class="text-rose-400 hover:text-rose-300 font-medium">Delete</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    function switchTab(tab) {
+      const studioTab = document.getElementById('tab-studio');
+      const bankTab = document.getElementById('tab-bank');
+      const btnStudio = document.getElementById('btn-studio');
+      const btnBank = document.getElementById('btn-bank');
+
+      if (tab === 'studio') {
+        studioTab.classList.remove('hidden');
+        bankTab.classList.add('hidden');
+        btnStudio.className = 'px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 bg-indigo-600 text-white shadow-md';
+        btnBank.className = 'px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 text-gray-400 hover:text-gray-200';
+      } else {
+        bankTab.classList.remove('hidden');
+        studioTab.classList.add('hidden');
+        btnBank.className = 'px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 bg-indigo-600 text-white shadow-md';
+        btnStudio.className = 'px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 text-gray-400 hover:text-gray-200';
+      }
+    }
+  </script>
+</body>
+</html>

@@ -30,8 +30,38 @@ import {
   Layers,
   Film,
   MoreHorizontal,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 
+function formatProcessingTime(sec?: number | null): string {
+  if (sec === undefined || sec === null || isNaN(sec) || sec <= 0) return '—';
+  if (sec < 60) return `${Math.round(sec)}s`;
+  const hours = Math.floor(sec / 3600);
+  const minutes = Math.floor((sec % 3600) / 60);
+  const seconds = Math.round(sec % 60);
+  if (hours > 0) {
+    return seconds > 0 ? `${hours}h ${minutes}m ${seconds}s` : `${hours}h ${minutes}m`;
+  }
+  return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+}
+
+function getEffectiveProcessingTime(video: Video): number | null {
+  if (typeof video.processing_time_sec === 'number' && video.processing_time_sec >= 0) {
+    return video.processing_time_sec;
+  }
+  // Fallback using timestamps if completed or terminal status
+  if (
+    video.updated_at &&
+    video.uploaded_at &&
+    ['report_generated', 'completed', 'failed', 'cancelled'].includes(video.status)
+  ) {
+    const diff = (new Date(video.updated_at).getTime() - new Date(video.uploaded_at).getTime()) / 1000;
+    if (diff > 0) return Math.round(diff);
+  }
+  return null;
+}
 
 export default function VideoListPage() {
   const { t } = useTranslation();
@@ -365,6 +395,16 @@ export default function VideoListPage() {
         if (sortBy === 'duration_asc') {
           return (a.duration_sec || 0) - (b.duration_sec || 0);
         }
+        if (sortBy === 'processing_time_desc') {
+          const timeA = getEffectiveProcessingTime(a) ?? -1;
+          const timeB = getEffectiveProcessingTime(b) ?? -1;
+          return timeB - timeA;
+        }
+        if (sortBy === 'processing_time_asc') {
+          const timeA = getEffectiveProcessingTime(a) ?? 999999999;
+          const timeB = getEffectiveProcessingTime(b) ?? 999999999;
+          return timeA - timeB;
+        }
         return 0;
       });
   }, [videos, searchTerm, statusFilter, modeFilter, teacherFilter, sortBy]);
@@ -377,6 +417,14 @@ export default function VideoListPage() {
     setModeFilter('all');
     setTeacherFilter('all');
     setSortBy('newest');
+  };
+
+  const handleToggleSortProcessingTime = () => {
+    if (sortBy === 'processing_time_desc') {
+      setSortBy('processing_time_asc');
+    } else {
+      setSortBy('processing_time_desc');
+    }
   };
 
   const handleTrigger = async (id: string) => {
@@ -839,6 +887,8 @@ export default function VideoListPage() {
             <option value="title_desc">{t('sortTitleDesc')}</option>
             <option value="duration_desc">{t('sortDurationDesc')}</option>
             <option value="duration_asc">{t('sortDurationAsc')}</option>
+            <option value="processing_time_desc">{t('sortProcessingTimeDesc')}</option>
+            <option value="processing_time_asc">{t('sortProcessingTimeAsc')}</option>
           </select>
         </div>
 
@@ -906,6 +956,32 @@ export default function VideoListPage() {
               <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700, width: '85px', whiteSpace: 'nowrap' }}>{t('teacher')}</th>
               <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700, minWidth: '220px' }}>{t('lessonTitle')}</th>
               <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700, width: '90px', whiteSpace: 'nowrap' }}>{t('duration')}</th>
+              <th
+                onClick={handleToggleSortProcessingTime}
+                title="Click to sort by Processing Time"
+                style={{
+                  padding: '12px 14px',
+                  textAlign: 'left',
+                  fontWeight: 700,
+                  width: '135px',
+                  whiteSpace: 'nowrap',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  color: sortBy.startsWith('processing_time') ? 'var(--accent)' : 'inherit',
+                  transition: 'color 0.15s ease',
+                }}
+              >
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                  <span>{t('processingTime')}</span>
+                  {sortBy === 'processing_time_desc' ? (
+                    <ArrowDown size={13} style={{ color: 'var(--accent)' }} />
+                  ) : sortBy === 'processing_time_asc' ? (
+                    <ArrowUp size={13} style={{ color: 'var(--accent)' }} />
+                  ) : (
+                    <ArrowUpDown size={13} style={{ color: 'var(--text-muted)', opacity: 0.5 }} />
+                  )}
+                </div>
+              </th>
               <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700, width: '110px', whiteSpace: 'nowrap' }}>{t('processingMode')}</th>
               <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700, width: '130px', whiteSpace: 'nowrap' }}>{t('status')}</th>
               <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, width: '180px', whiteSpace: 'nowrap' }}>{t('actions')}</th>
@@ -948,6 +1024,22 @@ export default function VideoListPage() {
                   </td>
                   <td style={{ padding: '14px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                     —
+                  </td>
+                  <td style={{ padding: '14px', whiteSpace: 'nowrap' }}>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        color: '#166534',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        fontFamily: 'var(--font-mono)',
+                      }}
+                    >
+                      <Loader2 size={12} className="animate-spin" />
+                      <span>{t('filterInProgress')}</span>
+                    </span>
                   </td>
                   <td style={{ padding: '14px', whiteSpace: 'nowrap' }}>
                     <span
@@ -1000,6 +1092,7 @@ export default function VideoListPage() {
               const isCancelled = v.status === 'cancelled';
               const isRunning = isVideoRunning(v.status);
               const isCompleted = v.status === 'report_generated' || v.status === 'completed';
+              const procSec = getEffectiveProcessingTime(v);
 
               return (
                 <tr
@@ -1055,6 +1148,44 @@ export default function VideoListPage() {
 
                   <td style={{ padding: '14px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                     {durMin ? `~${durMin} min` : '—'}
+                  </td>
+                  <td style={{ padding: '14px', whiteSpace: 'nowrap' }}>
+                    {isRunning ? (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          color: '#166534',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          fontFamily: 'var(--font-mono)',
+                        }}
+                      >
+                        <Loader2 size={12} className="animate-spin" />
+                        <span>{t('filterInProgress')}</span>
+                      </span>
+                    ) : procSec !== null ? (
+                      <span
+                        title={`${procSec}s total processing time`}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          fontSize: '12px',
+                          fontFamily: 'var(--font-mono)',
+                          color: 'var(--text-main)',
+                          fontWeight: 600,
+                        }}
+                      >
+                        <Timer size={12} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                        <span>{formatProcessingTime(procSec)}</span>
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: '12px' }}>
+                        —
+                      </span>
+                    )}
                   </td>
                   <td style={{ padding: '14px', whiteSpace: 'nowrap' }}>
                     {v.processing_mode === 'chunk' ? (
@@ -1401,7 +1532,7 @@ export default function VideoListPage() {
             {/* Empty state when no items match filters */}
             {filteredVideos.length === 0 && !loading && (
               <tr>
-                <td colSpan={7} style={{ padding: '48px 20px', textAlign: 'center' }}>
+                <td colSpan={8} style={{ padding: '48px 20px', textAlign: 'center' }}>
                   <div style={{
                     display: 'flex',
                     flexDirection: 'column',

@@ -56,6 +56,23 @@ export interface ExportQuadrantParams {
 }
 
 /**
+ * Safely escapes special XML/SVG characters (<, >, &, ', ")
+ */
+export function escapeXml(unsafe: string | number | null | undefined): string {
+  if (unsafe == null) return '';
+  return String(unsafe).replace(/[<>&'"]/g, (c) => {
+    switch (c) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case '\'': return '&apos;';
+      case '"': return '&quot;';
+      default: return c;
+    }
+  });
+}
+
+/**
  * Downloads an SVG string as a file
  */
 export function downloadSVG(svgContent: string, filename: string) {
@@ -140,7 +157,7 @@ export function generateTrajectorySVG({
   const xLabelsSVG = trendData
     .map((d, i) => {
       const { x } = getCoordinates(0, i, trendData.length);
-      return `<text x="${x}" y="${chartTop + chartH + 22}" text-anchor="middle" font-size="11" font-family="'SF Mono', Menlo, Consolas, monospace" font-weight="600" fill="#4B5563">${d.lesson}</text>`;
+      return `<text x="${x}" y="${chartTop + chartH + 22}" text-anchor="middle" font-size="11" font-family="'SF Mono', Menlo, Consolas, monospace" font-weight="600" fill="#4B5563">${escapeXml(d.lesson)}</text>`;
     })
     .join('');
 
@@ -191,8 +208,8 @@ export function generateTrajectorySVG({
   <rect x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" fill="none" stroke="#E5E7EB" rx="8" />
 
   <!-- Title & Research Header -->
-  <text x="${paddingX}" y="36" class="title">${t('chartTrajectoryTitle')}</text>
-  <text x="${paddingX}" y="56" class="subtitle">${t('analyticsCorpusLabel')}: ${teacherLabel}  |  ${t('analyticsTimeframe')}: ${timeframeLabel}  |  ${t('chartTrajectoryViewPerLesson')}: ${modeLabel}</text>
+  <text x="${paddingX}" y="36" class="title">${escapeXml(t('chartTrajectoryTitle'))}</text>
+  <text x="${paddingX}" y="56" class="subtitle">${escapeXml(t('analyticsCorpusLabel'))}: ${escapeXml(teacherLabel)}  |  ${escapeXml(t('analyticsTimeframe'))}: ${escapeXml(timeframeLabel)}  |  ${escapeXml(t('chartTrajectoryViewPerLesson'))}: ${escapeXml(modeLabel)}</text>
 
   <!-- Grid & Axes -->
   ${gridLinesSVG}
@@ -215,7 +232,7 @@ export function generateTrajectorySVG({
     <g transform="translate(0, 32)">
       <line x1="0" y1="4" x2="22" y2="4" stroke="#9E4A28" stroke-width="3" stroke-linecap="round" />
       <circle cx="11" cy="4" r="3.5" fill="#9E4A28" stroke="#FFFFFF" stroke-width="1.5" />
-      <text x="30" y="8" class="legend-name" fill="#9E4A28">${t('chartTrajectoryLegendScaffolding')}:</text>
+      <text x="30" y="8" class="legend-name" fill="#9E4A28">${escapeXml(t('chartTrajectoryLegendScaffolding'))}:</text>
       <text x="285" y="8" class="legend-desc">Teacher instructional cues, conceptual hints, and guided question scaffolding</text>
     </g>
 
@@ -223,15 +240,15 @@ export function generateTrajectorySVG({
     <g transform="translate(0, 49)">
       <line x1="0" y1="4" x2="22" y2="4" stroke="#2D6A4F" stroke-width="2.5" stroke-linecap="round" />
       <circle cx="11" cy="4" r="3.5" fill="#2D6A4F" stroke="#FFFFFF" stroke-width="1.5" />
-      <text x="30" y="8" class="legend-name" fill="#2D6A4F">${t('chartTrajectoryLegendWaitTime')}:</text>
-      <text x="285" y="8" class="legend-desc">Extended wait-time pauses (>3s) allowing student reflection &amp; cognitive formulation</text>
+      <text x="30" y="8" class="legend-name" fill="#2D6A4F">${escapeXml(t('chartTrajectoryLegendWaitTime'))}:</text>
+      <text x="285" y="8" class="legend-desc">Extended wait-time pauses (&gt;3s) allowing student reflection &amp; cognitive formulation</text>
     </g>
 
     <!-- Section C -->
     <g transform="translate(0, 66)">
       <line x1="0" y1="4" x2="22" y2="4" stroke="#1D5C8A" stroke-width="2.5" stroke-linecap="round" />
       <circle cx="11" cy="4" r="3.5" fill="#1D5C8A" stroke="#FFFFFF" stroke-width="1.5" />
-      <text x="30" y="8" class="legend-name" fill="#1D5C8A">${t('chartTrajectoryLegendPraise')}:</text>
+      <text x="30" y="8" class="legend-name" fill="#1D5C8A">${escapeXml(t('chartTrajectoryLegendPraise'))}:</text>
       <text x="285" y="8" class="legend-desc">Constructive affirmation, praise for effort, and positive feedback reinforcement</text>
     </g>
 
@@ -239,7 +256,7 @@ export function generateTrajectorySVG({
     <g transform="translate(0, 83)">
       <line x1="0" y1="4" x2="22" y2="4" stroke="#B26A00" stroke-width="2.5" stroke-dasharray="5 3" stroke-linecap="round" />
       <circle cx="11" cy="4" r="3.5" fill="#B26A00" stroke="#FFFFFF" stroke-width="1.5" />
-      <text x="30" y="8" class="legend-name" fill="#B26A00">${t('chartTrajectoryLegendAgency')}:</text>
+      <text x="30" y="8" class="legend-name" fill="#B26A00">${escapeXml(t('chartTrajectoryLegendAgency'))}:</text>
       <text x="285" y="8" class="legend-desc">Student-initiated questions, peer discourse, and autonomous exploration turns</text>
     </g>
   </g>
@@ -304,7 +321,7 @@ export function generateRadarSVG({
       const labelPt = getPoint(124, angles[i]);
       return `
         <line x1="${centerX}" y1="${centerY}" x2="${edge.x.toFixed(1)}" y2="${edge.y.toFixed(1)}" stroke="#D1D5DB" stroke-width="1" />
-        <text x="${labelPt.x.toFixed(1)}" y="${(labelPt.y + 4).toFixed(1)}" text-anchor="middle" font-size="11.5" font-weight="600" fill="#374151">${getLabel(d.key)}</text>
+        <text x="${labelPt.x.toFixed(1)}" y="${(labelPt.y + 4).toFixed(1)}" text-anchor="middle" font-size="11.5" font-weight="600" fill="#374151">${escapeXml(getLabel(d.key))}</text>
       `;
     })
     .join('');
@@ -336,8 +353,8 @@ export function generateRadarSVG({
       return `
         <g transform="translate(0, ${yOffset})">
           <circle cx="6" cy="4" r="4" fill="#9E4A28" />
-          <text x="18" y="8" font-size="11.5" font-weight="700" fill="#1F2937">${getLabel(d.key)}:</text>
-          <text x="190" y="8" font-size="11" fill="#4B5563">Score: <strong>${Math.round(d.score)}%</strong>  •  Count: <strong>${d.count}</strong> ${t('tooltipEvents')}</text>
+          <text x="18" y="8" font-size="11.5" font-weight="700" fill="#1F2937">${escapeXml(getLabel(d.key))}:</text>
+          <text x="190" y="8" font-size="11" fill="#4B5563">Score: <strong>${Math.round(d.score)}%</strong>  •  Count: <strong>${d.count}</strong> ${escapeXml(t('tooltipEvents'))}</text>
         </g>
       `;
     })
@@ -357,8 +374,8 @@ export function generateRadarSVG({
   <rect x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" fill="none" stroke="#E5E7EB" rx="8" />
 
   <!-- Header -->
-  <text x="45" y="36" class="title">${t('chartRadarTitle')}</text>
-  <text x="45" y="56" class="subtitle">${t('analyticsCorpusLabel')}: ${teacherLabel}  |  ${t('analyticsTimeframe')}: ${timeframe.toUpperCase()}  |  5 Core Pedagogical Dimensions</text>
+  <text x="45" y="36" class="title">${escapeXml(t('chartRadarTitle'))}</text>
+  <text x="45" y="56" class="subtitle">${escapeXml(t('analyticsCorpusLabel'))}: ${escapeXml(teacherLabel)}  |  ${escapeXml(t('analyticsTimeframe'))}: ${escapeXml(timeframe.toUpperCase())}  |  5 Core Pedagogical Dimensions</text>
 
   <!-- Radar Graph -->
   ${ringsSVG}
@@ -418,7 +435,7 @@ export function generateStreamSVG({
           <rect x="${x.toFixed(1)}" y="${yWarm.toFixed(1)}" width="${colWidth.toFixed(1)}" height="${hWarm.toFixed(1)}" fill="#1D5C8A" opacity="0.9" />
           <rect x="${x.toFixed(1)}" y="${chartTop}" width="${colWidth.toFixed(1)}" height="${chartH}" fill="none" stroke="#E5E7EB" stroke-width="1" rx="3" />
           <!-- Bin Label -->
-          <text x="${(x + colWidth / 2).toFixed(1)}" y="${chartTop + chartH + 20}" text-anchor="middle" font-size="11" font-family="'SF Mono', Menlo, monospace" font-weight="600" fill="#4B5563">${bin.bin}</text>
+          <text x="${(x + colWidth / 2).toFixed(1)}" y="${chartTop + chartH + 20}" text-anchor="middle" font-size="11" font-family="'SF Mono', Menlo, monospace" font-weight="600" fill="#4B5563">${escapeXml(bin.bin)}</text>
         </g>
       `;
     })
@@ -442,8 +459,8 @@ export function generateStreamSVG({
   <rect x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" fill="none" stroke="#E5E7EB" rx="8" />
 
   <!-- Header -->
-  <text x="${paddingX}" y="36" class="title">${t('chartStreamTitle')}</text>
-  <text x="${paddingX}" y="56" class="subtitle">${t('analyticsCorpusLabel')}: ${teacherLabel}  |  ${t('analyticsTimeframe')}: ${timeframe.toUpperCase()}  |  Temporal Activity Density (0–45 min)</text>
+  <text x="${paddingX}" y="36" class="title">${escapeXml(t('chartStreamTitle'))}</text>
+  <text x="${paddingX}" y="56" class="subtitle">${escapeXml(t('analyticsCorpusLabel'))}: ${escapeXml(teacherLabel)}  |  ${escapeXml(t('analyticsTimeframe'))}: ${escapeXml(timeframe.toUpperCase())}  |  Temporal Activity Density (0–45 min)</text>
 
   <!-- Background Grid Horizontal Lines -->
   <line x1="${paddingX}" y1="${chartTop}" x2="${paddingX + chartW}" y2="${chartTop}" stroke="#E5E7EB" stroke-dasharray="3 3" />
@@ -461,28 +478,28 @@ export function generateStreamSVG({
     <!-- Warmup -->
     <g transform="translate(0, 32)">
       <rect x="0" y="0" width="16" height="10" fill="#1D5C8A" rx="2" />
-      <text x="24" y="9" class="legend-name" fill="#1D5C8A">${t('chartStreamWarmup')}:</text>
+      <text x="24" y="9" class="legend-name" fill="#1D5C8A">${escapeXml(t('chartStreamWarmup'))}:</text>
       <text x="240" y="9" class="legend-desc">Initial lesson activation, prior knowledge elicitation, and goal orientation</text>
     </g>
 
     <!-- Scaffolding -->
     <g transform="translate(0, 49)">
       <rect x="0" y="0" width="16" height="10" fill="#9E4A28" rx="2" />
-      <text x="24" y="9" class="legend-name" fill="#9E4A28">${t('chartStreamScaffolding')}:</text>
+      <text x="24" y="9" class="legend-name" fill="#9E4A28">${escapeXml(t('chartStreamScaffolding'))}:</text>
       <text x="240" y="9" class="legend-desc">Explicit teacher modeling, structured explanation, and procedural guidance</text>
     </g>
 
     <!-- Student Turns -->
     <g transform="translate(0, 66)">
       <rect x="0" y="0" width="16" height="10" fill="#2D6A4F" rx="2" />
-      <text x="24" y="9" class="legend-name" fill="#2D6A4F">${t('chartStreamStudentTurns')}:</text>
+      <text x="24" y="9" class="legend-name" fill="#2D6A4F">${escapeXml(t('chartStreamStudentTurns'))}:</text>
       <text x="240" y="9" class="legend-desc">Active student verbalization, peer discussions, and independent practice turns</text>
     </g>
 
     <!-- Praise -->
     <g transform="translate(0, 83)">
       <rect x="0" y="0" width="16" height="10" fill="#6D28D9" rx="2" />
-      <text x="24" y="9" class="legend-name" fill="#6D28D9">${t('chartStreamPraise')}:</text>
+      <text x="24" y="9" class="legend-name" fill="#6D28D9">${escapeXml(t('chartStreamPraise'))}:</text>
       <text x="240" y="9" class="legend-desc">Positive reinforcement, constructive synthesis, and formative closing review</text>
     </g>
   </g>
@@ -519,7 +536,7 @@ export function generateQuadrantSVG({
       return `
         <g>
           <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7" fill="#9E4A28" stroke="#FFFFFF" stroke-width="2.5" />
-          <text x="${x.toFixed(1)}" y="${(y + 16).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="700" font-family="'SF Mono', Menlo, monospace" fill="#9E4A28">${tp.id}</text>
+          <text x="${x.toFixed(1)}" y="${(y + 16).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="700" font-family="'SF Mono', Menlo, monospace" fill="#9E4A28">${escapeXml(tp.id)}</text>
         </g>
       `;
     })
@@ -542,8 +559,8 @@ export function generateQuadrantSVG({
   <rect x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" fill="none" stroke="#E5E7EB" rx="8" />
 
   <!-- Header -->
-  <text x="${paddingX}" y="36" class="title">${t('chartQuadrantTitle')}</text>
-  <text x="${paddingX}" y="56" class="subtitle">${t('chartQuadrantXLabel')} (X) vs ${t('chartQuadrantYLabel')} (Y)  |  4 Teaching Archetypes</text>
+  <text x="${paddingX}" y="36" class="title">${escapeXml(t('chartQuadrantTitle'))}</text>
+  <text x="${paddingX}" y="56" class="subtitle">${escapeXml(t('chartQuadrantXLabel'))} (X) vs ${escapeXml(t('chartQuadrantYLabel'))} (Y)  |  4 Teaching Archetypes</text>
 
   <!-- Coordinate Box -->
   <rect x="${paddingX}" y="${chartTop}" width="${chartW}" height="${chartH}" fill="#FAFAF9" stroke="#D6D3D1" stroke-width="1.2" rx="4" />
@@ -554,13 +571,13 @@ export function generateQuadrantSVG({
 
   <!-- Quadrant Watermarks -->
   <!-- Top Right: Facilitative Mentors -->
-  <text x="${paddingX + chartW - 12}" y="${chartTop + 20}" text-anchor="end" class="quadrant-label" fill="#9E4A28">${t('quadrantFacilitative')}</text>
+  <text x="${paddingX + chartW - 12}" y="${chartTop + 20}" text-anchor="end" class="quadrant-label" fill="#9E4A28">${escapeXml(t('quadrantFacilitative'))}</text>
   <!-- Top Left: Structured Direct -->
-  <text x="${paddingX + 12}" y="${chartTop + 20}" text-anchor="start" class="quadrant-label" fill="#6B7280">${t('quadrantStructured')}</text>
+  <text x="${paddingX + 12}" y="${chartTop + 20}" text-anchor="start" class="quadrant-label" fill="#6B7280">${escapeXml(t('quadrantStructured'))}</text>
   <!-- Bottom Left: Traditional Guided -->
-  <text x="${paddingX + 12}" y="${chartTop + chartH - 12}" text-anchor="start" class="quadrant-label" fill="#6B7280">${t('quadrantTraditional')}</text>
+  <text x="${paddingX + 12}" y="${chartTop + chartH - 12}" text-anchor="start" class="quadrant-label" fill="#6B7280">${escapeXml(t('quadrantTraditional'))}</text>
   <!-- Bottom Right: Open Conversational -->
-  <text x="${paddingX + chartW - 12}" y="${chartTop + chartH - 12}" text-anchor="end" class="quadrant-label" fill="#6B7280">${t('quadrantConversational')}</text>
+  <text x="${paddingX + chartW - 12}" y="${chartTop + chartH - 12}" text-anchor="end" class="quadrant-label" fill="#6B7280">${escapeXml(t('quadrantConversational'))}</text>
 
   <!-- Axes Arrows & Labels -->
   <text x="${midX}" y="${chartTop + chartH + 24}" text-anchor="middle" font-size="11" font-weight="600" fill="#4B5563">Student Agency &amp; Production Ratio (%) →</text>
@@ -576,23 +593,23 @@ export function generateQuadrantSVG({
 
     <!-- Quadrant I & II -->
     <g transform="translate(0, 30)">
-      <text x="0" y="8" class="legend-name" fill="#9E4A28">• ${t('quadrantFacilitative')}:</text>
+      <text x="0" y="8" class="legend-name" fill="#9E4A28">• ${escapeXml(t('quadrantFacilitative'))}:</text>
       <text x="180" y="8" class="legend-desc">High scaffolding + High student agency. Strategic prompting with ample student autonomy.</text>
     </g>
 
     <g transform="translate(0, 47)">
-      <text x="0" y="8" class="legend-name" fill="#4B5563">• ${t('quadrantStructured')}:</text>
+      <text x="0" y="8" class="legend-name" fill="#4B5563">• ${escapeXml(t('quadrantStructured'))}:</text>
       <text x="180" y="8" class="legend-desc">High scaffolding + Lower student agency. Explicit direct modeling with teacher-led cadence.</text>
     </g>
 
     <!-- Quadrant III & IV -->
     <g transform="translate(0, 64)">
-      <text x="0" y="8" class="legend-name" fill="#4B5563">• ${t('quadrantConversational')}:</text>
+      <text x="0" y="8" class="legend-name" fill="#4B5563">• ${escapeXml(t('quadrantConversational'))}:</text>
       <text x="180" y="8" class="legend-desc">Lower scaffolding + High student agency. Open student-centric discussion with fluid facilitation.</text>
     </g>
 
     <g transform="translate(0, 81)">
-      <text x="0" y="8" class="legend-name" fill="#4B5563">• ${t('quadrantTraditional')}:</text>
+      <text x="0" y="8" class="legend-name" fill="#4B5563">• ${escapeXml(t('quadrantTraditional'))}:</text>
       <text x="180" y="8" class="legend-desc">Lower scaffolding + Lower student agency. Conventional transmission lecture and silent listening.</text>
     </g>
   </g>

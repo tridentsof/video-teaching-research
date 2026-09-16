@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Theme, api } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n';
 import { useToast } from '@/components/ToastProvider';
-import { Check, Edit2, Merge, ChevronDown, ChevronRight, Lock } from 'lucide-react';
+import { Check, Edit2, Merge, ChevronDown, ChevronRight, Lock, Layers } from 'lucide-react';
 
 interface ThemeTreeProps {
   themes: Theme[];
@@ -140,6 +140,24 @@ export const ThemeTree: React.FC<ThemeTreeProps> = ({ themes, onRefresh }) => {
 
       {/* Theme Nodes List */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        {themes.length === 0 && (
+          <div style={{
+            padding: '40px 20px',
+            textAlign: 'center',
+            color: 'var(--text-muted)',
+            border: '1px dashed var(--card-border)',
+            borderRadius: 'var(--radius-md)',
+            backgroundColor: '#FAF8F4',
+          }}>
+            <Layers size={32} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
+            <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-main)' }}>
+              Chưa có dữ liệu Teaching Themes
+            </p>
+            <p style={{ fontSize: '13px', marginTop: '4px', maxWidth: '460px', margin: '4px auto 0' }}>
+              Hãy nhấn nút &ldquo;Analyze All 24 Lessons&rdquo; để khởi chạy phân tích Grounded Theory tổng hợp từ các bài giảng đã hoàn thành.
+            </p>
+          </div>
+        )}
         {themes.map((th) => {
           const isExpanded = expandedThemes[th.id] ?? true;
           const isConfirmed = th.status === 'confirmed';

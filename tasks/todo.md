@@ -1,12 +1,12 @@
-# Task List: Teacher Quote & Qualitative Code Integration
+# Tasks: Teacher Interview Guide & Teaching Themes Architecture
 
-- [x] Task 1: Tạo file migration `000004_add_quote_and_code_to_raw_events` (up & down) <!-- id: 1 -->
-- [x] Task 2: Cập nhật `VideoEventExtractionPrompt` trong `backend/internal/service/prompt.go` <!-- id: 2 -->
-- [x] Task 3: Cập nhật model `RawEvent`, `Occurrence` trong `backend/internal/model/models.go` <!-- id: 3 -->
-- [x] Task 4: Cập nhật `backend/internal/service/extraction.go` để parse và lưu `code`, `quote` <!-- id: 4 -->
-- [x] Task 5: Cập nhật `backend/internal/repository/raw_event.go` và `backend/internal/repository/mapping.go` <!-- id: 5 -->
-- [x] Task 6: Cập nhật `backend/internal/service/report.go` để sinh bảng Markdown 6 cột <!-- id: 6 -->
-- [x] Task 7: Cập nhật `frontend/lib/api.ts` types <!-- id: 7 -->
-- [x] Task 8: Cập nhật fallback mock data trong `frontend/app/reports/[id]/page.tsx` <!-- id: 8 -->
-- [x] Task 9: Tinh chỉnh CSS trong `frontend/components/MarkdownRenderer.tsx` <!-- id: 9 -->
-- [x] Task 10: Chạy verify tests backend và build frontend <!-- id: 10 -->
+- [x] Task 1: Tạo migration `000013_create_interview_base_and_refactor_analysis.up.sql` và seed 22 câu hỏi bán cấu trúc gốc
+- [x] Task 2: Cập nhật Go models trong `backend/internal/model/models.go`
+- [x] Task 3: Tạo `internal/repository/interview_base.go` và cập nhật `internal/repository/analysis.go`
+- [x] Task 4: Tạo `internal/service/interview_base.go` cho nghiệp vụ CRUD câu hỏi gốc
+- [x] Task 5: Cập nhật `internal/service/analysis.go` cho Flow A: Synthesize Core Questions (Step 7A) & Generate Follow-up Questions với RQ Tagging và Interaction Log (Step 7B)
+- [x] Task 6: Tạo `internal/handler/interview.go` và đăng ký routes trong `internal/handler/router.go`
+- [x] Task 7: Tạo standalone HTML preview `frontend/public/mockup-interview-guide.html` theo UI Mockup Gate
+- [x] Task 8: Cập nhật types và API client trong `frontend/lib/api.ts`
+- [x] Task 9: Nâng cấp `frontend/app/interview/page.tsx` (Tab CRUD Base Questions, Approval Banner cho Core Questions, Dynamic Questions với RQ Badges)
+- [x] Task 10: Kiểm thử toàn bộ hệ thống (Unit tests, Build backend & frontend, E2E check)

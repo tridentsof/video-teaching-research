@@ -113,6 +113,13 @@ func (r *ReportRepository) GetByVideoID(ctx context.Context, videoID uuid.UUID) 
 	return &rep, nil
 }
 
+// ReportItemContext wraps a ReportItem with VideoID and TeacherID for Phase 6 cross-video aggregation.
+type ReportItemContext struct {
+	model.ReportItem
+	VideoID   uuid.UUID
+	TeacherID string
+}
+
 // ListAllReportItems retrieves report items across all videos for Phase 6 cross-video aggregation.
 func (r *ReportRepository) ListAllReportItems(ctx context.Context) ([]model.ReportItem, error) {
 	query := `
@@ -135,6 +142,37 @@ func (r *ReportRepository) ListAllReportItems(ctx context.Context) ([]model.Repo
 			&it.Count, &it.AvgConfidence, &it.AvgDurationSec, &it.Occurrences, &it.CreatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan report item: %w", err)
+		}
+		items = append(items, it)
+	}
+	return items, nil
+}
+
+// ListAllReportItemsWithContext retrieves report items with teacher_id and video_id for Phase 6 cross-video aggregation.
+func (r *ReportRepository) ListAllReportItemsWithContext(ctx context.Context) ([]ReportItemContext, error) {
+	query := `
+		SELECT ri.id, ri.report_id, r.video_id, r.teacher_id,
+		       ri.checklist_item_id, ri.checklist_section, ri.checklist_text,
+		       ri.count, ri.avg_confidence, ri.avg_duration_sec, ri.occurrences, ri.created_at
+		FROM report_items ri
+		JOIN reports r ON ri.report_id = r.id
+		ORDER BY r.teacher_id, r.video_id, ri.checklist_section
+	`
+	rows, err := r.db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list all report items with context: %w", err)
+	}
+	defer rows.Close()
+
+	var items []ReportItemContext
+	for rows.Next() {
+		var it ReportItemContext
+		if err := rows.Scan(
+			&it.ID, &it.ReportID, &it.VideoID, &it.TeacherID,
+			&it.ChecklistItemID, &it.ChecklistSection, &it.ChecklistText,
+			&it.Count, &it.AvgConfidence, &it.AvgDurationSec, &it.Occurrences, &it.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan report item with context: %w", err)
 		}
 		items = append(items, it)
 	}

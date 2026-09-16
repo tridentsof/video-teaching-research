@@ -29,6 +29,7 @@ type Video struct {
 	UpdatedAt      time.Time  `json:"updated_at" db:"updated_at"`
 	UserID         *uuid.UUID `json:"user_id,omitempty" db:"user_id"`
 	ProcessingMode *string    `json:"processing_mode,omitempty" db:"processing_mode"`
+	ProcessingTimeSec *int    `json:"processing_time_sec,omitempty" db:"processing_time_sec"`
 }
 
 // VideoChunk represents a chunk of a video after FFmpeg processing.
@@ -146,10 +147,12 @@ type PipelineJob struct {
 type AnalysisRun struct {
 	ID          uuid.UUID  `json:"id" db:"id"`
 	TriggeredAt time.Time  `json:"triggered_at" db:"triggered_at"`
-	Status      string     `json:"status" db:"status"`
-	Config      string     `json:"config" db:"config"` // JSONB string
-	ErrorMsg    *string    `json:"error_msg,omitempty" db:"error_msg"`
-	CompletedAt *time.Time `json:"completed_at,omitempty" db:"completed_at"`
+	Status              string     `json:"status" db:"status"`
+	Config              string     `json:"config" db:"config"` // JSONB string
+	ErrorMsg            *string    `json:"error_msg,omitempty" db:"error_msg"`
+	CompletedAt         *time.Time `json:"completed_at,omitempty" db:"completed_at"`
+	CoreQuestionsStatus string     `json:"core_questions_status" db:"core_questions_status"`
+	CoreQuestions       string     `json:"core_questions" db:"core_questions"` // JSONB string
 }
 
 // Pattern represents a detected recurring teaching strategy.
@@ -205,10 +208,34 @@ type InterviewQuestion struct {
 	TeacherAnalysisID uuid.UUID `json:"teacher_analysis_id" db:"teacher_analysis_id"`
 	TeacherID         string    `json:"teacher_id" db:"teacher_id"`
 	Type              string    `json:"type" db:"type"` // core | dynamic
+	RQCategory        *string   `json:"rq_category,omitempty" db:"rq_category"` // RQ1, RQ2, RQ3, BACKGROUND, CLOSING
 	QuestionText      string    `json:"question_text" db:"question_text"`
 	EvidenceRef       *string   `json:"evidence_ref,omitempty" db:"evidence_ref"`
+	IsUserEdited      bool      `json:"is_user_edited" db:"is_user_edited"`
 	SortOrder         int       `json:"sort_order" db:"sort_order"`
 	CreatedAt         time.Time `json:"created_at" db:"created_at"`
+}
+
+// InterviewBaseQuestion represents a standard semi-structured interview question in the base question bank.
+type InterviewBaseQuestion struct {
+	ID            uuid.UUID `json:"id" db:"id"`
+	Section       string    `json:"section" db:"section"`
+	SectionTitle  string    `json:"section_title" db:"section_title"`
+	QuestionIndex int       `json:"question_index" db:"question_index"`
+	QuestionText  string    `json:"question_text" db:"question_text"`
+	RQCategory    string    `json:"rq_category" db:"rq_category"` // BACKGROUND, RQ1, RQ2, RQ3, CLOSING
+	IsActive      bool      `json:"is_active" db:"is_active"`
+	SortOrder     int       `json:"sort_order" db:"sort_order"`
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// CoreQuestionItem represents an individual question item in the synthesized Core Questions.
+type CoreQuestionItem struct {
+	Index        int    `json:"index"`
+	QuestionText string `json:"question_text"`
+	RQCategory   string `json:"rq_category"` // RQ1, RQ2, RQ3
+	Rationale    string `json:"rationale,omitempty"`
 }
 
 // CodebookEntry represents a single observation code definition in a video's codebook.

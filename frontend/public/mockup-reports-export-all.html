@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup: Export All Reports (.docx) - Report & Stats</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #F8FAFC;
+      --card-bg: #FFFFFF;
+      --sidebar-bg: #0F172A;
+      --text-main: #0F172A;
+      --text-muted: #64748B;
+      --border: #E2E8F0;
+      --border-focus: #3B82F6;
+      --primary: #1E3A8A;
+      --primary-hover: #172554;
+      --accent: #2563EB;
+      --accent-light: #EFF6FF;
+      --accent-emerald: #059669;
+      --accent-emerald-light: #ECFDF5;
+      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-serif: 'Playfair Display', Georgia, serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg);
+      color: var(--text-main);
+      display: flex;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Sidebar minimal */
+    .sidebar {
+      width: 260px;
+      background-color: var(--sidebar-bg);
+      color: #94A3B8;
+      padding: 28px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+      flex-shrink: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #FFFFFF;
+      font-weight: 700;
+      font-size: 17px;
+      letter-spacing: -0.02em;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #94A3B8;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+    .nav-item.active {
+      background-color: rgba(37, 99, 235, 0.15);
+      color: #60A5FA;
+      font-weight: 600;
+    }
+
+    /* Main Container */
+    .main-content {
+      flex: 1;
+      padding: 36px 48px;
+      max-width: 1360px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    /* Header Bar */
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .title-area h1 {
+      font-family: var(--font-serif);
+      font-size: 34px;
+      font-weight: 600;
+      color: #0F172A;
+      letter-spacing: -0.01em;
+    }
+
+    .title-area p {
+      color: var(--text-muted);
+      font-size: 14.5px;
+      margin-top: 6px;
+      max-width: 680px;
+      line-height: 1.5;
+    }
+
+    .actions-area {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    /* Export All Button */
+    .btn-export-all {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%);
+      color: #FFFFFF;
+      padding: 11px 22px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 14px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .btn-export-all:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
+      filter: brightness(1.05);
+    }
+
+    .count-badge {
+      background: rgba(255, 255, 255, 0.22);
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    /* Stats strip */
+    .stats-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .stat-card .label {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .stat-card .val {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--text-main);
+      letter-spacing: -0.02em;
+    }
+
+    /* Mockup Panels */
+    .mockup-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+    }
+
+    .section-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 14px;
+    }
+
+    .badge-tag {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      background: #F1F5F9;
+      color: #475569;
+    }
+
+    /* Word Document Preview */
+    .doc-preview-wrapper {
+      background: #525659;
+      border-radius: 10px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      max-height: 560px;
+      overflow-y: auto;
+    }
+
+    .doc-page {
+      background: #FFFFFF;
+      color: #111827;
+      padding: 32px 36px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+      border-radius: 3px;
+      font-family: 'Times New Roman', Times, serif;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .doc-page-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .doc-page-header h2 {
+      font-size: 18px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .doc-page-header p {
+      font-style: italic;
+      color: #4B5563;
+      font-size: 11px;
+      margin-top: 4px;
+    }
+
+    .doc-meta-banner {
+      background: #F8FAFC;
+      border: 1px solid #CBD5E1;
+      padding: 10px 14px;
+      font-size: 11.5px;
+      margin-bottom: 20px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .doc-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 11px;
+    }
+
+    .doc-table th, .doc-table td {
+      border: 1px solid #000;
+      padding: 6px 8px;
+      vertical-align: middle;
+    }
+
+    .doc-table th {
+      background-color: #F3F4F6;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .page-break-indicator {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #E2E8F0;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      margin: 10px 0;
+    }
+    .page-break-indicator::before, .page-break-indicator::after {
+      content: '';
+      flex: 1;
+      border-top: 1px dashed rgba(255, 255, 255, 0.4);
+    }
+
+    /* Modal Simulation */
+    .progress-modal {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: var(--shadow-md);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .progress-bar-bg {
+      background: #F1F5F9;
+      height: 8px;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      background: linear-gradient(90deg, #2563EB, #3B82F6);
+      height: 100%;
+      width: 75%;
+      border-radius: 999px;
+      transition: width 0.3s;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/></svg>
+      <span>Pedagogy Research</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      <a href="#" class="nav-item">Videos</a>
+      <a href="#" class="nav-item">Upload</a>
+      <a href="#" class="nav-item">Checklists</a>
+      <a href="#" class="nav-item active">Reports & Stats</a>
+      <a href="#" class="nav-item">Pedagogical Analytics</a>
+      <a href="#" class="nav-item">Codebook</a>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    
+    <!-- Top Action Bar -->
+    <div class="header-bar">
+      <div class="title-area">
+        <h1>Reports & Stats (Báo Cáo & Thống Kê)</h1>
+        <p>Formatted observational findings per lesson, ready for academic research thesis citations and qualitative analysis.</p>
+      </div>
+
+      <div class="actions-area">
+        <!-- New Feature Button -->
+        <button class="btn-export-all" id="btnExportAll">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+          <span>Xuất Tất Cả Báo Cáo (.docx)</span>
+          <span class="count-badge">12 Videos</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats Summary Strip -->
+    <div class="stats-strip">
+      <div class="stat-card">
+        <span class="label">Tổng Giảng Viên</span>
+        <span class="val">4 Teachers</span>
+      </div>
+      <div class="stat-card">
+        <span class="label">Báo Cáo Đã Hoàn Thành</span>
+        <span class="val" style="color: var(--accent);">12 Reports</span>
+      </div>
+      <div class="stat-card">
+        <span class="label">Sắp Xếp Xuất File</span>
+        <span class="val" style="font-size: 15px; font-weight: 600; color: #059669; margin-top: 4px;">Teacher (A-Z) &rarr; Date &uarr;</span>
+      </div>
+      <div class="stat-card">
+        <span class="label">Định Dạng Xuất</span>
+        <span class="val" style="font-size: 16px; font-weight: 600; margin-top: 4px;">Word 2016+ (.docx)</span>
+      </div>
+    </div>
+
+    <!-- Dual Preview Grid -->
+    <div class="mockup-grid">
+      
+      <!-- Panel 1: Compiling Modal & Workflow -->
+      <div class="section-box">
+        <div class="section-title">
+          <span>Quy Trình Xử Lý Khi Nhấn Nút Xuất</span>
+          <span class="badge-tag">UI Flow</span>
+        </div>
+
+        <div class="progress-modal">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 10px; height: 10px; border-radius: 50%; background: #2563EB; animation: pulse 1.5s infinite;"></div>
+              <strong style="font-size: 14.5px;">Đang tổng hợp báo cáo Word...</strong>
+            </div>
+            <span style="font-size: 13px; font-family: var(--font-mono); color: var(--accent); font-weight: 600;">9 / 12 Reports</span>
+          </div>
+
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill"></div>
+          </div>
+
+          <p style="font-size: 12.5px; color: var(--text-muted); line-height: 1.4;">
+            Đang tải dữ liệu: <strong>Teacher T03 - Phonics & Syllable Segmentation</strong>. Hệ thống tự động phân trang (Page Break) và lập bảng mục lục tổng hợp.
+          </p>
+        </div>
+
+        <div style="font-size: 13.5px; color: #334155; line-height: 1.6;">
+          <h4 style="font-size: 14px; margin-bottom: 8px;">Quy Tắc Sắp Xếp Dữ Liệu:</h4>
+          <ol style="padding-left: 20px; display: flex; flex-direction: column; gap: 6px;">
+            <li><strong>Nhóm theo Giảng viên (Teacher ID):</strong> Sắp xếp tự nhiên (T01 &rarr; T02 &rarr; T03 &rarr; T04...)</li>
+            <li><strong>Sắp xếp Video từng Giảng viên:</strong> Theo mốc thời gian học/ghi hình (Chronological - Từ cũ đến mới) để bảo toàn tiến trình sư phạm.</li>
+            <li><strong>Tự động đặt tên file:</strong> <code style="background: #F1F5F9; padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 12px;">Combined_Observation_Reports_YYYYMMDD_HHMM.docx</code></li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- Panel 2: Word Document Internal Layout Preview -->
+      <div class="section-box">
+        <div class="section-title">
+          <span>Xem Trước Cấu Trúc File Word (.docx)</span>
+          <span class="badge-tag">Page Breaks & TOC</span>
+        </div>
+
+        <div class="doc-preview-wrapper">
+          
+          <!-- Page 1: Cover & Summary Table -->
+          <div class="doc-page">
+            <div class="doc-page-header">
+              <h2>Comprehensive Classroom Observation Report</h2>
+              <p>Synthesis of All Teaching Video Observations Sorted by Teacher and Chronological Lesson Sequence</p>
+            </div>
+
+            <div class="doc-meta-banner">
+              <div><strong>Generated Date:</strong> 2026-09-16</div>
+              <div><strong>Total Teachers:</strong> 4 Cohorts (T01, T02, T03, T04)</div>
+              <div><strong>Total Observations:</strong> 12 Lesson Videos</div>
+              <div><strong>Framework:</strong> 5-Section Academic Checklist (29 Items)</div>
+            </div>
+
+            <strong style="font-size: 13px; text-decoration: underline;">Table of Contents & Summary Table:</strong>
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th style="width: 35px;">#</th>
+                  <th style="width: 75px;">Teacher</th>
+                  <th>Lesson Topic / Video Title</th>
+                  <th style="width: 80px;">Date</th>
+                  <th style="width: 60px;">Observed</th>
+                  <th style="width: 60px;">Total Freq</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td align="center">1</td>
+                  <td align="center"><strong>T01</strong></td>
+                  <td>Greeting & Online Warm-up Routines</td>
+                  <td align="center">2026-08-10</td>
+                  <td align="center">19 / 29</td>
+                  <td align="center">42</td>
+                </tr>
+                <tr>
+                  <td align="center">2</td>
+                  <td align="center"><strong>T01</strong></td>
+                  <td>Turn-taking & Vocabulary Drill</td>
+                  <td align="center">2026-08-17</td>
+                  <td align="center">22 / 29</td>
+                  <td align="center">58</td>
+                </tr>
+                <tr>
+                  <td align="center">3</td>
+                  <td align="center"><strong>T02</strong></td>
+                  <td>Grammar Scaffolding & Group Discussion</td>
+                  <td align="center">2026-08-12</td>
+                  <td align="center">24 / 29</td>
+                  <td align="center">61</td>
+                </tr>
+                <tr>
+                  <td align="center">...</td>
+                  <td align="center">...</td>
+                  <td>...</td>
+                  <td align="center">...</td>
+                  <td align="center">...</td>
+                  <td align="center">...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Page Break indicator -->
+          <div class="page-break-indicator">
+            <span>PAGE BREAK (Mỗi video report sang trang mới)</span>
+          </div>
+
+          <!-- Page 2: Detailed Observation Checklist for Video 1 -->
+          <div class="doc-page">
+            <div class="doc-page-header">
+              <h2>Classroom Observation Checklist</h2>
+            </div>
+            
+            <div style="margin-bottom: 12px; font-size: 11.5px; line-height: 1.5;">
+              <div>- Observation No.: #01 (Video ID: 7f3b8a1c)</div>
+              <div>- Teacher: <strong>T01</strong></div>
+              <div>- Date: 2026-08-10</div>
+              <div>- Lesson Topic: Greeting & Online Warm-up Routines</div>
+              <div>- Platform: Zoom | Class: Online English Class</div>
+            </div>
+
+            <strong style="font-size: 12px;">Section A. Establishing Online Rules and Routines</strong>
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>Indicators</th>
+                  <th style="width: 60px;">Observed</th>
+                  <th style="width: 60px;">Freq</th>
+                  <th style="width: 70px;">Timestamp</th>
+                  <th>Context / Quotes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Teacher explains classroom rules</td>
+                  <td align="center">Yes</td>
+                  <td align="center">2</td>
+                  <td align="center">01:14<br>03:20</td>
+                  <td>"Remember to mute your mic when others speak"</td>
+                </tr>
+                <tr>
+                  <td>Teacher establishes lesson routines</td>
+                  <td align="center">Yes</td>
+                  <td align="center">1</td>
+                  <td align="center">00:45</td>
+                  <td>Warm-up chant ritual with greeting cards</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+</body>
+</html>

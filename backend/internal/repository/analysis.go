@@ -22,12 +22,19 @@ func NewAnalysisRepository(db *DB) *AnalysisRepository {
 
 // CreateRun initializes an analysis_runs record.
 func (r *AnalysisRepository) CreateRun(ctx context.Context, run *model.AnalysisRun) error {
+	if run.CoreQuestionsStatus == "" {
+		run.CoreQuestionsStatus = "draft"
+	}
+	if run.CoreQuestions == "" {
+		run.CoreQuestions = "[]"
+	}
 	query := `
-		INSERT INTO analysis_runs (id, triggered_at, status, config, error_msg, completed_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO analysis_runs (id, triggered_at, status, config, error_msg, completed_at, core_questions_status, core_questions)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err := r.db.Pool.Exec(ctx, query,
 		run.ID, run.TriggeredAt, run.Status, run.Config, run.ErrorMsg, run.CompletedAt,
+		run.CoreQuestionsStatus, run.CoreQuestions,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create analysis run: %w", err)
@@ -54,16 +61,33 @@ func (r *AnalysisRepository) UpdateRunStatus(ctx context.Context, runID uuid.UUI
 	return nil
 }
 
+// UpdateCoreQuestions updates the core questions JSON and status of an analysis run.
+func (r *AnalysisRepository) UpdateCoreQuestions(ctx context.Context, runID uuid.UUID, coreQuestionsJSON string, status string) error {
+	query := `
+		UPDATE analysis_runs
+		SET core_questions = $1::jsonb, core_questions_status = $2
+		WHERE id = $3
+	`
+	_, err := r.db.Pool.Exec(ctx, query, coreQuestionsJSON, status, runID)
+	if err != nil {
+		return fmt.Errorf("failed to update core questions for run %s: %w", runID, err)
+	}
+	return nil
+}
+
 // GetRun returns an analysis run by ID.
 func (r *AnalysisRepository) GetRun(ctx context.Context, runID uuid.UUID) (*model.AnalysisRun, error) {
 	query := `
-		SELECT id, triggered_at, status, config, error_msg, completed_at
+		SELECT id, triggered_at, status, config, error_msg, completed_at,
+		       COALESCE(core_questions_status, 'draft'),
+		       COALESCE(core_questions::text, '[]')
 		FROM analysis_runs
 		WHERE id = $1
 	`
 	var run model.AnalysisRun
 	err := r.db.Pool.QueryRow(ctx, query, runID).Scan(
 		&run.ID, &run.TriggeredAt, &run.Status, &run.Config, &run.ErrorMsg, &run.CompletedAt,
+		&run.CoreQuestionsStatus, &run.CoreQuestions,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -77,7 +101,9 @@ func (r *AnalysisRepository) GetRun(ctx context.Context, runID uuid.UUID) (*mode
 // GetLatestRun returns the most recent analysis run.
 func (r *AnalysisRepository) GetLatestRun(ctx context.Context) (*model.AnalysisRun, error) {
 	query := `
-		SELECT id, triggered_at, status, config, error_msg, completed_at
+		SELECT id, triggered_at, status, config, error_msg, completed_at,
+		       COALESCE(core_questions_status, 'draft'),
+		       COALESCE(core_questions::text, '[]')
 		FROM analysis_runs
 		ORDER BY triggered_at DESC
 		LIMIT 1
@@ -85,6 +111,7 @@ func (r *AnalysisRepository) GetLatestRun(ctx context.Context) (*model.AnalysisR
 	var run model.AnalysisRun
 	err := r.db.Pool.QueryRow(ctx, query).Scan(
 		&run.ID, &run.TriggeredAt, &run.Status, &run.Config, &run.ErrorMsg, &run.CompletedAt,
+		&run.CoreQuestionsStatus, &run.CoreQuestions,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -98,7 +125,9 @@ func (r *AnalysisRepository) GetLatestRun(ctx context.Context) (*model.AnalysisR
 // ListRuns returns all analysis runs ordered by triggered_at desc.
 func (r *AnalysisRepository) ListRuns(ctx context.Context) ([]model.AnalysisRun, error) {
 	query := `
-		SELECT id, triggered_at, status, config, error_msg, completed_at
+		SELECT id, triggered_at, status, config, error_msg, completed_at,
+		       COALESCE(core_questions_status, 'draft'),
+		       COALESCE(core_questions::text, '[]')
 		FROM analysis_runs
 		ORDER BY triggered_at DESC
 	`
@@ -113,6 +142,7 @@ func (r *AnalysisRepository) ListRuns(ctx context.Context) ([]model.AnalysisRun,
 		var run model.AnalysisRun
 		if err := rows.Scan(
 			&run.ID, &run.TriggeredAt, &run.Status, &run.Config, &run.ErrorMsg, &run.CompletedAt,
+			&run.CoreQuestionsStatus, &run.CoreQuestions,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan analysis run: %w", err)
 		}
@@ -298,12 +328,12 @@ func (r *AnalysisRepository) SaveTeacherAnalysis(
 	}
 
 	qQuery := `
-		INSERT INTO interview_questions (id, teacher_analysis_id, teacher_id, type, question_text, evidence_ref, sort_order, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO interview_questions (id, teacher_analysis_id, teacher_id, type, rq_category, question_text, evidence_ref, is_user_edited, sort_order, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
 	for _, q := range questions {
 		if _, err := tx.Exec(ctx, qQuery,
-			q.ID, ta.ID, q.TeacherID, q.Type, q.QuestionText, q.EvidenceRef, q.SortOrder, q.CreatedAt,
+			q.ID, ta.ID, q.TeacherID, q.Type, q.RQCategory, q.QuestionText, q.EvidenceRef, q.IsUserEdited, q.SortOrder, q.CreatedAt,
 		); err != nil {
 			return fmt.Errorf("failed to insert interview question: %w", err)
 		}
@@ -331,7 +361,7 @@ func (r *AnalysisRepository) GetTeacherAnalysis(ctx context.Context, runID uuid.
 	}
 
 	qQuery := `
-		SELECT id, teacher_analysis_id, teacher_id, type, question_text, evidence_ref, sort_order, created_at
+		SELECT id, teacher_analysis_id, teacher_id, type, rq_category, question_text, evidence_ref, is_user_edited, sort_order, created_at
 		FROM interview_questions
 		WHERE teacher_analysis_id = $1
 		ORDER BY type, sort_order
@@ -346,7 +376,7 @@ func (r *AnalysisRepository) GetTeacherAnalysis(ctx context.Context, runID uuid.
 	for rows.Next() {
 		var q model.InterviewQuestion
 		if err := rows.Scan(
-			&q.ID, &q.TeacherAnalysisID, &q.TeacherID, &q.Type, &q.QuestionText, &q.EvidenceRef, &q.SortOrder, &q.CreatedAt,
+			&q.ID, &q.TeacherAnalysisID, &q.TeacherID, &q.Type, &q.RQCategory, &q.QuestionText, &q.EvidenceRef, &q.IsUserEdited, &q.SortOrder, &q.CreatedAt,
 		); err != nil {
 			return nil, nil, fmt.Errorf("failed to scan interview question: %w", err)
 		}
@@ -354,4 +384,28 @@ func (r *AnalysisRepository) GetTeacherAnalysis(ctx context.Context, runID uuid.
 	}
 
 	return &ta, questions, nil
+}
+
+// DeleteTeacherAnalysesAndQuestions removes existing teacher analyses and questions for a run to allow regeneration.
+func (r *AnalysisRepository) DeleteTeacherAnalysesAndQuestions(ctx context.Context, runID uuid.UUID) error {
+	query := `DELETE FROM teacher_analyses WHERE analysis_run_id = $1`
+	_, err := r.db.Pool.Exec(ctx, query, runID)
+	if err != nil {
+		return fmt.Errorf("failed to delete teacher analyses for run %s: %w", runID, err)
+	}
+	return nil
+}
+
+// UpdateInterviewQuestion updates a single interview question text or rq category.
+func (r *AnalysisRepository) UpdateInterviewQuestion(ctx context.Context, qID uuid.UUID, questionText string, rqCategory *string) error {
+	query := `
+		UPDATE interview_questions
+		SET question_text = $1, rq_category = $2, is_user_edited = true
+		WHERE id = $3
+	`
+	_, err := r.db.Pool.Exec(ctx, query, questionText, rqCategory, qID)
+	if err != nil {
+		return fmt.Errorf("failed to update interview question %s: %w", qID, err)
+	}
+	return nil
 }

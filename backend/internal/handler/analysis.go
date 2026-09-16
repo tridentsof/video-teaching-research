@@ -264,17 +264,25 @@ func (h *AnalysisHandler) ExportInterviewMarkdown(c *gin.Context) {
 	coreIdx := 1
 	for _, q := range questions {
 		if q.Type == "core" {
-			md.WriteString(fmt.Sprintf("%d. %s\n", coreIdx, q.QuestionText))
+			rqLabel := ""
+			if q.RQCategory != nil && *q.RQCategory != "" {
+				rqLabel = fmt.Sprintf("[%s] ", *q.RQCategory)
+			}
+			md.WriteString(fmt.Sprintf("%d. %s%s\n", coreIdx, rqLabel, q.QuestionText))
 			coreIdx++
 		}
 	}
 	md.WriteString("\n")
 
-	md.WriteString(fmt.Sprintf("## Dynamic Questions (sinh từ data của %s)\n", teacherID))
+	md.WriteString(fmt.Sprintf("## Participant-specific Follow-up Questions (sinh từ Interaction Log của %s)\n", teacherID))
 	dynIdx := 1
 	for _, q := range questions {
 		if q.Type == "dynamic" {
-			md.WriteString(fmt.Sprintf("%d. %s\n", dynIdx, q.QuestionText))
+			rqLabel := ""
+			if q.RQCategory != nil && *q.RQCategory != "" {
+				rqLabel = fmt.Sprintf("[%s] ", *q.RQCategory)
+			}
+			md.WriteString(fmt.Sprintf("%d. %s%s\n", dynIdx, rqLabel, q.QuestionText))
 			if q.EvidenceRef != nil && *q.EvidenceRef != "" {
 				md.WriteString(fmt.Sprintf("   *(Evidence: %s)*\n", *q.EvidenceRef))
 			}
@@ -287,3 +295,123 @@ func (h *AnalysisHandler) ExportInterviewMarkdown(c *gin.Context) {
 	c.Header("Content-Type", "text/markdown; charset=utf-8")
 	c.String(http.StatusOK, md.String())
 }
+
+// GetCoreQuestions returns the core questions and status for an analysis run.
+// GET /api/analysis/:run_id/core-questions
+func (h *AnalysisHandler) GetCoreQuestions(c *gin.Context) {
+	param := c.Param("run_id")
+	if param == "default" || param == "latest" {
+		latest, err := h.svc.GetLatestRun(c.Request.Context())
+		if err != nil || latest == nil {
+			RespondSuccess(c, gin.H{
+				"core_questions": service.DefaultSynthesizedCoreQuestions,
+				"status":         "draft",
+			})
+			return
+		}
+		param = latest.ID.String()
+	}
+
+	runID, err := uuid.Parse(param)
+	if err != nil {
+		RespondError(c, http.StatusBadRequest, "invalid analysis run ID")
+		return
+	}
+
+	questions, status, err := h.svc.GetCoreQuestions(c.Request.Context(), runID)
+	if err != nil {
+		RespondError(c, http.StatusInternalServerError, "failed to get core questions: "+err.Error())
+		return
+	}
+
+	RespondSuccess(c, gin.H{
+		"core_questions": questions,
+		"status":         status,
+	})
+}
+
+// SynthesizeCoreQuestions triggers AI to re-synthesize core questions based on base questions and discovered themes.
+// POST /api/analysis/:run_id/core-questions/synthesize
+func (h *AnalysisHandler) SynthesizeCoreQuestions(c *gin.Context) {
+	runID, err := uuid.Parse(c.Param("run_id"))
+	if err != nil {
+		RespondError(c, http.StatusBadRequest, "invalid analysis run ID")
+		return
+	}
+
+	themes, err := h.svc.GetThemes(c.Request.Context(), runID)
+	if err != nil {
+		RespondError(c, http.StatusInternalServerError, "failed to retrieve themes: "+err.Error())
+		return
+	}
+
+	questions, err := h.svc.SynthesizeCoreQuestions(c.Request.Context(), runID, themes)
+	if err != nil {
+		RespondError(c, http.StatusInternalServerError, "failed to synthesize core questions: "+err.Error())
+		return
+	}
+
+	RespondSuccess(c, gin.H{
+		"core_questions": questions,
+		"status":         "draft",
+	})
+}
+
+type approveCoreQuestionsRequest struct {
+	Questions []model.CoreQuestionItem `json:"questions"`
+}
+
+// ApproveCoreQuestions approves the core questions for a run and re-generates all teacher interview guides.
+// POST /api/analysis/:run_id/core-questions/approve
+func (h *AnalysisHandler) ApproveCoreQuestions(c *gin.Context) {
+	runID, err := uuid.Parse(c.Param("run_id"))
+	if err != nil {
+		RespondError(c, http.StatusBadRequest, "invalid analysis run ID")
+		return
+	}
+
+	var req approveCoreQuestionsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		RespondError(c, http.StatusBadRequest, "invalid request body: "+err.Error())
+		return
+	}
+
+	if err := h.svc.ApproveCoreQuestions(c.Request.Context(), runID, req.Questions); err != nil {
+		RespondError(c, http.StatusInternalServerError, "failed to approve core questions: "+err.Error())
+		return
+	}
+
+	RespondSuccess(c, gin.H{
+		"status":  "approved",
+		"message": "Core questions approved and teacher interview guides generated successfully",
+	})
+}
+
+type updateInterviewQuestionRequest struct {
+	QuestionText string  `json:"question_text"`
+	RQCategory   *string `json:"rq_category"`
+}
+
+// UpdateInterviewQuestion updates an individual question's text or rq_category.
+// PUT /api/analysis/questions/:question_id
+func (h *AnalysisHandler) UpdateInterviewQuestion(c *gin.Context) {
+	qID, err := uuid.Parse(c.Param("question_id"))
+	if err != nil {
+		RespondError(c, http.StatusBadRequest, "invalid question ID")
+		return
+	}
+
+	var req updateInterviewQuestionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		RespondError(c, http.StatusBadRequest, "invalid request body: "+err.Error())
+		return
+	}
+
+	if err := h.svc.UpdateInterviewQuestion(c.Request.Context(), qID, req.QuestionText, req.RQCategory); err != nil {
+		RespondError(c, http.StatusInternalServerError, "failed to update interview question: "+err.Error())
+		return
+	}
+
+	RespondSuccess(c, gin.H{"updated": true})
+}
+

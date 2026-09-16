@@ -47,9 +47,24 @@ func (r *VideoRepository) Create(ctx context.Context, v *model.Video) error {
 // List returns all videos ordered by updated_at descending, then uploaded_at descending.
 func (r *VideoRepository) List(ctx context.Context) ([]model.Video, error) {
 	query := `
-		SELECT id, teacher_id, title, blob_url, duration_sec, file_size, status, error_msg, failed_step, uploaded_at, updated_at, user_id, processing_mode
-		FROM videos
-		ORDER BY updated_at DESC, uploaded_at DESC
+		SELECT 
+			v.id, v.teacher_id, v.title, v.blob_url, v.duration_sec, v.file_size, v.status, v.error_msg, v.failed_step, v.uploaded_at, v.updated_at, v.user_id, v.processing_mode,
+			COALESCE(
+				pj.total_sec,
+				CASE 
+					WHEN v.status IN ('report_generated', 'completed', 'failed', 'cancelled') AND v.updated_at > v.uploaded_at 
+					THEN ROUND(EXTRACT(EPOCH FROM (v.updated_at - v.uploaded_at)))::int
+					ELSE NULL 
+				END
+			) AS processing_time_sec
+		FROM videos v
+		LEFT JOIN (
+			SELECT video_id, ROUND(SUM(EXTRACT(EPOCH FROM (finished_at - started_at))))::int AS total_sec
+			FROM pipeline_jobs
+			WHERE started_at IS NOT NULL AND finished_at IS NOT NULL AND finished_at >= started_at
+			GROUP BY video_id
+		) pj ON pj.video_id = v.id
+		ORDER BY v.updated_at DESC, v.uploaded_at DESC
 	`
 	rows, err := r.db.Pool.Query(ctx, query)
 	if err != nil {
@@ -61,7 +76,7 @@ func (r *VideoRepository) List(ctx context.Context) ([]model.Video, error) {
 	for rows.Next() {
 		var v model.Video
 		if err := rows.Scan(
-			&v.ID, &v.TeacherID, &v.Title, &v.BlobURL, &v.DurationSec, &v.FileSize, &v.Status, &v.ErrorMsg, &v.FailedStep, &v.UploadedAt, &v.UpdatedAt, &v.UserID, &v.ProcessingMode,
+			&v.ID, &v.TeacherID, &v.Title, &v.BlobURL, &v.DurationSec, &v.FileSize, &v.Status, &v.ErrorMsg, &v.FailedStep, &v.UploadedAt, &v.UpdatedAt, &v.UserID, &v.ProcessingMode, &v.ProcessingTimeSec,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan video: %w", err)
 		}
@@ -73,13 +88,28 @@ func (r *VideoRepository) List(ctx context.Context) ([]model.Video, error) {
 // GetByID returns a single video by ID.
 func (r *VideoRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Video, error) {
 	query := `
-		SELECT id, teacher_id, title, blob_url, duration_sec, file_size, status, error_msg, failed_step, uploaded_at, updated_at, user_id, processing_mode
-		FROM videos
-		WHERE id = $1
+		SELECT 
+			v.id, v.teacher_id, v.title, v.blob_url, v.duration_sec, v.file_size, v.status, v.error_msg, v.failed_step, v.uploaded_at, v.updated_at, v.user_id, v.processing_mode,
+			COALESCE(
+				pj.total_sec,
+				CASE 
+					WHEN v.status IN ('report_generated', 'completed', 'failed', 'cancelled') AND v.updated_at > v.uploaded_at 
+					THEN ROUND(EXTRACT(EPOCH FROM (v.updated_at - v.uploaded_at)))::int
+					ELSE NULL 
+				END
+			) AS processing_time_sec
+		FROM videos v
+		LEFT JOIN (
+			SELECT video_id, ROUND(SUM(EXTRACT(EPOCH FROM (finished_at - started_at))))::int AS total_sec
+			FROM pipeline_jobs
+			WHERE started_at IS NOT NULL AND finished_at IS NOT NULL AND finished_at >= started_at
+			GROUP BY video_id
+		) pj ON pj.video_id = v.id
+		WHERE v.id = $1
 	`
 	var v model.Video
 	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
-		&v.ID, &v.TeacherID, &v.Title, &v.BlobURL, &v.DurationSec, &v.FileSize, &v.Status, &v.ErrorMsg, &v.FailedStep, &v.UploadedAt, &v.UpdatedAt, &v.UserID, &v.ProcessingMode,
+		&v.ID, &v.TeacherID, &v.Title, &v.BlobURL, &v.DurationSec, &v.FileSize, &v.Status, &v.ErrorMsg, &v.FailedStep, &v.UploadedAt, &v.UpdatedAt, &v.UserID, &v.ProcessingMode, &v.ProcessingTimeSec,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {

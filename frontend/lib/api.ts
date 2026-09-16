@@ -11,6 +11,7 @@ export interface Video {
   uploaded_at: string;
   updated_at?: string;
   processing_mode?: 'chunk' | 'full' | null;
+  processing_time_sec?: number | null;
 }
 
 export interface RawEvent {
@@ -107,9 +108,32 @@ export interface InterviewQuestion {
   id: string;
   teacher_id: string;
   type: 'core' | 'dynamic';
+  rq_category?: 'RQ1' | 'RQ2' | 'RQ3' | 'BACKGROUND' | 'CLOSING' | string;
   question_text: string;
   evidence_ref?: string;
+  context_notes?: string;
+  is_user_edited?: boolean;
   sort_order: number;
+}
+
+export interface InterviewBaseQuestion {
+  id: string;
+  section: string;
+  section_title: string;
+  question_index: number;
+  question_text: string;
+  rq_category: 'BACKGROUND' | 'RQ1' | 'RQ2' | 'RQ3' | 'CLOSING' | string;
+  is_active: boolean;
+  sort_order: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CoreQuestionItem {
+  index: number;
+  question_text: string;
+  rq_category: 'RQ1' | 'RQ2' | 'RQ3' | string;
+  rationale?: string;
 }
 
 export interface TeacherAnalysis {
@@ -523,6 +547,75 @@ export const api = {
 
   getInterviewDownloadUrl(runId: string, teacherId: string): string {
     return `${API_BASE}/analysis/${runId}/teachers/${teacherId}/interview.md`;
+  },
+
+  // Base Questions Bank (22 Canonical questions CRUD)
+  async getBaseInterviewQuestions(onlyActive: boolean = false): Promise<InterviewBaseQuestion[]> {
+    const res = await request<{ questions: InterviewBaseQuestion[] }>(
+      `/interview-base-questions${onlyActive ? '?only_active=true' : ''}`
+    );
+    return res.questions || [];
+  },
+
+  async createBaseInterviewQuestion(data: Partial<InterviewBaseQuestion>): Promise<InterviewBaseQuestion> {
+    return request<InterviewBaseQuestion>('/interview-base-questions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async updateBaseInterviewQuestion(id: string, data: Partial<InterviewBaseQuestion>): Promise<InterviewBaseQuestion> {
+    return request<InterviewBaseQuestion>(`/interview-base-questions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteBaseInterviewQuestion(id: string): Promise<{ deleted: boolean }> {
+    return request<{ deleted: boolean }>(`/interview-base-questions/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async resetBaseInterviewQuestions(): Promise<InterviewBaseQuestion[]> {
+    const res = await request<{ questions: InterviewBaseQuestion[] }>('/interview-base-questions/reset', {
+      method: 'POST',
+    });
+    return res.questions || [];
+  },
+
+  // Core Questions Flow A (Review & Approval Gate)
+  async getCoreQuestions(runId: string): Promise<{ core_questions: CoreQuestionItem[]; status: 'draft' | 'approved' }> {
+    return request<{ core_questions: CoreQuestionItem[]; status: 'draft' | 'approved' }>(
+      `/analysis/${runId}/core-questions`
+    );
+  },
+
+  async synthesizeCoreQuestions(runId: string): Promise<{ core_questions: CoreQuestionItem[]; status: 'draft' }> {
+    return request<{ core_questions: CoreQuestionItem[]; status: 'draft' }>(
+      `/analysis/${runId}/core-questions/synthesize`,
+      { method: 'POST' }
+    );
+  },
+
+  async approveCoreQuestions(runId: string, questions: CoreQuestionItem[]): Promise<{ status: 'approved'; message: string }> {
+    return request<{ status: 'approved'; message: string }>(
+      `/analysis/${runId}/core-questions/approve`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ questions }),
+      }
+    );
+  },
+
+  async updateInterviewQuestion(questionId: string, text: string, rqCategory?: string): Promise<{ updated: boolean }> {
+    return request<{ updated: boolean }>(
+      `/analysis/questions/${questionId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ question_text: text, rq_category: rqCategory }),
+      }
+    );
   },
 
   // Auth

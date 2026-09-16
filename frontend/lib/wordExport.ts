@@ -84,22 +84,17 @@ function formatSeconds(sec: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-export async function generateWordReport(data: ExportReportData): Promise<Blob> {
+export function buildSingleReportChildren(
+  data: ExportReportData,
+  fontName = 'Times New Roman',
+  cellBorders = {
+    top: { style: BorderStyle.SINGLE, size: 6, color: '000000' },
+    bottom: { style: BorderStyle.SINGLE, size: 6, color: '000000' },
+    left: { style: BorderStyle.SINGLE, size: 6, color: '000000' },
+    right: { style: BorderStyle.SINGLE, size: 6, color: '000000' },
+  }
+): (Paragraph | Table)[] {
   const { report, video, observationNo, className, platform, generalNotes } = data;
-
-  const fontName = 'Times New Roman';
-  const blackBorder = {
-    style: BorderStyle.SINGLE,
-    size: 6,
-    color: '000000',
-  };
-
-  const cellBorders = {
-    top: blackBorder,
-    bottom: blackBorder,
-    left: blackBorder,
-    right: blackBorder,
-  };
 
   // Map existing items
   const itemsByText: Record<string, ReportItem> = {};
@@ -110,7 +105,7 @@ export async function generateWordReport(data: ExportReportData): Promise<Blob> 
   }
 
   const sectionsToRender = ['A', 'B', 'C', 'D', 'E'];
-  const docChildren: any[] = [];
+  const docChildren: (Paragraph | Table)[] = [];
 
   // Title
   docChildren.push(
@@ -146,7 +141,7 @@ export async function generateWordReport(data: ExportReportData): Promise<Blob> 
   const obsNum = observationNo || (video ? `#${video.id.slice(0, 8)}` : '#01');
   const teacherName = video?.teacher_id || report.teacher_id || '___________';
   const dateStr = video?.uploaded_at ? new Date(video.uploaded_at).toISOString().split('T')[0] : (report.generated_at ? new Date(report.generated_at).toISOString().split('T')[0] : '___________');
-  const cls = className || '___________';
+  const cls = className || 'Online English Class';
   const plat = platform || 'Zoom';
   const topic = video?.title || '___________';
   const durationStr = video?.duration_sec ? `${formatSeconds(video.duration_sec)}` : '___________';
@@ -470,6 +465,25 @@ export async function generateWordReport(data: ExportReportData): Promise<Blob> 
     );
   }
 
+  return docChildren;
+}
+
+export async function generateWordReport(data: ExportReportData): Promise<Blob> {
+  const fontName = 'Times New Roman';
+  const blackBorder = {
+    style: BorderStyle.SINGLE,
+    size: 6,
+    color: '000000',
+  };
+  const cellBorders = {
+    top: blackBorder,
+    bottom: blackBorder,
+    left: blackBorder,
+    right: blackBorder,
+  };
+
+  const docChildren = buildSingleReportChildren(data, fontName, cellBorders);
+
   const doc = new Document({
     sections: [
       {
@@ -486,6 +500,323 @@ export async function generateWordReport(data: ExportReportData): Promise<Blob> 
         children: docChildren,
       },
     ],
+  });
+
+  return await Packer.toBlob(doc);
+}
+
+export async function generateCombinedWordReport(reportsData: ExportReportData[]): Promise<Blob> {
+  const fontName = 'Times New Roman';
+  const blackBorder = {
+    style: BorderStyle.SINGLE,
+    size: 6,
+    color: '000000',
+  };
+  const cellBorders = {
+    top: blackBorder,
+    bottom: blackBorder,
+    left: blackBorder,
+    right: blackBorder,
+  };
+
+  // Collect unique teachers
+  const teachers = Array.from(
+    new Set(reportsData.map((r) => r.report.teacher_id || r.video?.teacher_id || 'Unknown'))
+  ).filter(Boolean);
+  const nowStr = new Date().toISOString().split('T')[0];
+
+  // 1. Cover & Summary Table (Table of Contents) section
+  const coverChildren: (Paragraph | Table)[] = [];
+
+  // Super Title
+  coverChildren.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 240, after: 120 },
+      children: [
+        new TextRun({
+          text: 'COMPREHENSIVE CLASSROOM OBSERVATION REPORT',
+          font: fontName,
+          size: 32, // 16pt
+          bold: true,
+        }),
+      ],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 0, after: 360 },
+      children: [
+        new TextRun({
+          text: 'Synthesis of All Teaching Video Observations (Sorted by Teacher and Lesson Sequence)',
+          font: fontName,
+          size: 24, // 12pt
+          italics: true,
+          color: '444444',
+        }),
+      ],
+    })
+  );
+
+  // Metadata summary
+  const metaBullets = [
+    `• Generated Date: ${nowStr}`,
+    `• Total Teachers: ${teachers.length} (${teachers.join(', ')})`,
+    `• Total Video Observations: ${reportsData.length} lessons`,
+    `• Observation Framework: 5-Section Academic Checklist (Sections A to E - 29 Indicators)`,
+  ];
+
+  for (const b of metaBullets) {
+    coverChildren.push(
+      new Paragraph({
+        spacing: { before: 40, after: 40 },
+        children: [
+          new TextRun({
+            text: b,
+            font: fontName,
+            size: 22,
+          }),
+        ],
+      })
+    );
+  }
+
+  coverChildren.push(
+    new Paragraph({
+      spacing: { before: 280, after: 140 },
+      children: [
+        new TextRun({
+          text: 'Table of Contents & Summary Table',
+          font: fontName,
+          size: 26, // 13pt
+          bold: true,
+        }),
+      ],
+    })
+  );
+
+  // Table of Contents Header
+  const tocRows: TableRow[] = [
+    new TableRow({
+      tableHeader: true,
+      children: [
+        new TableCell({
+          width: { size: 600, type: WidthType.DXA },
+          borders: cellBorders,
+          verticalAlign: VerticalAlign.CENTER,
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 60, after: 60 },
+              children: [new TextRun({ text: '#', font: fontName, size: 20, bold: true })],
+            }),
+          ],
+        }),
+        new TableCell({
+          width: { size: 1400, type: WidthType.DXA },
+          borders: cellBorders,
+          verticalAlign: VerticalAlign.CENTER,
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 60, after: 60 },
+              children: [new TextRun({ text: 'Teacher', font: fontName, size: 20, bold: true })],
+            }),
+          ],
+        }),
+        new TableCell({
+          width: { size: 4000, type: WidthType.DXA },
+          borders: cellBorders,
+          verticalAlign: VerticalAlign.CENTER,
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 60, after: 60 },
+              children: [new TextRun({ text: 'Lesson Topic / Title', font: fontName, size: 20, bold: true })],
+            }),
+          ],
+        }),
+        new TableCell({
+          width: { size: 1400, type: WidthType.DXA },
+          borders: cellBorders,
+          verticalAlign: VerticalAlign.CENTER,
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 60, after: 60 },
+              children: [new TextRun({ text: 'Date', font: fontName, size: 20, bold: true })],
+            }),
+          ],
+        }),
+        new TableCell({
+          width: { size: 1300, type: WidthType.DXA },
+          borders: cellBorders,
+          verticalAlign: VerticalAlign.CENTER,
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 60, after: 60 },
+              children: [new TextRun({ text: 'Observed', font: fontName, size: 20, bold: true })],
+            }),
+          ],
+        }),
+        new TableCell({
+          width: { size: 1300, type: WidthType.DXA },
+          borders: cellBorders,
+          verticalAlign: VerticalAlign.CENTER,
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 60, after: 60 },
+              children: [new TextRun({ text: 'Total Freq', font: fontName, size: 20, bold: true })],
+            }),
+          ],
+        }),
+      ],
+    }),
+  ];
+
+  reportsData.forEach((item, idx) => {
+    const tId = item.report.teacher_id || item.video?.teacher_id || 'N/A';
+    const topic = item.video?.title || item.observationNo || `Observation #${idx + 1}`;
+    const dateStr = item.video?.uploaded_at
+      ? new Date(item.video.uploaded_at).toISOString().split('T')[0]
+      : (item.report.generated_at ? new Date(item.report.generated_at).toISOString().split('T')[0] : 'N/A');
+
+    let observedCount = 0;
+    let totalFreq = 0;
+    if (item.report.items && Array.isArray(item.report.items)) {
+      for (const it of item.report.items) {
+        if (it.count > 0) {
+          observedCount++;
+          totalFreq += it.count;
+        }
+      }
+    }
+
+    tocRows.push(
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: 600, type: WidthType.DXA },
+            borders: cellBorders,
+            verticalAlign: VerticalAlign.CENTER,
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 40, after: 40 },
+                children: [new TextRun({ text: String(idx + 1), font: fontName, size: 20 })],
+              }),
+            ],
+          }),
+          new TableCell({
+            width: { size: 1400, type: WidthType.DXA },
+            borders: cellBorders,
+            verticalAlign: VerticalAlign.CENTER,
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 40, after: 40 },
+                children: [new TextRun({ text: tId, font: fontName, size: 20, bold: true })],
+              }),
+            ],
+          }),
+          new TableCell({
+            width: { size: 4000, type: WidthType.DXA },
+            borders: cellBorders,
+            verticalAlign: VerticalAlign.CENTER,
+            children: [
+              new Paragraph({
+                spacing: { before: 40, after: 40 },
+                children: [new TextRun({ text: topic, font: fontName, size: 20 })],
+              }),
+            ],
+          }),
+          new TableCell({
+            width: { size: 1400, type: WidthType.DXA },
+            borders: cellBorders,
+            verticalAlign: VerticalAlign.CENTER,
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 40, after: 40 },
+                children: [new TextRun({ text: dateStr, font: fontName, size: 20 })],
+              }),
+            ],
+          }),
+          new TableCell({
+            width: { size: 1300, type: WidthType.DXA },
+            borders: cellBorders,
+            verticalAlign: VerticalAlign.CENTER,
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 40, after: 40 },
+                children: [new TextRun({ text: `${observedCount} / 29`, font: fontName, size: 20 })],
+              }),
+            ],
+          }),
+          new TableCell({
+            width: { size: 1300, type: WidthType.DXA },
+            borders: cellBorders,
+            verticalAlign: VerticalAlign.CENTER,
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 40, after: 40 },
+                children: [new TextRun({ text: String(totalFreq), font: fontName, size: 20 })],
+              }),
+            ],
+          }),
+        ],
+      })
+    );
+  });
+
+  coverChildren.push(
+    new Table({
+      width: { size: 10000, type: WidthType.DXA },
+      rows: tocRows,
+    })
+  );
+
+  const sections: any[] = [
+    {
+      properties: {
+        page: {
+          margin: {
+            top: convertInchesToTwip(1),
+            bottom: convertInchesToTwip(1),
+            left: convertInchesToTwip(1),
+            right: convertInchesToTwip(1),
+          },
+        },
+      },
+      children: coverChildren,
+    },
+  ];
+
+  // 2. Individual Video Report Sections (each starts on a new page)
+  for (let i = 0; i < reportsData.length; i++) {
+    const reportData = reportsData[i];
+    const reportElements = buildSingleReportChildren(reportData, fontName, cellBorders);
+
+    sections.push({
+      properties: {
+        page: {
+          margin: {
+            top: convertInchesToTwip(1),
+            bottom: convertInchesToTwip(1),
+            left: convertInchesToTwip(1),
+            right: convertInchesToTwip(1),
+          },
+        },
+      },
+      children: reportElements,
+    });
+  }
+
+  const doc = new Document({
+    sections,
   });
 
   return await Packer.toBlob(doc);

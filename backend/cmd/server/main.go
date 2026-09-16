@@ -52,6 +52,7 @@ func main() {
 	var pipelineHandler *handler.PipelineHandler
 	var reportHandler *handler.ReportHandler
 	var analysisHandler *handler.AnalysisHandler
+	var interviewBaseHandler *handler.InterviewBaseHandler
 	var codebookHandler *handler.CodebookHandler
 	var settingsHandler *handler.SettingsHandler
 	var activityLogHandler *handler.ActivityLogHandler
@@ -124,6 +125,11 @@ func main() {
 		reportSvc := service.NewReportService(reportRepo, mappingRepo, checklistRepo, videoRepo, chunkRepo)
 		analysisSvc := service.NewAnalysisService(analysisRepo, reportRepo, rawEventRepo, checklistRepo, videoRepo, textProvider, textModel)
 		analysisSvc.SetAIRouter(aiRouterSvc)
+
+		interviewBaseRepo := repository.NewInterviewBaseRepository(db)
+		interviewBaseSvc := service.NewInterviewBaseService(interviewBaseRepo)
+		analysisSvc.SetInterviewBaseRepo(interviewBaseRepo)
+		interviewBaseHandler = handler.NewInterviewBaseHandler(interviewBaseSvc)
 
 		codebookRepo := repository.NewCodebookRepository(db)
 		codebookSvc := service.NewCodebookService(codebookRepo, rawEventRepo, videoRepo, geminiProvider, cfg.CodebookModel)
@@ -281,6 +287,23 @@ func main() {
 						analysis.PUT("/themes/:id/confirm", analysisHandler.ConfirmTheme)
 						analysis.GET("/:run_id/teachers/:teacher_id", analysisHandler.GetTeacherAnalysis)
 						analysis.GET("/:run_id/teachers/:teacher_id/interview.md", analysisHandler.ExportInterviewMarkdown)
+						analysis.GET("/:run_id/core-questions", analysisHandler.GetCoreQuestions)
+						analysis.POST("/:run_id/core-questions/synthesize", analysisHandler.SynthesizeCoreQuestions)
+						analysis.POST("/:run_id/core-questions/approve", analysisHandler.ApproveCoreQuestions)
+						analysis.PUT("/questions/:question_id", analysisHandler.UpdateInterviewQuestion)
+					}
+				}
+
+				// Base Semi-structured Interview Questions Bank routes
+				if interviewBaseHandler != nil {
+					baseQuestions := protected.Group("/interview-base-questions")
+					{
+						baseQuestions.GET("", interviewBaseHandler.List)
+						baseQuestions.POST("", interviewBaseHandler.Create)
+						baseQuestions.GET("/:id", interviewBaseHandler.GetByID)
+						baseQuestions.PUT("/:id", interviewBaseHandler.Update)
+						baseQuestions.DELETE("/:id", interviewBaseHandler.Delete)
+						baseQuestions.POST("/reset", interviewBaseHandler.ResetToDefaults)
 					}
 				}
 

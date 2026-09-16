@@ -134,4 +134,39 @@ func (r *RawEventRepository) ResetDuplicatesByVideoID(ctx context.Context, video
 	return nil
 }
 
+// ListByTeacherID returns all raw events for a teacher across all their videos.
+func (r *RawEventRepository) ListByTeacherID(ctx context.Context, teacherID string, excludeDuplicates bool) ([]model.RawEvent, error) {
+	query := `
+		SELECT id, video_id, teacher_id, chunk_id, timestamp_sec,
+		       event_type, event_key, code, quote, description, confidence, duration_sec,
+		       is_duplicate_of, created_at
+		FROM raw_events
+		WHERE teacher_id = $1
+	`
+	if excludeDuplicates {
+		query += ` AND is_duplicate_of IS NULL`
+	}
+	query += ` ORDER BY timestamp_sec ASC`
+
+	rows, err := r.db.Pool.Query(ctx, query, teacherID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list raw events for teacher %s: %w", teacherID, err)
+	}
+	defer rows.Close()
+
+	var events []model.RawEvent
+	for rows.Next() {
+		var e model.RawEvent
+		if err := rows.Scan(
+			&e.ID, &e.VideoID, &e.TeacherID, &e.ChunkID, &e.TimestampSec,
+			&e.EventType, &e.EventKey, &e.Code, &e.Quote, &e.Description, &e.Confidence, &e.DurationSec,
+			&e.IsDuplicateOf, &e.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan raw event: %w", err)
+		}
+		events = append(events, e)
+	}
+	return events, nil
+}
+
 

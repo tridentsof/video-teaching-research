@@ -31,38 +31,11 @@ export default function ThemesPage() {
         const data = await api.getThemes('default');
         setThemes(data);
       }
-    } catch {
-
-      // Fallback sample themes matching Grounded Theory specification
-      setThemes([
-        {
-          id: 'th-01',
-          analysis_run_id: 'run-01',
-          name: 'Scaffolding Through Intentional Wait Time and Pacing',
-          description: 'Teachers intentionally regulating silence intervals to afford young learners cognitive processing time.',
-          reasoning_trace: 'Across 24 videos, teachers who provided extended wait times (avg 4.5s) exhibited higher student voluntary responses (+35%). Grouping pacing behaviors highlights the pedagogical patience used to support second language production.',
-          category_ids: [],
-          status: 'confirmed',
-        },
-        {
-          id: 'th-02',
-          analysis_run_id: 'run-01',
-          name: 'Affective Positive Reinforcement during Task Transition',
-          description: 'High concentration of praise and motivational prompts to lower affective filter when switching activities.',
-          reasoning_trace: 'Evidence from teacher praise timestamps shows positive reinforcement concentrated heavily during activity transitions (80% occurrence rate) rather than error correction phases.',
-          category_ids: [],
-          status: 'draft',
-        },
-        {
-          id: 'th-03',
-          analysis_run_id: 'run-01',
-          name: 'Linguistic Modeling and Sentence Starter Elicitation',
-          description: 'Structured linguistic scaffolding providing partial utterance stems to build sentence fluency.',
-          reasoning_trace: 'Analysis reveals sentence starters used in 90% of open-ended question scenarios, allowing quieter learners to participate without cognitive overload.',
-          category_ids: [],
-          status: 'draft',
-        },
-      ]);
+    } catch (err: any) {
+      setThemes([]);
+      toast.error(err?.message || 'Không thể tải danh sách Themes từ hệ thống.', {
+        title: 'Tải dữ liệu thất bại',
+      });
     } finally {
       setLoading(false);
     }
@@ -73,24 +46,24 @@ export default function ThemesPage() {
   }, []);
 
   const handleRunAnalysis = async () => {
-    const toastId = toast.loading('Initiating Grounded Theory Phase 6 synthesis across 24 lessons...', {
-      title: 'Synthesis Started',
+    const toastId = toast.loading('Đang khởi chạy phân tích Grounded Theory trên 24 bài giảng...', {
+      title: 'Bắt đầu phân tích',
     });
     try {
       setRunning(true);
       const res = await api.runAnalysis();
       toast.update(toastId, {
         type: 'success',
-        title: 'Phase 6 Synthesis Active',
-        message: `Synthesis run initiated with ID: ${res.id}. Cross-teacher patterns are clustering.`,
+        title: 'Phân tích đang hoạt động',
+        message: `Đợt phân tích ID: ${res.id}. Hệ thống đang quy nạp các cụm chiến lược & chủ đề giảng dạy.`,
         duration: 4500,
       });
       fetchThemes();
     } catch (err: any) {
       toast.update(toastId, {
         type: 'error',
-        title: 'Synthesis Failed',
-        message: err.message || 'Failed to trigger Phase 6 synthesis',
+        title: 'Lỗi phân tích',
+        message: err.message || 'Không thể khởi chạy phân tích chiến lược',
         duration: 4000,
       });
     } finally {
