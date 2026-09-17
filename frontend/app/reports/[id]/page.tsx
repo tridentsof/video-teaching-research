@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Report, Video, ReportItem, ReportItemOccurrence, api } from '@/lib/api';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
 import { useTranslation } from '@/lib/i18n';
-import { generateWordReport, downloadBlob, SECTION_NAMES, DEFAULT_CHECKLIST_STRUCTURE } from '@/lib/wordExport';
+import { generateWordReport, downloadBlob, SECTION_NAMES, SECTION_NAMES_VI, DEFAULT_CHECKLIST_STRUCTURE } from '@/lib/wordExport';
 import { ArrowLeft, Download, FileText, CheckCircle2, Play, ExternalLink, Printer, Trash2, AlertCircle, X } from 'lucide-react';
 
 function parseOccurrences(raw: any): ReportItemOccurrence[] {
@@ -216,6 +216,51 @@ Teacher maintains warm, energetic classroom rapport with strong use of positive 
     return map;
   }, [report]);
 
+  const summaryStats = useMemo(() => {
+    let observedCount = 0;
+    let totalFrequency = 0;
+    const secCounts: Record<string, { observed: number; total: number; freq: number }> = {
+      A: { observed: 0, total: 0, freq: 0 },
+      B: { observed: 0, total: 0, freq: 0 },
+      C: { observed: 0, total: 0, freq: 0 },
+      D: { observed: 0, total: 0, freq: 0 },
+      E: { observed: 0, total: 0, freq: 0 },
+    };
+
+    for (const sec of ['A', 'B', 'C', 'D', 'E']) {
+      const indicators = DEFAULT_CHECKLIST_STRUCTURE[sec] || [];
+      secCounts[sec].total = indicators.length;
+      for (const text of indicators) {
+        const item = itemsByText[text.trim().toLowerCase()];
+        if (item && item.count > 0) {
+          observedCount++;
+          totalFrequency += item.count;
+          secCounts[sec].observed++;
+          secCounts[sec].freq += item.count;
+        }
+      }
+    }
+
+    let topSec = 'A';
+    let maxFreq = -1;
+    for (const [sec, data] of Object.entries(secCounts)) {
+      if (data.freq > maxFreq) {
+        maxFreq = data.freq;
+        topSec = sec;
+      }
+    }
+
+    return {
+      observedCount,
+      totalCount: 29,
+      pct: Math.round((observedCount / 29) * 1000) / 10,
+      totalFrequency,
+      topSec,
+      topSecFreq: maxFreq,
+      secCounts,
+    };
+  }, [itemsByText]);
+
   const handleExportWord = async () => {
     if (!report) return;
     setExportingWord(true);
@@ -391,88 +436,283 @@ Teacher maintains warm, energetic classroom rapport with strong use of positive 
       ) : report && activeTab === 'checklist' ? (
         <div style={{
           backgroundColor: '#FFFFFF',
-          border: '1px solid var(--card-border)',
-          borderRadius: '12px',
-          boxShadow: 'var(--shadow-md)',
-          padding: '48px 56px',
-          fontFamily: '"Times New Roman", Times, Georgia, serif',
-          color: '#111111',
+          border: '1px solid var(--card-border, #E2E8F0)',
+          borderRadius: '16px',
+          boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.03)',
+          padding: '36px 44px',
+          color: '#1E293B',
           lineHeight: 1.6,
         }}>
-          {/* Header matching PDF */}
-          <h1 style={{
-            textAlign: 'center',
-            fontSize: '22px',
-            fontWeight: 700,
-            marginBottom: '28px',
-            letterSpacing: '0.3px',
-            color: '#000000',
-          }}>
-            {t('reportsChecklistTitle')}
-          </h1>
-
-          {/* Lesson Information Box */}
-          <div style={{
-            marginBottom: '32px',
-            fontSize: '15px',
-            lineHeight: 1.8,
-            borderBottom: '1px solid #E8E3D9',
-            paddingBottom: '20px',
-          }}>
-            <div style={{ fontWeight: 700, fontSize: '16px', marginBottom: '8px', color: '#000000' }}>
-              {t('reportsLessonInfo')}
+          {/* Header Badge & Title */}
+          <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+            <div style={{
+              display: 'inline-block',
+              padding: '4px 12px',
+              borderRadius: '9999px',
+              fontSize: '11px',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              backgroundColor: '#EFF6FF',
+              color: '#1E3A8A',
+              border: '1px solid #BFDBFE',
+              marginBottom: '10px',
+            }}>
+              {language === 'vi' ? 'Hồ Sơ Quan Sát Sư Phạm Chuẩn Học Thuật' : 'Academic Classroom Observation Protocol'}
             </div>
-            <ul style={{ listStyleType: 'none', paddingLeft: '8px' }}>
-              <li>- {t('reportsObservationNo')}: <strong>{video ? `#${video.id.slice(0, 8)}` : '#01'}</strong></li>
-              <li>- {t('reportsTeacher')}: <strong>{video?.teacher_id || report.teacher_id}</strong></li>
-              <li>- {t('reportsDate')}: <strong>{video?.uploaded_at ? new Date(video.uploaded_at).toISOString().split('T')[0] : (report.generated_at ? new Date(report.generated_at).toISOString().split('T')[0] : '2024-01-15')}</strong></li>
-              <li>- {t('reportsClass')}: <strong>English Grade 2</strong></li>
-              <li>- {t('reportsPlatform')}: <strong>Zoom</strong></li>
-              <li>- {t('reportsLessonTopic')}: <strong>{video?.title || 'Phonics & Turn-Taking Interaction'}</strong></li>
-              <li>- {t('reportsDuration')}: <strong>{video?.duration_sec ? formatSeconds(video.duration_sec) : '25:00'}</strong></li>
-            </ul>
+            <h1 style={{
+              fontSize: '24px',
+              fontWeight: 800,
+              letterSpacing: '-0.02em',
+              color: '#1E3A8A',
+              margin: '0 0 8px 0',
+            }}>
+              {t('reportsChecklistTitle')}
+            </h1>
+            <p style={{
+              fontSize: '14px',
+              fontStyle: 'italic',
+              color: '#4B5563',
+              maxWidth: '780px',
+              margin: '0 auto 6px auto',
+            }}>
+              {language === 'vi'
+                ? 'Nghiên cứu: Chiến lược quản lý lớp học trực tuyến & Khả năng tương tác nói tiếng Anh của học sinh tiểu học'
+                : "Research: Primary EFL Teachers' Online Classroom Management Strategies & Student Speaking Participation"}
+            </p>
+            <p style={{
+              fontSize: '12px',
+              color: '#6B7280',
+              margin: '0 auto',
+            }}>
+              {language === 'vi'
+                ? 'Khung nghiên cứu: Bảng kiểm quan sát video sư phạm 5 phần (Phần A đến E — 29 Chỉ báo hành vi)'
+                : 'Theoretical Framework: 5-Section Academic Checklist (Sections A to E — 29 Behavioral Indicators)'}
+            </p>
+          </div>
+
+          {/* Lesson Information Box (2x2 / 2x4 Table Card) */}
+          <div style={{ marginBottom: '24px' }}>
+            <h3 style={{
+              fontSize: '12px',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              color: '#1E3A8A',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '10px',
+            }}>
+              <span style={{ width: '4px', height: '14px', backgroundColor: '#1E3A8A', borderRadius: '2px', display: 'inline-block' }} />
+              <span>{t('reportsLessonInfo')}</span>
+            </h3>
+
+            <div style={{
+              border: '1px solid #E2E8F0',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              fontSize: '13.5px',
+            }}>
+              {/* Row 1: Obs No & Teacher */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', borderBottom: '1px solid #E2E8F0' }}>
+                <div style={{ display: 'flex', borderRight: '1px solid #E2E8F0' }}>
+                  <div style={{ width: '150px', backgroundColor: '#F8FAFC', padding: '10px 14px', fontWeight: 600, color: '#475569', borderRight: '1px solid #E2E8F0', flexShrink: 0 }}>
+                    {t('reportsObservationNo')}:
+                  </div>
+                  <div style={{ padding: '10px 14px', fontWeight: 700, color: '#1E3A8A' }}>
+                    {video ? `#${video.id.slice(0, 8)}` : '#01'}
+                  </div>
+                </div>
+                <div style={{ display: 'flex' }}>
+                  <div style={{ width: '150px', backgroundColor: '#F8FAFC', padding: '10px 14px', fontWeight: 600, color: '#475569', borderRight: '1px solid #E2E8F0', flexShrink: 0 }}>
+                    {t('reportsTeacher')}:
+                  </div>
+                  <div style={{ padding: '10px 14px', fontWeight: 700, color: '#9E4A28' }}>
+                    {video?.teacher_id || report.teacher_id || 'T01'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 2: Date & Duration */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', borderBottom: '1px solid #E2E8F0' }}>
+                <div style={{ display: 'flex', borderRight: '1px solid #E2E8F0' }}>
+                  <div style={{ width: '150px', backgroundColor: '#F8FAFC', padding: '10px 14px', fontWeight: 600, color: '#475569', borderRight: '1px solid #E2E8F0', flexShrink: 0 }}>
+                    {t('reportsDate')}:
+                  </div>
+                  <div style={{ padding: '10px 14px', color: '#1E293B' }}>
+                    {video?.uploaded_at
+                      ? new Date(video.uploaded_at).toISOString().split('T')[0]
+                      : (report.generated_at ? new Date(report.generated_at).toISOString().split('T')[0] : '2024-01-15')}
+                  </div>
+                </div>
+                <div style={{ display: 'flex' }}>
+                  <div style={{ width: '150px', backgroundColor: '#F8FAFC', padding: '10px 14px', fontWeight: 600, color: '#475569', borderRight: '1px solid #E2E8F0', flexShrink: 0 }}>
+                    {t('reportsDuration')}:
+                  </div>
+                  <div style={{ padding: '10px 14px', color: '#1E293B' }}>
+                    {video?.duration_sec ? `${formatSeconds(video.duration_sec)}` : '25:00'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 3: Class & Platform */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', borderBottom: '1px solid #E2E8F0' }}>
+                <div style={{ display: 'flex', borderRight: '1px solid #E2E8F0' }}>
+                  <div style={{ width: '150px', backgroundColor: '#F8FAFC', padding: '10px 14px', fontWeight: 600, color: '#475569', borderRight: '1px solid #E2E8F0', flexShrink: 0 }}>
+                    {t('reportsClass')}:
+                  </div>
+                  <div style={{ padding: '10px 14px', color: '#1E293B' }}>
+                    {language === 'vi' ? 'Lớp tiếng Anh trực tuyến' : 'Online English Class'}
+                  </div>
+                </div>
+                <div style={{ display: 'flex' }}>
+                  <div style={{ width: '150px', backgroundColor: '#F8FAFC', padding: '10px 14px', fontWeight: 600, color: '#475569', borderRight: '1px solid #E2E8F0', flexShrink: 0 }}>
+                    {t('reportsPlatform')}:
+                  </div>
+                  <div style={{ padding: '10px 14px', color: '#1E293B' }}>
+                    Zoom
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 4: Topic */}
+              <div style={{ display: 'flex' }}>
+                <div style={{ width: '150px', backgroundColor: '#F8FAFC', padding: '10px 14px', fontWeight: 600, color: '#475569', borderRight: '1px solid #E2E8F0', flexShrink: 0 }}>
+                  {t('reportsLessonTopic')}:
+                </div>
+                <div style={{ padding: '10px 14px', fontWeight: 600, color: '#1E293B' }}>
+                  {video?.title || (language === 'vi' ? 'Luyện phát âm & Quản lý lượt nói tương tác' : 'Phonics & Turn-Taking Interaction')}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Summary Metric Bar */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '12px',
+            backgroundColor: '#F8FAFC',
+            border: '1px solid #E2E8F0',
+            borderRadius: '12px',
+            padding: '14px 18px',
+            marginBottom: '32px',
+            textAlign: 'center',
+          }}>
+            <div>
+              <div style={{ fontSize: '11.5px', color: '#64748B', fontWeight: 600 }}>
+                {language === 'vi' ? 'Chỉ báo được ghi nhận' : 'Observed Indicators'}
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: '#166534', marginTop: '2px' }}>
+                {summaryStats.observedCount} / 29 ({summaryStats.pct}%)
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '11.5px', color: '#64748B', fontWeight: 600 }}>
+                {language === 'vi' ? 'Tổng tần suất hành vi' : 'Total Frequency'}
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: '#1E3A8A', marginTop: '2px' }}>
+                {summaryStats.totalFrequency} {language === 'vi' ? 'lượt' : 'times'}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '11.5px', color: '#64748B', fontWeight: 600 }}>
+                {language === 'vi' ? 'Tương tác nhiều nhất' : 'Highest Activity Section'}
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: '#9E4A28', marginTop: '2px' }}>
+                Section {summaryStats.topSec} ({summaryStats.topSecFreq} {language === 'vi' ? 'lượt' : 'times'})
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '11.5px', color: '#64748B', fontWeight: 600 }}>
+                {language === 'vi' ? 'Trạng thái phân tích' : 'Analysis Status'}
+              </div>
+              <div style={{
+                fontSize: '15px',
+                fontWeight: 700,
+                color: '#166534',
+                marginTop: '4px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22C55E', display: 'inline-block' }} />
+                <span>{language === 'vi' ? 'Hoàn Tất (100%)' : 'Completed'}</span>
+              </div>
+            </div>
           </div>
 
           {/* 5 Section Tables: A to E */}
           {sectionsToRender.map((sec) => {
-            const secTitle = t(`checklistsSec${sec}` as any) || SECTION_NAMES[sec] || `Section ${sec}`;
+            const secTitle = (language === 'vi' ? SECTION_NAMES_VI[sec] : SECTION_NAMES[sec]) || (t(`checklistsSec${sec}` as any) || `Section ${sec}`);
             const indicatorList = DEFAULT_CHECKLIST_STRUCTURE[sec] || [];
+            const secStat = summaryStats.secCounts[sec] || { observed: 0, total: indicatorList.length, freq: 0 };
 
             return (
-              <div key={sec} style={{ marginBottom: '36px' }}>
-                <h2 style={{
-                  fontSize: '16px',
-                  fontWeight: 700,
-                  marginBottom: '12px',
-                  color: '#000000',
-                  borderLeft: '3px solid var(--accent)',
-                  paddingLeft: '10px',
+              <div key={sec} style={{ marginBottom: '32px' }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                  marginBottom: '10px',
                 }}>
-                  {secTitle}
-                </h2>
+                  <h2 style={{
+                    fontSize: '15px',
+                    fontWeight: 700,
+                    color: '#1E3A8A',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    margin: 0,
+                  }}>
+                    <span style={{ width: '4px', height: '14px', backgroundColor: '#1E3A8A', borderRadius: '2px', display: 'inline-block' }} />
+                    <span>{secTitle}</span>
+                  </h2>
+                  <span style={{
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                    backgroundColor: secStat.observed > 0 ? '#EAF4EE' : '#F1F5F9',
+                    color: secStat.observed > 0 ? '#166534' : '#64748B',
+                    border: `1px solid ${secStat.observed > 0 ? '#BBF7D0' : '#E2E8F0'}`,
+                  }}>
+                    {secStat.observed} / {indicatorList.length} {language === 'vi' ? 'chỉ báo đạt' : 'observed'} ({secStat.freq} {language === 'vi' ? 'lượt' : 'times'})
+                  </span>
+                </div>
 
-                <div style={{ overflowX: 'auto' }}>
+                <div style={{ overflowX: 'auto', border: '1px solid #E2E8F0', borderRadius: '12px' }}>
                   <table style={{
                     width: '100%',
                     borderCollapse: 'collapse',
-                    fontSize: '14px',
-                    borderColor: '#000000',
+                    fontSize: '13.5px',
                   }}>
                     <thead>
-                      <tr style={{ backgroundColor: '#FBF9F5', fontWeight: 700 }}>
-                        <th style={{ border: '1px solid #111111', padding: '10px 12px', textAlign: 'left', width: '34%' }}>
+                      <tr style={{
+                        backgroundColor: '#F1F5F9',
+                        color: '#1E293B',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        borderBottom: '1px solid #E2E8F0',
+                      }}>
+                        <th style={{ padding: '12px 14px', textAlign: 'left', width: '35%', borderRight: '1px solid #E2E8F0' }}>
                           {t('reportsColIndicators')}
                         </th>
-                        <th style={{ border: '1px solid #111111', padding: '10px 12px', textAlign: 'center', width: '12%' }}>
+                        <th style={{ padding: '12px 10px', textAlign: 'center', width: '12%', borderRight: '1px solid #E2E8F0' }}>
                           {t('reportsColObserved')}
                         </th>
-                        <th style={{ border: '1px solid #111111', padding: '10px 12px', textAlign: 'center', width: '12%' }}>
+                        <th style={{ padding: '12px 10px', textAlign: 'center', width: '11%', borderRight: '1px solid #E2E8F0' }}>
                           {t('reportsColFrequency')}
                         </th>
-                        <th style={{ border: '1px solid #111111', padding: '10px 12px', textAlign: 'center', width: '17%' }}>
+                        <th style={{ padding: '12px 10px', textAlign: 'center', width: '16%', borderRight: '1px solid #E2E8F0' }}>
                           {t('reportsColTimestamp')}
                         </th>
-                        <th style={{ border: '1px solid #111111', padding: '10px 12px', textAlign: 'left', width: '25%' }}>
+                        <th style={{ padding: '12px 14px', textAlign: 'left', width: '26%' }}>
                           {t('reportsColContext')}
                         </th>
                       </tr>
@@ -500,56 +740,83 @@ Teacher maintains warm, energetic classroom rapport with strong use of positive 
                           : [];
 
                         return (
-                          <tr key={idx} style={{ backgroundColor: observed ? '#FFFFFF' : '#FCFCFA' }}>
+                          <tr
+                            key={idx}
+                            style={{
+                              backgroundColor: observed ? '#FFFFFF' : '#FAFAFA',
+                              borderBottom: idx < indicatorList.length - 1 ? '1px solid #E2E8F0' : 'none',
+                              transition: 'background-color 0.15s ease',
+                            }}
+                          >
                             {/* Indicators */}
-                            <td style={{ border: '1px solid #111111', padding: '10px 12px', verticalAlign: 'top' }}>
+                            <td style={{
+                              padding: '12px 14px',
+                              verticalAlign: 'top',
+                              borderRight: '1px solid #E2E8F0',
+                              fontWeight: observed ? 600 : 400,
+                              color: observed ? '#1E293B' : '#64748B',
+                            }}>
                               {indicatorText}
                             </td>
 
                             {/* Observed */}
                             <td style={{
-                              border: '1px solid #111111',
-                              padding: '10px 8px',
+                              padding: '12px 8px',
                               textAlign: 'center',
                               verticalAlign: 'top',
-                              fontWeight: observed ? 700 : 400,
-                              color: observed ? '#111111' : '#888888',
+                              borderRight: '1px solid #E2E8F0',
                             }}>
                               {observed ? (
                                 <span style={{
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   gap: '4px',
-                                  color: '#2D6A4F',
+                                  padding: '3px 9px',
+                                  borderRadius: '9999px',
+                                  fontSize: '12px',
                                   fontWeight: 700,
+                                  backgroundColor: '#EAF4EE',
+                                  color: '#166534',
+                                  border: '1px solid #BBF7D0',
                                 }}>
-                                  <CheckCircle2 size={13} />
+                                  <CheckCircle2 size={12} />
                                   <span>{t('reportsObservedYes')}</span>
                                 </span>
                               ) : (
-                                <span>{t('reportsObservedNo')}</span>
+                                <span style={{
+                                  display: 'inline-flex',
+                                  padding: '3px 8px',
+                                  borderRadius: '9999px',
+                                  fontSize: '12px',
+                                  fontWeight: 500,
+                                  backgroundColor: '#F1F5F9',
+                                  color: '#94A3B8',
+                                  border: '1px solid #E2E8F0',
+                                }}>
+                                  {t('reportsObservedNo')}
+                                </span>
                               )}
                             </td>
 
                             {/* Frequency */}
                             <td style={{
-                              border: '1px solid #111111',
-                              padding: '10px 8px',
+                              padding: '12px 8px',
                               textAlign: 'center',
                               verticalAlign: 'top',
-                              fontWeight: count > 0 ? 700 : 400,
+                              borderRight: '1px solid #E2E8F0',
+                              fontWeight: count > 0 ? 800 : 400,
+                              color: count > 0 ? '#1E3A8A' : '#94A3B8',
+                              fontSize: count > 0 ? '14px' : '13px',
                             }}>
                               {count > 0 ? count : '-'}
                             </td>
 
                             {/* Timestamp */}
                             <td style={{
-                              border: '1px solid #111111',
-                              padding: '10px 8px',
+                              padding: '12px 8px',
                               textAlign: 'center',
                               verticalAlign: 'top',
-                              fontFamily: 'var(--font-mono)',
-                              fontSize: '12px',
+                              borderRight: '1px solid #E2E8F0',
                             }}>
                               {Array.isArray(occurrences) && occurrences.length > 0 ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
@@ -560,11 +827,14 @@ Teacher maintains warm, energetic classroom rapport with strong use of positive 
                                         key={oIdx}
                                         style={{
                                           display: 'inline-block',
-                                          padding: '2px 6px',
-                                          borderRadius: '4px',
-                                          background: 'var(--accent-blue-soft)',
-                                          color: 'var(--accent-blue)',
+                                          padding: '2px 8px',
+                                          borderRadius: '6px',
+                                          backgroundColor: '#EFF6FF',
+                                          color: '#1D4ED8',
+                                          border: '1px solid #DBEAFE',
                                           fontWeight: 600,
+                                          fontSize: '11.5px',
+                                          fontFamily: 'var(--font-mono)',
                                         }}
                                       >
                                         {ts}
@@ -573,28 +843,34 @@ Teacher maintains warm, energetic classroom rapport with strong use of positive 
                                   })}
                                 </div>
                               ) : (
-                                <span style={{ color: '#888888' }}>-</span>
+                                <span style={{ color: '#94A3B8' }}>-</span>
                               )}
                             </td>
 
                             {/* Context */}
                             <td style={{
-                              border: '1px solid #111111',
-                              padding: '10px 12px',
+                              padding: '12px 14px',
                               verticalAlign: 'top',
                               fontSize: '13px',
-                              color: '#222222',
+                              fontStyle: 'italic',
+                              color: '#475569',
+                              lineHeight: 1.5,
                             }}>
                               {uniqueContexts.length > 0 ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                   {uniqueContexts.map((ctx, cIdx) => (
-                                    <div key={cIdx}>
-                                      {ctx}
+                                    <div key={cIdx} style={{
+                                      padding: '4px 8px',
+                                      backgroundColor: '#F8FAFC',
+                                      borderLeft: '2px solid #CBD5E1',
+                                      borderRadius: '0 4px 4px 0',
+                                    }}>
+                                      “{ctx}”
                                     </div>
                                   ))}
                                 </div>
                               ) : (
-                                <span style={{ color: '#888888', fontStyle: 'italic' }}>-</span>
+                                <span style={{ color: '#94A3B8', fontStyle: 'normal' }}>-</span>
                               )}
                             </td>
                           </tr>
@@ -607,28 +883,54 @@ Teacher maintains warm, energetic classroom rapport with strong use of positive 
             );
           })}
 
-          {/* General Observation Notes matching PDF */}
-          <div style={{ marginTop: '40px', paddingTop: '20px', borderTop: '1px solid #E8E3D9' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px', color: '#000000' }}>
-              {t('reportsGeneralNotes')}
-            </h2>
+          {/* General Observation Notes Memo Card */}
+          <div style={{
+            marginTop: '32px',
+            backgroundColor: '#F8FAFC',
+            border: '1px solid #E2E8F0',
+            borderRadius: '12px',
+            padding: '20px 24px',
+          }}>
+            <h3 style={{
+              fontSize: '12px',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              color: '#1E3A8A',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              margin: '0 0 10px 0',
+            }}>
+              <span style={{ width: '4px', height: '14px', backgroundColor: '#1E3A8A', borderRadius: '2px', display: 'inline-block' }} />
+              <span>{t('reportsGeneralNotes')}</span>
+            </h3>
             <div style={{
               fontSize: '14px',
-              lineHeight: 1.8,
-              color: '#333333',
-              marginBottom: '16px',
+              lineHeight: 1.7,
+              color: '#334155',
               fontStyle: 'italic',
+              marginBottom: '14px',
             }}>
-              Teacher maintains warm, energetic classroom rapport with strong use of positive reinforcement and multi-modal digital tools. Pacing and wait time effectively support second language acquisition for young learners.
+              “Teacher maintains warm, energetic classroom rapport with strong use of positive reinforcement and multi-modal digital tools. Pacing and wait time effectively support second language acquisition for young learners.”
             </div>
             <div style={{
-              color: '#999999',
-              letterSpacing: '2px',
-              lineHeight: 2,
-              fontFamily: 'monospace',
+              borderTop: '1px dashed #CBD5E1',
+              paddingTop: '10px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '8px',
+              fontSize: '12px',
+              color: '#64748B',
             }}>
-              ...........................................................................................................................................................<br />
-              ...........................................................................................................................................................
+              <span>
+                {language === 'vi' ? 'Phương thức phân tích:' : 'Analysis Pipeline:'} <strong>VTR AI Observational Pipeline v1.2</strong>
+              </span>
+              <span>
+                {language === 'vi' ? 'Khung bảng kiểm:' : 'Checklist Framework:'} <strong>v1.0 (5 Sections &bull; 29 Indicators)</strong>
+              </span>
             </div>
           </div>
         </div>

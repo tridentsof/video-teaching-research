@@ -60,3 +60,98 @@ type PedagogicalAnalyticsResponse struct {
 	TemporalStream   []TemporalBinPoint     `json:"temporal_stream"`
 	OutlierEvidence  OutlierEvidencePoint   `json:"outlier_evidence"`
 }
+
+// QualitativeEvidenceItem represents a single qualitative citation/excerpt
+type QualitativeEvidenceItem struct {
+	VideoID      string  `json:"video_id"`
+	TeacherID    string  `json:"teacher_id"`
+	Lesson       string  `json:"lesson"`
+	TimestampSec float64 `json:"timestamp_sec"`
+	TimestampStr string  `json:"timestamp_str"`
+	Quote        string  `json:"quote"`
+	Context      string  `json:"context"`
+	Confidence   float64 `json:"confidence"`
+}
+
+// CoverageMatrixCell represents presence in one lesson or teacher
+type CoverageMatrixCell struct {
+	Key     string `json:"key"`     // e.g. "T01-L1" or "T01"
+	Present bool   `json:"present"` // true if code/pattern appeared
+	Count   int    `json:"count"`   // occurrences
+}
+
+// CoverageMatrixRow represents a recurring pattern/code row
+type CoverageMatrixRow struct {
+	PatternID       string                    `json:"pattern_id"`
+	Code            string                    `json:"code"`
+	Description     string                    `json:"description"`
+	Category        string                    `json:"category"`
+	Theme           string                    `json:"theme"`
+	LessonCells     []CoverageMatrixCell      `json:"lesson_cells"`
+	TeacherCells    []CoverageMatrixCell      `json:"teacher_cells"`
+	BreadthLessons  int                       `json:"breadth_lessons"` // e.g. 22
+	TotalLessons    int                       `json:"total_lessons"`   // 24
+	BreadthTeachers int                       `json:"breadth_teachers"`// e.g. 11
+	TotalTeachers   int                       `json:"total_teachers"`  // 12
+	Evidence        []QualitativeEvidenceItem `json:"evidence"`
+}
+
+// ThematicCode represents a code in the hierarchy map
+type ThematicCode struct {
+	ID            string                    `json:"id"`
+	Code          string                    `json:"code"`
+	Name          string                    `json:"name"`
+	EvidenceCount int                       `json:"evidence_count"`
+	SampleQuotes  []QualitativeEvidenceItem `json:"sample_quotes"` // 2-3 key exemplary quotes
+}
+
+// ThematicCategory represents a behavior category in the hierarchy map
+type ThematicCategory struct {
+	ID            string         `json:"id"`
+	Name          string         `json:"name"`
+	NameVi        string         `json:"name_vi,omitempty"`
+	Description   string         `json:"description"`
+	DescriptionVi string         `json:"description_vi,omitempty"`
+	Codes         []ThematicCode `json:"codes"`
+}
+
+// ThematicTheme represents an overarching theme in the hierarchy map
+type ThematicTheme struct {
+	ID               string             `json:"id"`
+	Name             string             `json:"name"`
+	NameVi           string             `json:"name_vi,omitempty"`
+	Description      string             `json:"description"`
+	DescriptionVi    string             `json:"description_vi,omitempty"`
+	ReasoningTrace   string             `json:"reasoning_trace"`
+	ReasoningTraceVi string             `json:"reasoning_trace_vi,omitempty"`
+	Status           string             `json:"status"` // draft | confirmed
+	Categories       []ThematicCategory `json:"categories"`
+}
+
+// RQ1EnactmentRow represents a 4-column enactment row for RQ1
+type RQ1EnactmentRow struct {
+	StrategyName           string                    `json:"strategy_name"`
+	StrategyNameVi         string                    `json:"strategy_name_vi,omitempty"`
+	StrategySubtext        string                    `json:"strategy_subtext"`
+	StrategySubtextVi      string                    `json:"strategy_subtext_vi,omitempty"`
+	ObservedEnactments     []string                  `json:"observed_enactments"`
+	ObservedEnactmentsVi   []string                  `json:"observed_enactments_vi,omitempty"`
+	RepresentativeLessons  []string                  `json:"representative_lessons"`
+	RepresentativeTeachers []string                  `json:"representative_teachers"`
+	DirectQuotes           []QualitativeEvidenceItem `json:"direct_quotes"`
+}
+
+// QualitativeAnalyticsResponse represents the complete qualitative payload for /analytics
+type QualitativeAnalyticsResponse struct {
+	AnalysisRunID     string              `json:"analysis_run_id"`
+	RunStatus         string              `json:"run_status"`
+	TriggeredAt       string              `json:"triggered_at"`
+	TotalLessons      int                 `json:"total_lessons"`
+	TotalTeachers     int                 `json:"total_teachers"`
+	LessonsList       []string            `json:"lessons_list"` // ["T01-L1", "T01-L2", ...]
+	TeachersList      []string            `json:"teachers_list"` // ["T01", "T02", ...]
+	CoverageMatrix    []CoverageMatrixRow `json:"coverage_matrix"`
+	ThematicHierarchy []ThematicTheme     `json:"thematic_hierarchy"`
+	RQ1EnactmentMap   []RQ1EnactmentRow   `json:"rq1_enactment_map"`
+}
+

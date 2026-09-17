@@ -7,6 +7,7 @@ import {
   TeacherAnalysis,
   InterviewBaseQuestion,
   CoreQuestionItem,
+  AnalysisRunItem,
 } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n';
 import { useToast } from '@/components/ToastProvider';
@@ -35,6 +36,11 @@ import {
   X,
   FileText,
   FolderArchive,
+  Unlock,
+  ShieldCheck,
+  GitBranch,
+  Calendar,
+  Info,
 } from 'lucide-react';
 import Link from 'next/link';
 import JSZip from 'jszip';
@@ -55,6 +61,8 @@ export default function InterviewStudioPage() {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const [latestRunId, setLatestRunId] = useState<string | null>(null);
+  const [activeRunInfo, setActiveRunInfo] = useState<AnalysisRunItem | null>(null);
+  const [activeRunNumber, setActiveRunNumber] = useState<number | null>(null);
   const [isLiveFromBackend, setIsLiveFromBackend] = useState(false);
   const [isExportingWord, setIsExportingWord] = useState(false);
   const [isExportingAll, setIsExportingAll] = useState(false);
@@ -71,6 +79,7 @@ export default function InterviewStudioPage() {
   const [isSynthesizing, setIsSynthesizing] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [showCoreModal, setShowCoreModal] = useState(false);
+  const [showApproveConfirmModal, setShowApproveConfirmModal] = useState(false);
   const [editingCoreList, setEditingCoreList] = useState<CoreQuestionItem[]>([]);
 
   // Base Questions Bank tab states
@@ -111,10 +120,38 @@ export default function InterviewStudioPage() {
       }
 
       try {
-        const run = await api.getLatestAnalysisRun();
-        if (run && run.id) {
-          setLatestRunId(run.id);
-          fetchCoreQuestionsForRun(run.id);
+        const [runs, latest] = await Promise.all([
+          api.listAnalysisRuns().catch(() => []),
+          api.getLatestAnalysisRun().catch(() => null),
+        ]);
+
+        let targetId: string | null = null;
+        const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+        const queryRunId = urlParams?.get('run_id');
+        const storedRunId = typeof window !== 'undefined' ? localStorage.getItem('active_theme_run_id') : null;
+
+        if (queryRunId && runs?.some((r) => r.id === queryRunId)) {
+          targetId = queryRunId;
+        } else if (storedRunId && runs?.some((r) => r.id === storedRunId)) {
+          targetId = storedRunId;
+        } else if (latest?.id) {
+          targetId = latest.id;
+        } else if (runs && runs.length > 0) {
+          targetId = runs[0].id;
+        }
+
+        if (targetId) {
+          setLatestRunId(targetId);
+          fetchCoreQuestionsForRun(targetId);
+          const found = runs.find((r) => r.id === targetId);
+          if (found) {
+            setActiveRunInfo(found);
+            const rIdx = runs.findIndex((r) => r.id === targetId);
+            setActiveRunNumber(runs.length - rIdx);
+          } else if (latest) {
+            setActiveRunInfo(latest);
+            setActiveRunNumber(runs.length || 1);
+          }
         }
       } catch {
         // No run yet
@@ -224,6 +261,7 @@ export default function InterviewStudioPage() {
       setSynthesizedCore(questionsToApprove);
       setCoreStatus('approved');
       setShowCoreModal(false);
+      setShowApproveConfirmModal(false);
       toast.success(t('interviewToastApproveSuccess'));
       // Refresh current teacher questions
       const data = await api.getTeacherAnalysis(latestRunId, selectedTeacher);
@@ -235,6 +273,21 @@ export default function InterviewStudioPage() {
       }
     } catch (err: any) {
       toast.error(err.message || t('interviewToastApproveError'));
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  // Flow A: Unapprove Core Questions (Revert to Draft)
+  const handleUnapproveCore = async () => {
+    if (!latestRunId) return;
+    setIsApproving(true);
+    try {
+      await api.unapproveCoreQuestions(latestRunId);
+      setCoreStatus('draft');
+      toast.success(t('interviewToastUnapproveSuccess'));
+    } catch (err: any) {
+      toast.error(err.message || t('interviewToastUnapproveError'));
     } finally {
       setIsApproving(false);
     }
@@ -589,91 +642,226 @@ export default function InterviewStudioPage() {
       {activeTab === 'studio' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-          {/* Flow A: Core Questions Approval Banner */}
+          {/* ==================== UNIFIED THEME & CORE PROTOCOL CONTROL HUB ==================== */}
           <div style={{
-            backgroundColor: coreStatus === 'approved' ? '#F0FDF4' : '#FFFBEB',
-            border: `1px solid ${coreStatus === 'approved' ? '#BBF7D0' : '#FDE68A'}`,
+            backgroundColor: '#FFFFFF',
+            border: '1px solid var(--card-border)',
+            borderLeft: `4px solid ${coreStatus === 'approved' ? 'var(--accent-green, #10B981)' : 'var(--accent-amber, #F59E0B)'}`,
             borderRadius: 'var(--radius-md)',
-            padding: '18px 22px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: '16px',
-            flexWrap: 'wrap',
+            boxShadow: 'var(--shadow-sm)',
+            overflow: 'hidden',
           }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '750px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  padding: '3px 8px',
-                  borderRadius: '4px',
-                  textTransform: 'uppercase',
-                  backgroundColor: coreStatus === 'approved' ? 'var(--accent-green-soft, #EAF4EE)' : 'var(--accent-amber-soft, #FEF7EA)',
-                  color: coreStatus === 'approved' ? 'var(--accent-green, #2D6A4F)' : 'var(--accent-amber, #B26A00)',
-                  border: `1px solid ${coreStatus === 'approved' ? '#86EFAC' : '#FCD34D'}`,
-                  display: 'inline-flex',
+            {/* Top Row: Context, Protocol Identity, Status Badge & Action Controls */}
+            <div style={{
+              padding: '14px 20px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '14px',
+              borderBottom: '1px solid #F1F5F9',
+            }}>
+              {/* Left: Identity & Theme Run Version */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                <div style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '8px',
+                  backgroundColor: coreStatus === 'approved' ? '#ECFDF5' : '#FFFBEB',
+                  color: coreStatus === 'approved' ? '#059669' : '#D97706',
+                  display: 'flex',
                   alignItems: 'center',
-                  gap: '5px',
+                  justifyContent: 'center',
+                  border: `1px solid ${coreStatus === 'approved' ? '#A7F3D0' : '#FDE68A'}`,
+                  flexShrink: 0,
                 }}>
-                  {coreStatus === 'approved' ? (
-                    <>
-                      <CheckCircle2 size={12} />
-                      <span>{t('interviewFlowABadgeApproved')}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Zap size={12} />
-                      <span>{t('interviewFlowABadgeDraft')}</span>
-                    </>
-                  )}
-                </span>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  {t('interviewFlowASub')}
-                </span>
+                  {coreStatus === 'approved' ? <ShieldCheck size={20} /> : <GitBranch size={20} />}
+                </div>
+
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)' }}>
+                      {t('interviewHubCoreTitle')}
+                    </span>
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      padding: '2px 9px',
+                      borderRadius: '9999px',
+                      backgroundColor: coreStatus === 'approved' ? 'var(--accent-green-soft, #EAF4EE)' : 'var(--accent-amber-soft, #FEF7EA)',
+                      color: coreStatus === 'approved' ? 'var(--accent-green, #2D6A4F)' : 'var(--accent-amber, #B26A00)',
+                      border: `1px solid ${coreStatus === 'approved' ? '#86EFAC' : '#FCD34D'}`,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}>
+                      {coreStatus === 'approved' ? <CheckCircle2 size={11} /> : <Zap size={11} />}
+                      <span>{coreStatus === 'approved' ? t('interviewFlowABadgeApproved') : t('interviewFlowABadgeDraft')}</span>
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-muted)', marginTop: '3px', flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
+                      Run #{activeRunNumber ?? '1'} <code style={{ fontSize: '11px', backgroundColor: '#F1F5F9', padding: '1px 5px', borderRadius: '4px' }}>{latestRunId ? latestRunId.slice(0, 8) : 'latest'}</code>
+                    </span>
+                    <span>•</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <Calendar size={12} />
+                      {activeRunInfo?.triggered_at ? new Date(activeRunInfo.triggered_at).toLocaleDateString() : new Date().toLocaleDateString()}
+                    </span>
+                    {activeRunInfo?.theme_count !== undefined && (
+                      <>
+                        <span>•</span>
+                        <span style={{ fontWeight: 600, color: '#B45309' }}>
+                          {activeRunInfo.theme_count} Themes
+                        </span>
+                      </>
+                    )}
+                    <span>•</span>
+                    <Link
+                      href="/themes"
+                      style={{
+                        fontSize: '12px',
+                        color: 'var(--accent)',
+                        textDecoration: 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        fontWeight: 600,
+                      }}
+                    >
+                      <span>{t('interviewThemeGoToThemes')}</span>
+                      <ExternalLink size={12} />
+                    </Link>
+                  </div>
+                </div>
               </div>
-              <h3 style={{ fontSize: '15px', fontWeight: 700, color: coreStatus === 'approved' ? '#166534' : '#92400E', margin: 0 }}>
-                {coreStatus === 'approved'
-                  ? t('interviewFlowAApprovedDesc')
-                  : t('interviewFlowADraftDesc')}
-              </h3>
-              <p style={{ fontSize: '12.5px', color: coreStatus === 'approved' ? '#15803D' : '#78350F', margin: 0 }}>
-                {t('interviewFlowARQNote')}
-              </p>
+
+              {/* Right: Action Buttons Group */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <button
+                  onClick={() => {
+                    setEditingCoreList([...synthesizedCore]);
+                    setShowCoreModal(true);
+                  }}
+                  className="btn btn-secondary"
+                  style={{ fontSize: '12.5px', padding: '6px 13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Edit2 size={13} />
+                  <span>{t('interviewEditCoreBtn')} ({synthesizedCore.length})</span>
+                </button>
+
+                {coreStatus === 'approved' ? (
+                  <button
+                    onClick={handleUnapproveCore}
+                    disabled={isApproving}
+                    className="btn btn-secondary"
+                    style={{
+                      fontSize: '12.5px',
+                      padding: '6px 13px',
+                      borderColor: '#CBD5E1',
+                      color: '#475569',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                    title={t('interviewUnapproveBtn')}
+                  >
+                    <Unlock size={13} />
+                    <span>{isApproving ? t('commonSaving') : t('interviewUnapproveBtn')}</span>
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={handleSynthesizeCore}
+                      disabled={isSynthesizing}
+                      className="btn btn-secondary"
+                      style={{ fontSize: '12.5px', padding: '6px 13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <RefreshCw size={13} className={isSynthesizing ? 'animate-spin' : ''} />
+                      <span>{isSynthesizing ? t('commonSaving') : t('interviewResynthesizeBtn')}</span>
+                    </button>
+                    <button
+                      onClick={() => setShowApproveConfirmModal(true)}
+                      disabled={isApproving}
+                      className="btn btn-primary"
+                      title={t('interviewApproveConfirmDesc')}
+                      style={{
+                        fontSize: '12.5px',
+                        padding: '6px 15px',
+                        backgroundColor: 'var(--accent-green, #10B981)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <CheckCircle2 size={13} />
+                      <span>{isApproving ? t('commonInProgress') : t('interviewApproveBtn')}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowApproveConfirmModal(true)}
+                      style={{
+                        border: '1px solid #E2E8F0',
+                        background: '#F8FAFC',
+                        color: '#64748B',
+                        cursor: 'pointer',
+                        padding: '5px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '6px',
+                      }}
+                      title={t('interviewApproveNoticeTitle')}
+                    >
+                      <HelpCircle size={15} />
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <button
-                onClick={() => {
-                  setEditingCoreList([...synthesizedCore]);
-                  setShowCoreModal(true);
-                }}
-                className="btn btn-secondary"
-                style={{ fontSize: '12.5px', padding: '7px 14px' }}
-              >
-                <Edit2 size={14} />
-                <span>{t('interviewEditCoreBtn')} ({synthesizedCore.length})</span>
-              </button>
-              <button
-                onClick={handleSynthesizeCore}
-                disabled={isSynthesizing}
-                className="btn btn-secondary"
-                style={{ fontSize: '12.5px', padding: '7px 14px' }}
-              >
-                <RefreshCw size={14} className={isSynthesizing ? 'animate-spin' : ''} />
-                <span>{isSynthesizing ? t('commonSaving') : t('interviewResynthesizeBtn')}</span>
-              </button>
-              {coreStatus !== 'approved' && (
-                <button
-                  onClick={() => handleApproveCore(synthesizedCore)}
-                  disabled={isApproving}
-                  className="btn btn-primary"
-                  style={{ fontSize: '12.5px', padding: '7px 16px', backgroundColor: 'var(--accent-green, #10B981)' }}
-                >
-                  <CheckCircle2 size={14} />
-                  <span>{isApproving ? t('commonInProgress') : t('interviewApproveBtn')}</span>
-                </button>
-              )}
+            {/* Bottom Row: Compact 3-Pillar Micro Guidance Strip */}
+            <div style={{
+              padding: '10px 20px',
+              backgroundColor: '#F8FAFC',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '11px',
+                fontWeight: 700,
+                color: 'var(--text-muted)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+              }}>
+                <Info size={13} color="var(--accent)" />
+                <span>{t('interviewApproveNoticeTitle')}</span>
+              </div>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                gap: '12px',
+                fontSize: '12px',
+                color: '#475569',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <CheckCircle2 size={14} color="#10B981" style={{ flexShrink: 0 }} />
+                  <span>{t('interviewHubPillar1')}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ShieldCheck size={14} color="#10B981" style={{ flexShrink: 0 }} />
+                  <span>{t('interviewHubPillar2')}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <HelpCircle size={14} color="#6366F1" style={{ flexShrink: 0 }} />
+                  <span>{t('interviewHubPillar3')}</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -685,7 +873,17 @@ export default function InterviewStudioPage() {
             flexWrap: 'wrap',
             gap: '12px',
           }}>
-            <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              backgroundColor: '#FFFFFF',
+              padding: '4px',
+              borderRadius: '8px',
+              border: '1px solid var(--card-border)',
+              boxShadow: 'var(--shadow-sm)',
+              overflowX: 'auto',
+            }}>
               {teacherList.map((tId) => {
                 const isSel = selectedTeacher === tId;
                 return (
@@ -693,16 +891,14 @@ export default function InterviewStudioPage() {
                     key={tId}
                     onClick={() => setSelectedTeacher(tId)}
                     style={{
-                      padding: '7px 14px',
-                      borderRadius: 'var(--radius-sm)',
-                      border: '1px solid',
-                      borderColor: isSel ? 'var(--accent)' : 'var(--card-border)',
-                      backgroundColor: isSel ? 'var(--accent)' : '#FFFFFF',
-                      color: isSel ? '#FFFFFF' : 'var(--text-main)',
-                      fontWeight: 600,
+                      padding: '6px 13px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      backgroundColor: isSel ? 'var(--accent)' : 'transparent',
+                      color: isSel ? '#FFFFFF' : 'var(--text-muted)',
+                      fontWeight: isSel ? 700 : 600,
                       fontSize: '13px',
                       cursor: 'pointer',
-                      boxShadow: 'var(--shadow-sm)',
                       transition: 'all 0.15s ease',
                     }}
                   >
@@ -1144,6 +1340,119 @@ export default function InterviewStudioPage() {
         </div>
       )}
 
+      {/* MODAL 0: Confirm Approval Modal */}
+      {showApproveConfirmModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px',
+        }}>
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '12px',
+            maxWidth: '520px',
+            width: '100%',
+            padding: '24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            border: '1px solid #E2E8F0',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '10px',
+                backgroundColor: '#ECFDF5',
+                color: '#059669',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '1px solid #A7F3D0',
+                flexShrink: 0,
+              }}>
+                <ShieldCheck size={22} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '17px', fontWeight: 700, margin: 0, color: '#0F172A' }}>
+                  {t('interviewApproveConfirmTitle')}
+                </h3>
+                <p style={{ fontSize: '12px', color: '#64748B', margin: '2px 0 0 0' }}>
+                  {t('interviewApproveConfirmDesc')}
+                </p>
+              </div>
+            </div>
+
+            <div style={{
+              backgroundColor: '#F8FAFC',
+              border: '1px solid #E2E8F0',
+              borderRadius: '8px',
+              padding: '14px 16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <CheckCircle2 size={16} color="#10B981" style={{ marginTop: '2px', flexShrink: 0 }} />
+                <span style={{ fontSize: '12.5px', color: '#334155' }}>
+                  {t('interviewApproveConfirmPoint1')}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <CheckCircle2 size={16} color="#10B981" style={{ marginTop: '2px', flexShrink: 0 }} />
+                <span style={{ fontSize: '12.5px', color: '#334155', fontWeight: 600 }}>
+                  {t('interviewApproveConfirmPoint2')}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <HelpCircle size={16} color="#6366F1" style={{ marginTop: '2px', flexShrink: 0 }} />
+                <span style={{ fontSize: '12.5px', color: '#334155' }}>
+                  {t('interviewApproveConfirmPoint3')}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+              <button
+                onClick={() => setShowApproveConfirmModal(false)}
+                className="btn btn-secondary"
+                style={{ padding: '8px 16px', fontSize: '13px' }}
+                disabled={isApproving}
+              >
+                {t('interviewApproveConfirmCancel')}
+              </button>
+              <button
+                onClick={() => handleApproveCore(synthesizedCore)}
+                disabled={isApproving}
+                className="btn btn-primary"
+                style={{
+                  backgroundColor: '#10B981',
+                  borderColor: '#059669',
+                  padding: '8px 18px',
+                  fontSize: '13px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <CheckCircle2 size={15} />
+                <span>{isApproving ? t('commonInProgress') : t('interviewApproveConfirmSubmit')}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL 1: Edit/Review Core Questions List (Flow A) */}
       {showCoreModal && (
         <div style={{
@@ -1264,21 +1573,31 @@ export default function InterviewStudioPage() {
               padding: '14px 24px',
               borderTop: '1px solid var(--card-border)',
               display: 'flex',
-              justifyContent: 'flex-end',
-              gap: '10px',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '12px',
             }}>
-              <button onClick={() => setShowCoreModal(false)} className="btn btn-secondary">
-                {t('interviewCancel')}
-              </button>
-              <button
-                onClick={() => handleApproveCore(editingCoreList)}
-                className="btn btn-primary"
-                disabled={isApproving}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              >
-                <CheckCircle2 size={14} />
-                <span>{isApproving ? t('settingsSaving') : t('interviewSaveAndApprove')}</span>
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', maxWidth: '480px' }}>
+                <ShieldCheck size={16} color="#059669" style={{ flexShrink: 0 }} />
+                <span style={{ fontSize: '11.5px', color: '#64748B', lineHeight: '1.4' }}>
+                  {t('interviewModalApproveHint')}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button onClick={() => setShowCoreModal(false)} className="btn btn-secondary">
+                  {t('interviewCancel')}
+                </button>
+                <button
+                  onClick={() => handleApproveCore(editingCoreList)}
+                  className="btn btn-primary"
+                  disabled={isApproving}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <CheckCircle2 size={14} />
+                  <span>{isApproving ? t('settingsSaving') : t('interviewSaveAndApprove')}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -271,6 +271,7 @@ func main() {
 					analytics := protected.Group("/analytics")
 					{
 						analytics.GET("/pedagogical", analyticsHandler.GetPedagogical)
+						analytics.GET("/qualitative", analyticsHandler.GetQualitative)
 					}
 				}
 
@@ -291,6 +292,7 @@ func main() {
 						analysis.GET("/:run_id/core-questions", analysisHandler.GetCoreQuestions)
 						analysis.POST("/:run_id/core-questions/synthesize", analysisHandler.SynthesizeCoreQuestions)
 						analysis.POST("/:run_id/core-questions/approve", analysisHandler.ApproveCoreQuestions)
+						analysis.POST("/:run_id/core-questions/unapprove", analysisHandler.UnapproveCoreQuestions)
 						analysis.PUT("/questions/:question_id", analysisHandler.UpdateInterviewQuestion)
 					}
 				}

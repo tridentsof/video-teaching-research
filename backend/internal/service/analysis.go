@@ -1001,7 +1001,8 @@ func (s *AnalysisService) GetCoreQuestions(ctx context.Context, runID uuid.UUID)
 	return questions, status, nil
 }
 
-// ApproveCoreQuestions sets the core questions status to approved and re-generates teacher interview guides.
+// ApproveCoreQuestions sets the core questions status to approved and synchronizes core questions across all teachers,
+// strictly preserving existing teacher analyses and individual dynamic follow-up questions.
 func (s *AnalysisService) ApproveCoreQuestions(ctx context.Context, runID uuid.UUID, approvedQuestions []model.CoreQuestionItem) error {
 	if len(approvedQuestions) == 0 {
 		approvedQuestions = DefaultSynthesizedCoreQuestions
@@ -1016,7 +1017,12 @@ func (s *AnalysisService) ApproveCoreQuestions(ctx context.Context, runID uuid.U
 		return err
 	}
 
-	return s.GenerateAllTeacherAnalysesAndQuestions(ctx, runID)
+	return s.analysisRepo.SyncTeacherCoreQuestions(ctx, runID, approvedQuestions)
+}
+
+// UnapproveCoreQuestions sets the core questions status back to draft to unlock editing without losing any content.
+func (s *AnalysisService) UnapproveCoreQuestions(ctx context.Context, runID uuid.UUID) error {
+	return s.analysisRepo.UpdateCoreQuestionsStatus(ctx, runID, "draft")
 }
 
 // GenerateAllTeacherAnalysesAndQuestions re-generates all teacher interview guides with current core questions.

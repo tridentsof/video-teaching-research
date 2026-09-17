@@ -211,6 +211,93 @@ export interface PedagogicalAnalyticsData {
   outlier_evidence: OutlierEvidencePoint;
 }
 
+export interface QualitativeEvidenceItem {
+  video_id: string;
+  teacher_id: string;
+  lesson: string;
+  timestamp_sec: number;
+  timestamp_str: string;
+  quote: string;
+  context: string;
+  confidence: number;
+}
+
+export interface CoverageMatrixCell {
+  key: string;
+  present: boolean;
+  count: number;
+}
+
+export interface CoverageMatrixRow {
+  pattern_id: string;
+  code: string;
+  description: string;
+  category: string;
+  theme: string;
+  lesson_cells: CoverageMatrixCell[];
+  teacher_cells: CoverageMatrixCell[];
+  breadth_lessons: number;
+  total_lessons: number;
+  breadth_teachers: number;
+  total_teachers: number;
+  evidence: QualitativeEvidenceItem[];
+}
+
+export interface ThematicCode {
+  id: string;
+  code: string;
+  name: string;
+  evidence_count: number;
+  sample_quotes: QualitativeEvidenceItem[];
+}
+
+export interface ThematicCategory {
+  id: string;
+  name: string;
+  name_vi?: string;
+  description: string;
+  description_vi?: string;
+  codes: ThematicCode[];
+}
+
+export interface ThematicTheme {
+  id: string;
+  name: string;
+  name_vi?: string;
+  description: string;
+  description_vi?: string;
+  reasoning_trace: string;
+  reasoning_trace_vi?: string;
+  status: string;
+  categories: ThematicCategory[];
+}
+
+export interface RQ1EnactmentRow {
+  strategy_name: string;
+  strategy_name_vi?: string;
+  strategy_subtext: string;
+  strategy_subtext_vi?: string;
+  observed_enactments: string[];
+  observed_enactments_vi?: string[];
+  representative_lessons: string[];
+  representative_teachers: string[];
+  direct_quotes: QualitativeEvidenceItem[];
+}
+
+export interface QualitativeAnalyticsData {
+  analysis_run_id: string;
+  run_status: string;
+  triggered_at: string;
+  total_lessons: number;
+  total_teachers: number;
+  lessons_list: string[];
+  teachers_list: string[];
+  coverage_matrix: CoverageMatrixRow[];
+  thematic_hierarchy: ThematicTheme[];
+  rq1_enactment_map: RQ1EnactmentRow[];
+}
+
+
 export interface User {
   id: string;
   username: string;
@@ -620,6 +707,13 @@ export const api = {
     );
   },
 
+  async unapproveCoreQuestions(runId: string): Promise<{ status: 'draft'; message: string }> {
+    return request<{ status: 'draft'; message: string }>(
+      `/analysis/${runId}/core-questions/unapprove`,
+      { method: 'POST' }
+    );
+  },
+
   async updateInterviewQuestion(questionId: string, text: string, rqCategory?: string): Promise<{ updated: boolean }> {
     return request<{ updated: boolean }>(
       `/analysis/questions/${questionId}`,
@@ -827,6 +921,10 @@ export const api = {
   // Research Analytics
   async getPedagogicalAnalytics(): Promise<PedagogicalAnalyticsData> {
     return request<PedagogicalAnalyticsData>('/analytics/pedagogical');
+  },
+
+  async getQualitativeAnalytics(): Promise<QualitativeAnalyticsData> {
+    return request<QualitativeAnalyticsData>('/analytics/qualitative');
   },
 
   getToken(): string | null {

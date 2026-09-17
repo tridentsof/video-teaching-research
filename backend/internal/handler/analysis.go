@@ -365,7 +365,7 @@ type approveCoreQuestionsRequest struct {
 	Questions []model.CoreQuestionItem `json:"questions"`
 }
 
-// ApproveCoreQuestions approves the core questions for a run and re-generates all teacher interview guides.
+// ApproveCoreQuestions approves the core questions for a run and synchronizes them across teachers.
 // POST /api/analysis/:run_id/core-questions/approve
 func (h *AnalysisHandler) ApproveCoreQuestions(c *gin.Context) {
 	runID, err := uuid.Parse(c.Param("run_id"))
@@ -387,7 +387,27 @@ func (h *AnalysisHandler) ApproveCoreQuestions(c *gin.Context) {
 
 	RespondSuccess(c, gin.H{
 		"status":  "approved",
-		"message": "Core questions approved and teacher interview guides generated successfully",
+		"message": "Core questions approved and synchronized successfully",
+	})
+}
+
+// UnapproveCoreQuestions reverts the core questions status to draft.
+// POST /api/analysis/:run_id/core-questions/unapprove
+func (h *AnalysisHandler) UnapproveCoreQuestions(c *gin.Context) {
+	runID, err := uuid.Parse(c.Param("run_id"))
+	if err != nil {
+		RespondError(c, http.StatusBadRequest, "invalid analysis run ID")
+		return
+	}
+
+	if err := h.svc.UnapproveCoreQuestions(c.Request.Context(), runID); err != nil {
+		RespondError(c, http.StatusInternalServerError, "failed to unapprove core questions: "+err.Error())
+		return
+	}
+
+	RespondSuccess(c, gin.H{
+		"status":  "draft",
+		"message": "Core questions unlocked and reverted to draft",
 	})
 }
 

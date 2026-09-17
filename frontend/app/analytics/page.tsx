@@ -4,59 +4,63 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import { useToast } from '@/components/ToastProvider';
 import { FeatureWorkflowBanner } from '@/components/FeatureWorkflowBanner';
+import { CodeEvidenceDrawer } from '@/components/CodeEvidenceDrawer';
 import {
   api,
-  PedagogicalAnalyticsData,
-  LessonTrendPoint,
-  TeacherQuadrantPoint,
-  RadarDimensionPoint,
-  TemporalBinPoint,
+  QualitativeAnalyticsData,
+  CoverageMatrixRow,
+  ThematicTheme,
+  RQ1EnactmentRow,
+  QualitativeEvidenceItem,
 } from '@/lib/api';
 import {
-  TrendingUp,
   Download,
   FileSpreadsheet,
-  Award,
   Clock,
-  MessageSquare,
   Sparkles,
   Info,
-  CheckCircle2,
-  Calendar,
   Layers,
   Filter,
   RefreshCw,
-  Video,
   ChevronDown,
+  ExternalLink,
+  BookOpen,
+  Grid,
+  GitFork,
+  Target,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   downloadSVG,
-  generateTrajectorySVG,
-  generateRadarSVG,
-  generateStreamSVG,
-  generateQuadrantSVG,
+  generateCoverageMatrixSVG,
+  generateThematicHierarchySVG,
+  generateRQ1TraceabilitySVG,
 } from '@/lib/analytics-svg-exporter';
 
-export default function AnalyticsPage() {
-  const { t } = useTranslation();
+export default function QualitativeAnalyticsPage() {
+  const { t, language } = useTranslation();
   const toast = useToast();
 
   const [loading, setLoading] = useState<boolean>(true);
-  const [data, setData] = useState<PedagogicalAnalyticsData | null>(null);
+  const [data, setData] = useState<QualitativeAnalyticsData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Filters
-  const [cohort, setCohort] = useState<string>('all');
-  const [sectionFilter, setSectionFilter] = useState<string>('all');
-  const [timeframe, setTimeframe] = useState<string>('all');
-  const [trendViewMode, setTrendViewMode] = useState<'perLesson' | 'ma'>('perLesson');
+  // View States
+  const [matrixViewMode, setMatrixViewMode] = useState<'lessons' | 'teachers'>('lessons');
+  const [hierarchyViewMode, setHierarchyViewMode] = useState<'tree' | 'bento'>('tree');
+  const [rqFilter, setRqFilter] = useState<string>('all');
 
-  // Hover states
-  const [hoveredLessonIdx, setHoveredLessonIdx] = useState<number | null>(null);
-  const [hoveredTeacher, setHoveredTeacher] = useState<TeacherQuadrantPoint | null>(null);
-  const [hoveredStreamIdx, setHoveredStreamIdx] = useState<number | null>(null);
+  // Drawer for Code drill-down
+  const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
+  const [activeCodeDrawer, setActiveCodeDrawer] = useState<{
+    code: string;
+    description: string;
+    category?: string;
+    theme?: string;
+    evidence: QualitativeEvidenceItem[];
+  } | null>(null);
 
-  const splineSvgRef = useRef<SVGSVGElement | null>(null);
+  // Export dropdown
   const [exportDropdownOpen, setExportDropdownOpen] = useState<boolean>(false);
   const exportDropdownRef = useRef<HTMLDivElement | null>(null);
 
@@ -74,11 +78,11 @@ export default function AnalyticsPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await api.getPedagogicalAnalytics();
+      const res = await api.getQualitativeAnalytics();
       setData(res);
     } catch (err: any) {
-      console.error('Failed to load pedagogical analytics:', err);
-      setError(err.message || 'Failed to load live analytics');
+      console.error('Failed to load qualitative analytics:', err);
+      setError(err.message || 'Failed to load qualitative analytics data');
     } finally {
       setLoading(false);
     }
@@ -88,287 +92,282 @@ export default function AnalyticsPage() {
     fetchData();
   }, []);
 
-  // Filter lessons based on teacher cohort & timeframe
-  const activeLessons = useMemo(() => {
-    if (!data || !data.lessons) return [];
-    let list = data.lessons;
+  // Columns list for Coverage Matrix
+  const matrixColumns = useMemo(() => {
+    if (!data) return [];
+    return matrixViewMode === 'lessons' ? data.lessons_list : data.teachers_list;
+  }, [data, matrixViewMode]);
 
-    // Filter by specific teacher
-    if (cohort !== 'all') {
-      list = list.filter((l) => l.teacher_id.toLowerCase() === cohort.toLowerCase());
+  // Filtered RQ1 rows
+  const filteredRQ1Rows = useMemo(() => {
+    if (!data || !data.rq1_enactment_map) return [];
+    if (rqFilter === 'all') return data.rq1_enactment_map;
+    return data.rq1_enactment_map.filter((item) =>
+      item.strategy_name.toLowerCase().includes(rqFilter.toLowerCase())
+    );
+  }, [data, rqFilter]);
+
+  // Open Drawer for a specific code
+  const handleOpenCodeDrawer = (
+    code: string,
+    description: string,
+    category?: string,
+    theme?: string,
+    evidence?: QualitativeEvidenceItem[]
+  ) => {
+    // If evidence is not passed directly, look for it in matrix rows
+    let evList = evidence || [];
+    if (evList.length === 0 && data) {
+      const matchRow = data.coverage_matrix.find(
+        (r) => r.code.toLowerCase() === code.toLowerCase() || r.description.toLowerCase() === description.toLowerCase()
+      );
+      if (matchRow && matchRow.evidence) {
+        evList = matchRow.evidence;
+      }
     }
 
-    // Filter by timeframe
-    if (timeframe === 'pre') list = list.slice(0, Math.ceil(list.length / 3));
-    else if (timeframe === 'post') list = list.slice(Math.ceil(list.length / 3));
-
-    return list;
-  }, [data, cohort, timeframe]);
-
-  // Compute Moving Average (3-lesson window) if selected
-  const displayedTrendData = useMemo(() => {
-    if (trendViewMode === 'perLesson' || activeLessons.length < 3) return activeLessons;
-    return activeLessons.map((item, idx, arr) => {
-      const start = Math.max(0, idx - 2);
-      const slice = arr.slice(start, idx + 1);
-      const count = slice.length;
-      return {
-        lesson: item.lesson,
-        video_id: item.video_id,
-        teacher_id: item.teacher_id,
-        scaffolding: Number((slice.reduce((acc, cur) => acc + cur.scaffolding, 0) / count).toFixed(1)),
-        waitTime: Number((slice.reduce((acc, cur) => acc + cur.waitTime, 0) / count).toFixed(1)),
-        praise: Number((slice.reduce((acc, cur) => acc + cur.praise, 0) / count).toFixed(1)),
-        agency: Number((slice.reduce((acc, cur) => acc + cur.agency, 0) / count).toFixed(1)),
-      };
+    setActiveCodeDrawer({
+      code,
+      description,
+      category,
+      theme,
+      evidence: evList,
     });
-  }, [activeLessons, trendViewMode]);
-
-  // Teachers quadrant data
-  const displayedTeachers = useMemo(() => {
-    if (!data || !data.teachers) return [];
-    if (cohort !== 'all') {
-      return data.teachers.filter((t) => t.id.toLowerCase() === cohort.toLowerCase());
-    }
-    return data.teachers;
-  }, [data, cohort]);
-
-  // Dynamic series visibility based on sectionFilter
-  const isSectionVisible = (section: 'A' | 'B' | 'C' | 'E') => {
-    if (sectionFilter === 'all') return true;
-    return sectionFilter === section;
+    setDrawerOpen(true);
   };
 
-  // Export CSV Handler
-  const handleExportCSV = () => {
-    if (!displayedTrendData.length) return;
-    const headers = ['Lesson', 'Teacher_ID', 'Scaffolding_SecA', 'WaitTime_SecB', 'Praise_SecC', 'StudentAgency_SecE'];
-    const rows = displayedTrendData.map((d) =>
-      [d.lesson, d.teacher_id, d.scaffolding, d.waitTime, d.praise, d.agency].join(',')
-    );
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
-    const encodedUri = encodeURI(csvContent);
+  // ================= EXPORT HANDLERS =================
+
+  // 1. Export Matrix SVG
+  const handleExportMatrixSVG = () => {
+    if (!data) return;
+    const svg = generateCoverageMatrixSVG({
+      rows: data.coverage_matrix,
+      viewMode: matrixViewMode,
+      columnsList: matrixColumns,
+      language: language as 'en' | 'vi',
+    });
+    downloadSVG(svg, `qualitative-coverage-matrix-${matrixViewMode}.svg`);
+    toast.success(t('analyticsExportSuccess'));
+  };
+
+  // 2. Export Hierarchy SVG
+  const handleExportHierarchySVG = () => {
+    if (!data) return;
+    const svg = generateThematicHierarchySVG({
+      themes: data.thematic_hierarchy,
+      language: language as 'en' | 'vi',
+    });
+    downloadSVG(svg, 'qualitative-thematic-hierarchy-tree.svg');
+    toast.success(t('analyticsExportSuccess'));
+  };
+
+  // 3. Export RQ1 Enactment SVG
+  const handleExportRQ1SVG = () => {
+    if (!data) return;
+    const svg = generateRQ1TraceabilitySVG({
+      enactments: data.rq1_enactment_map,
+      language: language as 'en' | 'vi',
+    });
+    downloadSVG(svg, 'qualitative-rq1-enactment-map.svg');
+    toast.success(t('analyticsExportSuccess'));
+  };
+
+  // 4. Batch Export All 3 SVG Diagrams
+  const handleExportAllSVG = () => {
+    handleExportMatrixSVG();
+    setTimeout(handleExportHierarchySVG, 300);
+    setTimeout(handleExportRQ1SVG, 600);
+    toast.success(language === 'vi' ? 'Đã xuất toàn bộ 3 sơ đồ định tính vector!' : 'All 3 publication-ready qualitative vector diagrams exported!');
+  };
+
+  // 5. Export Word APA Table (Download HTML table formatted as .doc)
+  const handleExportWordAPA = () => {
+    if (!data) return;
+    const isVi = language === 'vi';
+
+    const t1Title = isVi
+      ? 'Bảng 4.1<br/><span style="font-weight: normal; font-style: italic;">Ma Trận Độ Phủ Mã & Mẫu Hành Vi Định Tính Qua 24 Bài Học EFL</span>'
+      : 'Table 4.1<br/><span style="font-weight: normal; font-style: italic;">Qualitative Pattern & Code Coverage Matrix across 24 EFL Lessons</span>';
+    const t1Col1 = isVi ? 'Mã / Mẫu Hành Vi' : 'Pattern / Code';
+    const t1Col2 = isVi ? 'Cụm Phân Mục' : 'Category';
+    const t1Breadth = isVi ? 'Độ Phủ' : 'Breadth';
+    const t1Note = isVi
+      ? '<em>Ghi chú.</em> ● chỉ báo hành vi thực nghiệm quan sát được xuất hiện trong bản ghi bài giảng. Tổng tập mẫu = 12 Giáo viên / 24 Bài học.'
+      : '<em>Note.</em> ● indicates observable empirical enactment present in video transcript. Total Corpus = 12 Teachers / 24 Lessons.';
+
+    const t2Title = isVi
+      ? 'Bảng 4.2<br/><span style="font-weight: normal; font-style: italic;">Câu Hỏi Nghiên Cứu 1 (RQ1): Các Hành Vi Triển Khai Quản Lý Lớp Học và Trích Dẫn Minh Chứng</span>'
+      : 'Table 4.2<br/><span style="font-weight: normal; font-style: italic;">Research Question 1 (RQ1) Classroom Management Enactments and Verifiable Citations</span>';
+    const t2Col1 = isVi ? 'Chiến Lược Quản Lý' : 'Strategy';
+    const t2Col2 = isVi ? 'Hành Vi Triển Khai Quan Sát Được' : 'Observed Pedagogical Enactments';
+    const t2Col3 = isVi ? 'Bài Giảng Tiêu Biểu' : 'Lessons';
+    const t2Col4 = isVi ? 'Mốc Thời Gian & Trích Dẫn Thực Tế' : 'Sample Timestamps & Direct Quotes';
+
+    const htmlContent = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+        <meta charset='utf-8'>
+        <title>${isVi ? 'Bảng Bằng Chứng Định Tính (APA 7th)' : 'Qualitative Evidence Tables (APA 7th)'}</title>
+        <style>
+          body { font-family: 'Times New Roman', serif; font-size: 11pt; line-height: 1.5; }
+          h1 { font-size: 14pt; font-weight: bold; text-align: center; }
+          h2 { font-size: 12pt; font-weight: bold; margin-top: 20pt; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10pt; font-size: 10pt; }
+          th, td { padding: 6pt; text-align: left; vertical-align: top; }
+          /* APA Table Styling: Borders only on top, bottom of header, and bottom of table */
+          .apa-table { border-top: 1.5pt solid black; border-bottom: 1.5pt solid black; }
+          .apa-table th { border-bottom: 1pt solid black; font-weight: bold; }
+          .note { font-size: 9pt; font-style: italic; margin-top: 4pt; }
+        </style>
+      </head>
+      <body>
+        <h1>${t1Title}</h1>
+        <table class="apa-table">
+          <thead>
+            <tr>
+              <th>${t1Col1}</th>
+              <th>${t1Col2}</th>
+              ${matrixColumns.map((c) => `<th style="text-align: center;">${c}</th>`).join('')}
+              <th style="text-align: center;">${t1Breadth}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.coverage_matrix
+              .map(
+                (row) => `
+              <tr>
+                <td><strong>${row.description || row.code}</strong></td>
+                <td>${row.category}</td>
+                ${matrixColumns
+                  .map((col) => {
+                    const cells = matrixViewMode === 'lessons' ? row.lesson_cells : row.teacher_cells;
+                    const cell = cells.find((c) => c.key.toLowerCase() === col.toLowerCase());
+                    return `<td style="text-align: center;">${cell && cell.present ? '●' : ''}</td>`;
+                  })
+                  .join('')}
+                <td style="text-align: center;">${
+                  matrixViewMode === 'lessons'
+                    ? `${row.breadth_lessons} / ${row.total_lessons}`
+                    : `${row.breadth_teachers} / ${row.total_teachers}`
+                }</td>
+              </tr>
+            `
+              )
+              .join('')}
+          </tbody>
+        </table>
+        <p class="note">${t1Note}</p>
+
+        <h2>${t2Title}</h2>
+        <table class="apa-table">
+          <thead>
+            <tr>
+              <th style="width: 25%;">${t2Col1}</th>
+              <th style="width: 35%;">${t2Col2}</th>
+              <th style="width: 15%;">${t2Col3}</th>
+              <th style="width: 25%;">${t2Col4}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.rq1_enactment_map
+              .map((rq) => {
+                const stratName = isVi && rq.strategy_name_vi ? rq.strategy_name_vi : rq.strategy_name;
+                const stratSub = isVi && rq.strategy_subtext_vi ? rq.strategy_subtext_vi : rq.strategy_subtext;
+                const enacts = isVi && rq.observed_enactments_vi && rq.observed_enactments_vi.length > 0
+                  ? rq.observed_enactments_vi
+                  : rq.observed_enactments;
+
+                return `
+              <tr>
+                <td><strong>${stratName}</strong><br/><span style="font-size: 9pt; color: #555;">${stratSub}</span></td>
+                <td>${enacts.map((e) => `<div>• ${e}</div>`).join('')}</td>
+                <td>${rq.representative_lessons.join(', ')}</td>
+                <td>${rq.direct_quotes
+                  .slice(0, 2)
+                  .map((q) => `<div>[${q.timestamp_str}] <em>"${q.quote}"</em></div>`)
+                  .join('<br/>')}</td>
+              </tr>
+            `;
+              })
+              .join('')}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: 'application/msword;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `pedagogical_metrics_${cohort}_${sectionFilter}_${timeframe}.csv`);
+    link.href = url;
+    link.download = isVi ? 'bang-nghien-cuu-dinh-tinh-apa7.doc' : 'qualitative-research-tables-apa7.doc';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success(t('analyticsExportCSV') + ' ✓');
-  };
-
-
-
-  // SVG Dimension Math for Spline Chart
-  const svgWidth = 720;
-  const svgHeight = 280;
-  const paddingX = 45;
-  const paddingY = 35;
-  const chartW = svgWidth - paddingX * 2;
-  const chartH = svgHeight - paddingY * 2;
-
-  // Dynamic max value
-  const maxVal = useMemo(() => {
-    if (!displayedTrendData.length) return 50;
-    const values: number[] = [];
-    displayedTrendData.forEach((d) => {
-      if (isSectionVisible('A')) values.push(d.scaffolding);
-      if (isSectionVisible('B')) values.push(d.waitTime);
-      if (isSectionVisible('C')) values.push(d.praise);
-      if (isSectionVisible('E')) values.push(d.agency);
-    });
-    const highest = values.length ? Math.max(...values) : 20;
-    return Math.max(20, Math.ceil((highest * 1.15) / 10) * 10);
-  }, [displayedTrendData, sectionFilter]);
-
-  const getCoordinates = (val: number, idx: number, total: number) => {
-    const x = paddingX + (idx / Math.max(1, total - 1)) * chartW;
-    const y = paddingY + chartH - (val / Math.max(1, maxVal)) * chartH;
-    return { x, y };
-  };
-
-  const generateSmoothPath = (values: number[]) => {
-    const points = values.map((val, idx) => getCoordinates(val, idx, values.length));
-    if (points.length === 0) return '';
-    if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
-
-    let path = `M ${points[0].x} ${points[0].y}`;
-    for (let i = 0; i < points.length - 1; i++) {
-      const p0 = points[i === 0 ? 0 : i - 1];
-      const p1 = points[i];
-      const p2 = points[i + 1];
-      const p3 = points[i + 2] || p2;
-
-      const cp1x = p1.x + (p2.x - p0.x) / 6;
-      const cp1y = p1.y + (p2.y - p0.y) / 6;
-      const cp2x = p2.x - (p3.x - p1.x) / 6;
-      const cp2y = p2.y - (p3.y - p1.y) / 6;
-
-      path += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
-    }
-    return path;
-  };
-
-  const pathScaffolding = isSectionVisible('A') ? generateSmoothPath(displayedTrendData.map((d) => d.scaffolding)) : '';
-  const pathWaitTime = isSectionVisible('B') ? generateSmoothPath(displayedTrendData.map((d) => d.waitTime)) : '';
-  const pathPraise = isSectionVisible('C') ? generateSmoothPath(displayedTrendData.map((d) => d.praise)) : '';
-  const pathAgency = isSectionVisible('E') ? generateSmoothPath(displayedTrendData.map((d) => d.agency)) : '';
-
-  const pathScaffoldingArea =
-    isSectionVisible('A') && displayedTrendData.length > 0
-      ? pathScaffolding +
-        ` L ${getCoordinates(0, displayedTrendData.length - 1, displayedTrendData.length).x} ${paddingY + chartH} L ${paddingX} ${paddingY + chartH} Z`
-      : '';
-
-  // Radar Chart Calculations
-  const radarDimensions: RadarDimensionPoint[] = data?.radar?.length ? data.radar : [];
-  const radarCenter = { x: 180, y: 145 };
-  const radarRadius = 95;
-  const radarAngles = radarDimensions.map((_, i) => (Math.PI * 2 * i) / Math.max(1, radarDimensions.length) - Math.PI / 2);
-
-  const getRadarPoint = (score: number, angle: number) => {
-    const r = (Math.min(100, Math.max(0, score)) / 100) * radarRadius;
-    return {
-      x: radarCenter.x + r * Math.cos(angle),
-      y: radarCenter.y + r * Math.sin(angle),
-    };
-  };
-
-  const getRadarLabel = (key: string) => {
-    const sec = key.replace('sec', '');
-    if (sec === 'A') return t('analyticsRadarA');
-    if (sec === 'B') return t('analyticsRadarB');
-    if (sec === 'C') return t('analyticsRadarC');
-    if (sec === 'D') return t('analyticsRadarD');
-    if (sec === 'E') return t('analyticsRadarE');
-    return sec;
-  };
-
-  const corpusRadarPath =
-    radarDimensions
-      .map((d, i) => {
-        const pt = getRadarPoint(d.score, radarAngles[i]);
-        return `${i === 0 ? 'M' : 'L'} ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`;
-      })
-      .join(' ') + ' Z';
-
-  // Temporal stream bins from live data
-  const streamBins: TemporalBinPoint[] = data?.temporal_stream?.length ? data.temporal_stream : [];
-
-  // Export Trajectory SVG with Full Legend
-  const handleExportTrajectory = () => {
-    if (!displayedTrendData.length) return;
-    const svg = generateTrajectorySVG({
-      trendData: displayedTrendData,
-      cohort,
-      sectionFilter,
-      timeframe,
-      trendViewMode,
-      isSectionVisible,
-      t,
-    });
-    downloadSVG(svg, `pedagogical_trajectory_${cohort}_${sectionFilter}_${timeframe}.svg`);
-    toast.success(t('analyticsExportSuccess') + ' ✓');
-  };
-
-  // Export 5D Radar SVG with Full Legend
-  const handleExportRadar = () => {
-    if (!radarDimensions.length) return;
-    const svg = generateRadarSVG({
-      dimensions: radarDimensions,
-      cohort,
-      timeframe,
-      t,
-    });
-    downloadSVG(svg, `pedagogical_radar_profile_${cohort}_${timeframe}.svg`);
-    toast.success(t('analyticsExportSuccess') + ' ✓');
-  };
-
-  // Export Intra-Lesson Dynamics Stream SVG with Full Legend
-  const handleExportStream = () => {
-    if (!streamBins.length) return;
-    const svg = generateStreamSVG({
-      bins: streamBins,
-      cohort,
-      timeframe,
-      t,
-    });
-    downloadSVG(svg, `pedagogical_temporal_stream_${cohort}_${timeframe}.svg`);
-    toast.success(t('analyticsExportSuccess') + ' ✓');
-  };
-
-  // Export Quadrant Map SVG with Full Legend
-  const handleExportQuadrant = () => {
-    if (!displayedTeachers.length) return;
-    const svg = generateQuadrantSVG({
-      teachers: displayedTeachers,
-      cohort,
-      t,
-    });
-    downloadSVG(svg, `pedagogical_quadrant_map_${cohort}.svg`);
-    toast.success(t('analyticsExportSuccess') + ' ✓');
-  };
-
-  // Batch Export All 4 Charts
-  const handleExportAllCharts = () => {
-    handleExportTrajectory();
-    setTimeout(() => handleExportRadar(), 200);
-    setTimeout(() => handleExportStream(), 400);
-    setTimeout(() => handleExportQuadrant(), 600);
-    toast.success(t('analyticsExportAllSuccess') + ' ✓');
+    URL.revokeObjectURL(url);
+    toast.success(isVi ? 'Đã xuất bảng Word APA 7th thành công!' : 'APA 7th Word tables exported successfully!');
   };
 
   return (
-    <div style={{ maxWidth: '1440px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      
+    <div style={{ maxWidth: '1440px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+      {/* Top Workflow Banner */}
+      <FeatureWorkflowBanner featureKey="analytics" />
+
       {/* Top Header */}
-      <section style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'flex-end',
-        borderBottom: '1px solid var(--card-border)',
-        paddingBottom: '20px',
-        gap: '20px',
-        flexWrap: 'wrap',
-      }}>
+      <section
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-end',
+          borderBottom: '1px solid var(--card-border)',
+          paddingBottom: '20px',
+          gap: '20px',
+          flexWrap: 'wrap',
+        }}
+      >
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-            <span style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '4px 10px',
-              borderRadius: '6px',
-              fontSize: '11px',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: '0.6px',
-              backgroundColor: 'var(--accent-soft)',
-              color: 'var(--accent)',
-              border: '1px solid var(--card-border)',
-            }}>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                fontSize: '11px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.6px',
+                backgroundColor: 'var(--accent-soft)',
+                color: 'var(--accent)',
+                border: '1px solid var(--card-border)',
+              }}
+            >
               <Sparkles size={13} />
-              Observation Studio
+              Phase 6 Qualitative Synthesis
             </span>
             <span style={{ color: 'var(--text-subtle)', fontSize: '12px' }}>•</span>
             <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontFamily: 'var(--font-mono)' }}>
-              {data ? `${t('analyticsCorpusLabel')}: ${data.total_videos} ${t('analyticsVideos')} (${data.total_events.toLocaleString()} ${t('analyticsEvents')})` : '...'}
+              Analysis Run: {data ? `${data.analysis_run_id} (${data.run_status})` : '...'} • 12 Teachers / 24 Lessons
             </span>
           </div>
 
-          <h1 style={{
-            fontFamily: 'var(--font-serif)',
-            fontSize: '32px',
-            fontWeight: 400,
-            color: 'var(--accent)',
-            letterSpacing: '-0.5px',
-            lineHeight: 1.15,
-            margin: '0 0 6px 0',
-          }}>
-            {t('analyticsTitle')}
+          <h1
+            style={{
+              fontFamily: 'var(--font-serif)',
+              fontSize: '32px',
+              fontWeight: 400,
+              color: 'var(--accent)',
+              letterSpacing: '-0.5px',
+              lineHeight: 1.15,
+              margin: '0 0 6px 0',
+            }}
+          >
+            {t('qualitativeStudioTitle')}
           </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '13.5px', margin: 0 }}>
-            {t('analyticsSubtitle')}
+          <p style={{ color: 'var(--text-muted)', fontSize: '13.5px', margin: 0, maxWidth: '820px' }}>
+            {t('qualitativeStudioSubtitle')}
           </p>
         </div>
 
@@ -395,8 +394,9 @@ export default function AnalyticsPage() {
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             {t('analyticsRefresh')}
           </button>
+
           <button
-            onClick={handleExportCSV}
+            onClick={handleExportWordAPA}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -413,8 +413,9 @@ export default function AnalyticsPage() {
             }}
           >
             <FileSpreadsheet size={15} color="var(--accent-green)" />
-            {t('analyticsExportCSV')}
+            {t('qualitativeExportWordAPA')}
           </button>
+
           {/* High-Res Vector Export Dropdown */}
           <div ref={exportDropdownRef} style={{ position: 'relative' }}>
             <button
@@ -452,7 +453,7 @@ export default function AnalyticsPage() {
                   position: 'absolute',
                   right: 0,
                   top: 'calc(100% + 6px)',
-                  minWidth: '290px',
+                  minWidth: '310px',
                   backgroundColor: 'var(--card-bg)',
                   border: '1px solid var(--card-border)',
                   borderRadius: 'var(--radius-md)',
@@ -467,7 +468,7 @@ export default function AnalyticsPage() {
                 {/* Batch Export All */}
                 <button
                   onClick={() => {
-                    handleExportAllCharts();
+                    handleExportAllSVG();
                     setExportDropdownOpen(false);
                   }}
                   style={{
@@ -485,19 +486,18 @@ export default function AnalyticsPage() {
                     textAlign: 'left',
                     width: '100%',
                     marginBottom: '4px',
-                    transition: 'opacity 0.15s ease',
                   }}
                 >
                   <Sparkles size={15} />
-                  <span>{t('analyticsExportMenuAll')}</span>
+                  <span>{t('qualitativeExportAllBundle')}</span>
                 </button>
 
                 <div style={{ height: '1px', backgroundColor: 'var(--card-border-soft)', margin: '2px 0' }} />
 
-                {/* 1. Trajectory */}
+                {/* 1. Coverage Matrix */}
                 <button
                   onClick={() => {
-                    handleExportTrajectory();
+                    handleExportMatrixSVG();
                     setExportDropdownOpen(false);
                   }}
                   style={{
@@ -514,19 +514,16 @@ export default function AnalyticsPage() {
                     cursor: 'pointer',
                     textAlign: 'left',
                     width: '100%',
-                    transition: 'background-color 0.12s ease',
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                 >
-                  <TrendingUp size={15} color="var(--accent)" />
-                  <span>{t('analyticsExportTrajectory')}</span>
+                  <Grid size={15} color="var(--accent)" />
+                  <span>{t('qualitativeExportMatrixSVG')}</span>
                 </button>
 
-                {/* 2. Radar */}
+                {/* 2. Hierarchy Tree */}
                 <button
                   onClick={() => {
-                    handleExportRadar();
+                    handleExportHierarchySVG();
                     setExportDropdownOpen(false);
                   }}
                   style={{
@@ -543,19 +540,16 @@ export default function AnalyticsPage() {
                     cursor: 'pointer',
                     textAlign: 'left',
                     width: '100%',
-                    transition: 'background-color 0.12s ease',
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                 >
-                  <Award size={15} color="var(--accent-blue)" />
-                  <span>{t('analyticsExportRadar')}</span>
+                  <GitFork size={15} color="var(--accent-blue)" />
+                  <span>{t('qualitativeExportHierarchySVG')}</span>
                 </button>
 
-                {/* 3. Stream */}
+                {/* 3. RQ1 Enactment Map */}
                 <button
                   onClick={() => {
-                    handleExportStream();
+                    handleExportRQ1SVG();
                     setExportDropdownOpen(false);
                   }}
                   style={{
@@ -572,42 +566,10 @@ export default function AnalyticsPage() {
                     cursor: 'pointer',
                     textAlign: 'left',
                     width: '100%',
-                    transition: 'background-color 0.12s ease',
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                 >
-                  <Clock size={15} color="var(--accent-amber)" />
-                  <span>{t('analyticsExportStream')}</span>
-                </button>
-
-                {/* 4. Quadrant */}
-                <button
-                  onClick={() => {
-                    handleExportQuadrant();
-                    setExportDropdownOpen(false);
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    backgroundColor: 'transparent',
-                    color: 'var(--text-main)',
-                    fontSize: '12.5px',
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    width: '100%',
-                    transition: 'background-color 0.12s ease',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                >
-                  <CompassIcon size={15} color="var(--accent-purple)" />
-                  <span>{t('analyticsExportQuadrant')}</span>
+                  <Target size={15} color="var(--accent-green)" />
+                  <span>{t('qualitativeExportRQ1SVG')}</span>
                 </button>
               </div>
             )}
@@ -615,1061 +577,1032 @@ export default function AnalyticsPage() {
         </div>
       </section>
 
-      {/* Feature Workflow & Automation Guidance */}
-      <FeatureWorkflowBanner featureKey="analytics" />
-
-      {/* Filter Bar */}
-      <section style={{
-        backgroundColor: 'var(--card-bg)',
-        border: '1px solid var(--card-border)',
-        borderRadius: 'var(--radius-md)',
-        padding: '14px 20px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '16px',
-        flexWrap: 'wrap',
-        boxShadow: 'var(--shadow-sm)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-          {/* Teacher Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Filter size={14} color="var(--accent)" />
-            <span style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text-muted)' }}>
-              {t('analyticsTeacherSelect')}:
-            </span>
-            <select
-              value={cohort}
-              onChange={(e) => setCohort(e.target.value)}
-              style={{
-                backgroundColor: 'var(--bg)',
-                border: '1px solid var(--card-border)',
-                borderRadius: '6px',
-                padding: '6px 12px',
-                fontSize: '13px',
-                color: 'var(--text-main)',
-                cursor: 'pointer',
-                outline: 'none',
-              }}
-            >
-              <option value="all">{t('analyticsTeacherAll')}</option>
-              {['T01', 'T02', 'T03', 'T04', 'T05', 'T06', 'T07', 'T08'].map((tid) => (
-                <option key={tid} value={tid}>
-                  {t('analyticsTeacherPrefix')} {tid}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Checklist Section Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Layers size={14} color="var(--accent-blue)" />
-            <span style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text-muted)' }}>
-              {t('analyticsChecklistSection')}:
-            </span>
-            <select
-              value={sectionFilter}
-              onChange={(e) => setSectionFilter(e.target.value)}
-              style={{
-                backgroundColor: 'var(--bg)',
-                border: '1px solid var(--card-border)',
-                borderRadius: '6px',
-                padding: '6px 12px',
-                fontSize: '13px',
-                color: 'var(--text-main)',
-                cursor: 'pointer',
-                outline: 'none',
-              }}
-            >
-              <option value="all">{t('analyticsSectionAll')}</option>
-              <option value="A">{t('analyticsSectionA')}</option>
-              <option value="B">{t('analyticsSectionB')}</option>
-              <option value="C">{t('analyticsSectionC')}</option>
-              <option value="E">{t('analyticsSectionE')}</option>
-            </select>
-          </div>
-
-          {/* Timeframe Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Calendar size={14} color="var(--accent-green)" />
-            <span style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text-muted)' }}>
-              {t('analyticsTimeframe')}:
-            </span>
-            <select
-              value={timeframe}
-              onChange={(e) => setTimeframe(e.target.value)}
-              style={{
-                backgroundColor: 'var(--bg)',
-                border: '1px solid var(--card-border)',
-                borderRadius: '6px',
-                padding: '6px 12px',
-                fontSize: '13px',
-                color: 'var(--text-main)',
-                cursor: 'pointer',
-                outline: 'none',
-              }}
-            >
-              <option value="all">{t('analyticsTimeframeAll')}</option>
-              <option value="pre">{t('analyticsTimeframePre')}</option>
-              <option value="post">{t('analyticsTimeframePost')}</option>
-            </select>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
-          <CheckCircle2 size={14} color="var(--accent-green)" />
-          <span>{t('analyticsSequenceNote')}</span>
-        </div>
-      </section>
-
-      {/* KPI Bento Grid */}
-      <section style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-        gap: '16px',
-      }}>
-        {/* KPI 1 */}
-        <div style={{
+      {/* ============================================================
+           SECTION 1: CODE/PATTERN × LESSON COVERAGE MATRIX
+           ============================================================ */}
+      <section
+        style={{
           backgroundColor: 'var(--card-bg)',
           border: '1px solid var(--card-border)',
           borderRadius: 'var(--radius-md)',
-          padding: '18px 20px',
-          boxShadow: 'var(--shadow-sm)',
-          position: 'relative',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px',
-        }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', backgroundColor: 'var(--accent)' }} />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              {t('kpiTotalEvents')}
-            </span>
-            <span style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: '11.5px',
-              fontWeight: 700,
-              padding: '2px 6px',
-              borderRadius: '4px',
-              backgroundColor: 'var(--accent-green-soft)',
-              color: 'var(--accent-green)',
-            }}>
-              <TrendingUp size={12} /> {data ? `${data.total_videos} ${t('analyticsVideos')}` : ''}
-            </span>
-          </div>
-          <div style={{ fontSize: '28px', fontWeight: 700, fontFamily: 'var(--font-serif)', color: 'var(--text-main)', lineHeight: 1.1 }}>
-            {data ? data.total_events.toLocaleString() : '...'}
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Layers size={13} /> {t('kpiTotalEventsSub')}
-          </div>
-        </div>
-
-        {/* KPI 2 */}
-        <div style={{
-          backgroundColor: 'var(--card-bg)',
-          border: '1px solid var(--card-border)',
-          borderRadius: 'var(--radius-md)',
-          padding: '18px 20px',
-          boxShadow: 'var(--shadow-sm)',
-          position: 'relative',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px',
-        }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', backgroundColor: 'var(--accent-green)' }} />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              {t('kpiAvgWaitTime')}
-            </span>
-            <span style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: '11.5px',
-              fontWeight: 700,
-              padding: '2px 6px',
-              borderRadius: '4px',
-              backgroundColor: 'var(--accent-green-soft)',
-              color: 'var(--accent-green)',
-            }}>
-              <Clock size={12} /> {t('analyticsSectionB')}
-            </span>
-          </div>
-          <div style={{ fontSize: '28px', fontWeight: 700, fontFamily: 'var(--font-serif)', color: 'var(--text-main)', lineHeight: 1.1 }}>
-            {data ? `${data.avg_wait_time}s` : '...'}
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <TrendingUp size={13} /> {t('kpiAvgWaitTimeSub')}
-          </div>
-        </div>
-
-        {/* KPI 3 */}
-        <div style={{
-          backgroundColor: 'var(--card-bg)',
-          border: '1px solid var(--card-border)',
-          borderRadius: 'var(--radius-md)',
-          padding: '18px 20px',
-          boxShadow: 'var(--shadow-sm)',
-          position: 'relative',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px',
-        }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', backgroundColor: 'var(--accent-blue)' }} />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              {t('kpiScaffoldingRate')}
-            </span>
-            <span style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: '11.5px',
-              fontWeight: 700,
-              padding: '2px 6px',
-              borderRadius: '4px',
-              backgroundColor: 'var(--accent-blue-soft)',
-              color: 'var(--accent-blue)',
-            }}>
-              <Award size={12} /> {t('analyticsSectionA')}
-            </span>
-          </div>
-          <div style={{ fontSize: '28px', fontWeight: 700, fontFamily: 'var(--font-serif)', color: 'var(--text-main)', lineHeight: 1.1 }}>
-            {data ? `${data.scaffolding_ratio}%` : '...'}
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <MessageSquare size={13} /> {t('kpiScaffoldingRateSub')}
-          </div>
-        </div>
-
-        {/* KPI 4 */}
-        <div style={{
-          backgroundColor: 'var(--card-bg)',
-          border: '1px solid var(--card-border)',
-          borderRadius: 'var(--radius-md)',
-          padding: '18px 20px',
-          boxShadow: 'var(--shadow-sm)',
-          position: 'relative',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px',
-        }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', backgroundColor: 'var(--accent-purple)' }} />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              {t('kpiAIConfidence')}
-            </span>
-            <span style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: '11.5px',
-              fontWeight: 700,
-              padding: '2px 6px',
-              borderRadius: '4px',
-              backgroundColor: 'var(--accent-purple-soft)',
-              color: 'var(--accent-purple)',
-            }}>
-              <Sparkles size={12} /> Gemini & Claude
-            </span>
-          </div>
-          <div style={{ fontSize: '28px', fontWeight: 700, fontFamily: 'var(--font-serif)', color: 'var(--text-main)', lineHeight: 1.1 }}>
-            {data ? `${data.ai_confidence}%` : '...'}
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <CheckCircle2 size={13} /> {t('kpiAIConfidenceSub')}
-          </div>
-        </div>
-      </section>
-
-      {/* Row 1: Longitudinal Trajectory & 5D Radar */}
-      <section style={{
-        display: 'grid',
-        gridTemplateColumns: '2fr 1fr',
-        gap: '20px',
-      }}>
-        {/* Main Spline Trajectory Chart */}
-        <div style={{
-          backgroundColor: 'var(--card-bg)',
-          border: '1px solid var(--card-border)',
-          borderRadius: 'var(--radius-md)',
-          padding: '22px',
+          padding: '24px',
           boxShadow: 'var(--shadow-sm)',
           display: 'flex',
           flexDirection: 'column',
           gap: '16px',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-            <div>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 3px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <TrendingUp size={18} color="var(--accent)" />
-                {t('chartTrajectoryTitle')}
-              </h3>
-              <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>
-                {sectionFilter === 'all'
-                  ? t('chartTrajectoryDescAll')
-                  : `${t('chartTrajectoryDescFiltered')} ${sectionFilter === 'A' ? t('analyticsSectionA') : sectionFilter === 'B' ? t('analyticsSectionB') : sectionFilter === 'C' ? t('analyticsSectionC') : t('analyticsSectionE')}`}
-              </p>
-            </div>
-            
-            {/* Controls: View Mode & Direct SVG Export */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ display: 'flex', gap: '6px', background: 'var(--bg)', padding: '3px', borderRadius: '6px', border: '1px solid var(--card-border)' }}>
-                <button
-                  onClick={() => setTrendViewMode('perLesson')}
-                  style={{
-                    border: 'none',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    padding: '4px 10px',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    backgroundColor: trendViewMode === 'perLesson' ? 'var(--card-bg)' : 'transparent',
-                    color: trendViewMode === 'perLesson' ? 'var(--accent)' : 'var(--text-muted)',
-                    boxShadow: trendViewMode === 'perLesson' ? 'var(--shadow-sm)' : 'none',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  {t('chartTrajectoryViewPerLesson')}
-                </button>
-                <button
-                  onClick={() => setTrendViewMode('ma')}
-                  style={{
-                    border: 'none',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    padding: '4px 10px',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    backgroundColor: trendViewMode === 'ma' ? 'var(--card-bg)' : 'transparent',
-                    color: trendViewMode === 'ma' ? 'var(--accent)' : 'var(--text-muted)',
-                    boxShadow: trendViewMode === 'ma' ? 'var(--shadow-sm)' : 'none',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  {t('chartTrajectoryViewMA')}
-                </button>
-              </div>
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            borderBottom: '1px solid var(--card-border-soft)',
+            paddingBottom: '14px',
+            gap: '16px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div>
+            <h2
+              style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: '24px',
+                color: 'var(--accent)',
+                fontWeight: 400,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                margin: '0 0 4px 0',
+              }}
+            >
+              <Grid size={20} />
+              {t('qualitativeMatrixTitle')}
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0 }}>
+              {t('qualitativeMatrixSubtitle')}
+            </p>
+          </div>
 
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Xem theo:</span>
+            <div
+              style={{
+                display: 'inline-flex',
+                backgroundColor: 'var(--bg)',
+                border: '1px solid var(--card-border)',
+                borderRadius: '6px',
+                padding: '2px',
+                gap: '2px',
+              }}
+            >
               <button
-                onClick={handleExportTrajectory}
-                title={t('analyticsExportTrajectory')}
+                onClick={() => setMatrixViewMode('lessons')}
                 style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '5px 10px',
-                  borderRadius: '6px',
-                  fontSize: '11.5px',
+                  border: 'none',
+                  backgroundColor: matrixViewMode === 'lessons' ? 'var(--card-bg)' : 'transparent',
+                  color: matrixViewMode === 'lessons' ? 'var(--accent)' : 'var(--text-muted)',
+                  padding: '5px 12px',
+                  fontSize: '12px',
                   fontWeight: 600,
-                  border: '1px solid var(--card-border)',
-                  backgroundColor: 'var(--bg)',
-                  color: 'var(--text-main)',
+                  borderRadius: '4px',
                   cursor: 'pointer',
-                  transition: 'all 0.15s ease',
+                  boxShadow: matrixViewMode === 'lessons' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                 }}
               >
-                <Download size={13} color="var(--accent)" />
-                <span>{t('analyticsExportSingleBtn')}</span>
+                {t('qualitativeViewLessons')}
+              </button>
+              <button
+                onClick={() => setMatrixViewMode('teachers')}
+                style={{
+                  border: 'none',
+                  backgroundColor: matrixViewMode === 'teachers' ? 'var(--card-bg)' : 'transparent',
+                  color: matrixViewMode === 'teachers' ? 'var(--accent)' : 'var(--text-muted)',
+                  padding: '5px 12px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  boxShadow: matrixViewMode === 'teachers' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                }}
+              >
+                {t('qualitativeViewTeachers')}
               </button>
             </div>
-          </div>
 
-          {/* Interactive SVG Spline Chart */}
-          <div style={{ position: 'relative', width: '100%', minHeight: '290px' }}>
-            <svg
-              ref={splineSvgRef}
-              viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-              style={{ width: '100%', height: '100%', overflow: 'visible' }}
-            >
-              <defs>
-                <linearGradient id="scaffoldingGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#9E4A28" stopOpacity="0.22" />
-                  <stop offset="100%" stopColor="#9E4A28" stopOpacity="0.0" />
-                </linearGradient>
-              </defs>
-
-              {/* Grid Lines */}
-              {[0, Math.round(maxVal / 3), Math.round((maxVal * 2) / 3), maxVal].map((val) => {
-                const y = paddingY + chartH - (val / maxVal) * chartH;
-                return (
-                  <g key={val}>
-                    <line
-                      x1={paddingX}
-                      y1={y}
-                      x2={paddingX + chartW}
-                      y2={y}
-                      stroke="var(--card-border-soft)"
-                      strokeDasharray={val === 0 ? 'none' : '3 3'}
-                    />
-                    <text
-                      x={paddingX - 10}
-                      y={y + 4}
-                      textAnchor="end"
-                      fontSize="10.5"
-                      fontFamily="var(--font-mono)"
-                      fill="var(--text-subtle)"
-                    >
-                      {val}
-                    </text>
-                  </g>
-                );
-              })}
-
-              {/* X Axis Lesson Labels */}
-              {displayedTrendData.map((d, i) => {
-                const { x } = getCoordinates(0, i, displayedTrendData.length);
-                return (
-                  <text
-                    key={d.lesson + i}
-                    x={x}
-                    y={paddingY + chartH + 20}
-                    textAnchor="middle"
-                    fontSize="11"
-                    fontFamily="var(--font-mono)"
-                    fontWeight={hoveredLessonIdx === i ? 700 : 500}
-                    fill={hoveredLessonIdx === i ? 'var(--accent)' : 'var(--text-muted)'}
-                  >
-                    {d.lesson}
-                  </text>
-                );
-              })}
-
-              {/* Area fill for Scaffolding if visible */}
-              {pathScaffoldingArea && <path d={pathScaffoldingArea} fill="url(#scaffoldingGradient)" />}
-
-              {/* Spline Lines */}
-              {isSectionVisible('A') && <path d={pathScaffolding} fill="none" stroke="#9E4A28" strokeWidth="2.8" strokeLinecap="round" />}
-              {isSectionVisible('B') && <path d={pathWaitTime} fill="none" stroke="#2D6A4F" strokeWidth="2.2" strokeLinecap="round" />}
-              {isSectionVisible('C') && <path d={pathPraise} fill="none" stroke="#1D5C8A" strokeWidth="2.2" strokeLinecap="round" />}
-              {isSectionVisible('E') && <path d={pathAgency} fill="none" stroke="#B26A00" strokeWidth="2" strokeDasharray="5 4" strokeLinecap="round" />}
-
-              {/* Hover Interaction Columns */}
-              {displayedTrendData.map((d, i) => {
-                const { x } = getCoordinates(0, i, displayedTrendData.length);
-                const isHovered = hoveredLessonIdx === i;
-                const ptScaffold = getCoordinates(d.scaffolding, i, displayedTrendData.length);
-                const ptWait = getCoordinates(d.waitTime, i, displayedTrendData.length);
-                const ptPraise = getCoordinates(d.praise, i, displayedTrendData.length);
-                const ptAgency = getCoordinates(d.agency, i, displayedTrendData.length);
-
-                return (
-                  <g
-                    key={i}
-                    onMouseEnter={() => setHoveredLessonIdx(i)}
-                    onMouseLeave={() => setHoveredLessonIdx(null)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    {/* Invisible Hit Area */}
-                    <rect
-                      x={x - chartW / Math.max(1, displayedTrendData.length * 2)}
-                      y={paddingY}
-                      width={chartW / Math.max(1, displayedTrendData.length)}
-                      height={chartH}
-                      fill="transparent"
-                    />
-
-                    {isHovered && (
-                      <line
-                        x1={x}
-                        y1={paddingY}
-                        x2={x}
-                        y2={paddingY + chartH}
-                        stroke="var(--accent)"
-                        strokeWidth="1"
-                        strokeDasharray="3 3"
-                      />
-                    )}
-
-                    {/* Data Points */}
-                    {isSectionVisible('A') && <circle cx={ptScaffold.x} cy={ptScaffold.y} r={isHovered ? 5.5 : 3.5} fill="#9E4A28" stroke="#FFFFFF" strokeWidth="2" />}
-                    {isSectionVisible('B') && <circle cx={ptWait.x} cy={ptWait.y} r={isHovered ? 5.5 : 3.5} fill="#2D6A4F" stroke="#FFFFFF" strokeWidth="2" />}
-                    {isSectionVisible('C') && <circle cx={ptPraise.x} cy={ptPraise.y} r={isHovered ? 5.5 : 3.5} fill="#1D5C8A" stroke="#FFFFFF" strokeWidth="2" />}
-                    {isSectionVisible('E') && <circle cx={ptAgency.x} cy={ptAgency.y} r={isHovered ? 5.5 : 3.5} fill="#B26A00" stroke="#FFFFFF" strokeWidth="2" />}
-                  </g>
-                );
-              })}
-            </svg>
-
-            {/* Hover Tooltip Overlay */}
-            {hoveredLessonIdx !== null && displayedTrendData[hoveredLessonIdx] && (
-              <div style={{
-                position: 'absolute',
-                top: '12px',
-                right: '12px',
-                backgroundColor: 'rgba(28, 25, 23, 0.95)',
-                color: '#FFFFFF',
-                borderRadius: '8px',
-                padding: '10px 14px',
-                fontSize: '12px',
-                boxShadow: '0 8px 20px rgba(0,0,0,0.25)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                pointerEvents: 'none',
-                minWidth: '220px',
-                backdropFilter: 'blur(4px)',
-                zIndex: 10,
-              }}>
-                <div style={{ fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.15)', paddingBottom: '4px', marginBottom: '2px', display: 'flex', justifyContent: 'space-between' }}>
-                  <span>{displayedTrendData[hoveredLessonIdx].lesson} • {displayedTrendData[hoveredLessonIdx].teacher_id}</span>
-                  <span style={{ color: '#A8A29E', fontSize: '11px' }}>{t('tooltipTeacher')} {displayedTrendData[hoveredLessonIdx].teacher_id}</span>
-                </div>
-                {isSectionVisible('A') && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#F5A788' }}>• {t('chartTrajectoryLegendScaffolding')}:</span>
-                    <strong>{displayedTrendData[hoveredLessonIdx].scaffolding} {t('tooltipEvents')}</strong>
-                  </div>
-                )}
-                {isSectionVisible('B') && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#6EE7B7' }}>• {t('chartTrajectoryLegendWaitTime')}:</span>
-                    <strong>{displayedTrendData[hoveredLessonIdx].waitTime} {t('tooltipEvents')}</strong>
-                  </div>
-                )}
-                {isSectionVisible('C') && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#93C5FD' }}>• {t('chartTrajectoryLegendPraise')}:</span>
-                    <strong>{displayedTrendData[hoveredLessonIdx].praise} {t('tooltipEvents')}</strong>
-                  </div>
-                )}
-                {isSectionVisible('E') && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#FCD34D' }}>• {t('chartTrajectoryLegendAgency')}:</span>
-                    <strong>{displayedTrendData[hoveredLessonIdx].agency} {t('tooltipTurns')}</strong>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Spline Chart Legend */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '18px',
-            fontSize: '12px',
-            color: 'var(--text-muted)',
-            flexWrap: 'wrap',
-            paddingTop: '6px',
-            borderTop: '1px solid var(--card-border-soft)',
-          }}>
-            {isSectionVisible('A') && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '12px', height: '3px', backgroundColor: '#9E4A28', borderRadius: '2px' }} />
-                {t('chartTrajectoryLegendScaffolding')}
-              </span>
-            )}
-            {isSectionVisible('B') && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '12px', height: '3px', backgroundColor: '#2D6A4F', borderRadius: '2px' }} />
-                {t('chartTrajectoryLegendWaitTime')}
-              </span>
-            )}
-            {isSectionVisible('C') && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '12px', height: '3px', backgroundColor: '#1D5C8A', borderRadius: '2px' }} />
-                {t('chartTrajectoryLegendPraise')}
-              </span>
-            )}
-            {isSectionVisible('E') && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '12px', height: '2px', borderTop: '2px dashed #B26A00' }} />
-                {t('chartTrajectoryLegendAgency')}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* 5-Dimensional Radar Profile */}
-        <div style={{
-          backgroundColor: 'var(--card-bg)',
-          border: '1px solid var(--card-border)',
-          borderRadius: 'var(--radius-md)',
-          padding: '22px',
-          boxShadow: 'var(--shadow-sm)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
-            <div>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 3px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Award size={18} color="var(--accent-blue)" />
-                {t('chartRadarTitle')}
-              </h3>
-              <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>
-                {t('chartRadarDesc')}
-              </p>
-            </div>
             <button
-              onClick={handleExportRadar}
-              title={t('analyticsExportRadar')}
+              onClick={handleExportMatrixSVG}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '5px',
+                gap: '4px',
                 padding: '5px 10px',
                 borderRadius: '6px',
-                fontSize: '11.5px',
+                fontSize: '12px',
                 fontWeight: 600,
                 border: '1px solid var(--card-border)',
-                backgroundColor: 'var(--bg)',
+                backgroundColor: 'var(--card-bg)',
                 color: 'var(--text-main)',
                 cursor: 'pointer',
-                transition: 'all 0.15s ease',
               }}
             >
-              <Download size={13} color="var(--accent-blue)" />
-              <span>{t('analyticsExportSingleBtn')}</span>
+              <Download size={13} />
+              {t('analyticsExportSingleBtn')}
             </button>
           </div>
-
-          {/* SVG Radar */}
-          <div style={{ position: 'relative', width: '100%', height: '260px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg viewBox="0 0 360 290" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
-              {/* Concentric Web Polygons */}
-              {[0.2, 0.4, 0.6, 0.8, 1.0].map((scale) => {
-                const ringPath = radarDimensions
-                  .map((_, i) => {
-                    const pt = getRadarPoint(scale * 100, radarAngles[i]);
-                    return `${i === 0 ? 'M' : 'L'} ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`;
-                  })
-                  .join(' ') + ' Z';
-
-                return (
-                  <path
-                    key={scale}
-                    d={ringPath}
-                    fill="none"
-                    stroke="var(--card-border)"
-                    strokeWidth={scale === 1 ? '1.2' : '0.8'}
-                  />
-                );
-              })}
-
-              {/* Axis spokes */}
-              {radarDimensions.map((d, i) => {
-                const edgePt = getRadarPoint(100, radarAngles[i]);
-                const textPt = getRadarPoint(120, radarAngles[i]);
-                return (
-                  <g key={d.key}>
-                    <line
-                      x1={radarCenter.x}
-                      y1={radarCenter.y}
-                      x2={edgePt.x}
-                      y2={edgePt.y}
-                      stroke="var(--card-border)"
-                      strokeWidth="1"
-                    />
-                    <text
-                      x={textPt.x}
-                      y={textPt.y + 4}
-                      textAnchor="middle"
-                      fontSize="10.5"
-                      fontFamily="var(--font-sans)"
-                      fontWeight="600"
-                      fill="var(--text-muted)"
-                    >
-                      {getRadarLabel(d.key)}
-                    </text>
-                  </g>
-                );
-              })}
-
-              {/* Single Corpus Polygon */}
-              {radarDimensions.length > 0 && (
-                <path d={corpusRadarPath} fill="rgba(158, 74, 40, 0.22)" stroke="#9E4A28" strokeWidth="2.5" />
-              )}
-            </svg>
-          </div>
-
-          {/* Radar Legend with Counts */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            gap: '12px',
-            fontSize: '11.5px',
-            color: 'var(--text-muted)',
-            paddingTop: '6px',
-            borderTop: '1px solid var(--card-border-soft)',
-            flexWrap: 'wrap',
-          }}>
-            {radarDimensions.map((d) => (
-              <span key={d.key} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ width: '8px', height: '8px', backgroundColor: '#9E4A28', borderRadius: '50%' }} />
-                <strong>{d.key.replace('sec', '')}:</strong> {d.count} {t('tooltipEvents')}
-              </span>
-            ))}
-          </div>
         </div>
-      </section>
 
-      {/* Row 2: Intra-Lesson Temporal Dynamics (Stream) & Quadrant Classification */}
-      <section style={{
-        display: 'grid',
-        gridTemplateColumns: '2fr 1fr',
-        gap: '20px',
-      }}>
-        {/* Intra-Lesson Temporal Stream Area Chart (0-45m) */}
-        <div style={{
-          backgroundColor: 'var(--card-bg)',
-          border: '1px solid var(--card-border)',
-          borderRadius: 'var(--radius-md)',
-          padding: '22px',
-          boxShadow: 'var(--shadow-sm)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-            <div>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 3px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Clock size={18} color="var(--accent-amber)" />
-                {t('chartStreamTitle')}
-              </h3>
-              <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>
-                {t('chartStreamDesc')}
-              </p>
-            </div>
-            <div style={{
-              display: 'flex',
-              gap: '12px',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-            }}>
-              <div style={{
-                display: 'flex',
-                gap: '14px',
-                fontSize: '11.5px',
-                color: 'var(--text-muted)',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-              }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#1D5C8A' }} />
-                  {t('chartStreamWarmup')}
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#9E4A28' }} />
-                  {t('chartStreamScaffolding')}
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#2D6A4F' }} />
-                  {t('chartStreamStudentTurns')}
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#6D28D9' }} />
-                  {t('chartStreamPraise')}
-                </span>
-              </div>
-
-              <button
-                onClick={handleExportStream}
-                title={t('analyticsExportStream')}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '5px 10px',
-                  borderRadius: '6px',
-                  fontSize: '11.5px',
-                  fontWeight: 600,
-                  border: '1px solid var(--card-border)',
-                  backgroundColor: 'var(--bg)',
-                  color: 'var(--text-main)',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                <Download size={13} color="var(--accent-amber)" />
-                <span>{t('analyticsExportSingleBtn')}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Stream Bars Visualization */}
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-            minHeight: '220px',
-            justifyContent: 'center',
-          }}>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(9, 1fr)',
-              gap: '6px',
-              alignItems: 'flex-end',
-              height: '180px',
-            }}>
-              {streamBins.map((bin, i) => {
-                const total = Math.max(1, bin.warmup + bin.scaffolding + bin.studentTurns + bin.praise);
-                const isHovered = hoveredStreamIdx === i;
-
-                return (
-                  <div
-                    key={bin.bin}
-                    onMouseEnter={() => setHoveredStreamIdx(i)}
-                    onMouseLeave={() => setHoveredStreamIdx(null)}
+        {/* Matrix Table */}
+        <div
+          style={{
+            overflowX: 'auto',
+            border: '1px solid var(--card-border)',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: '#FFFFFF',
+          }}
+        >
+          <table
+            style={{
+              width: '100%',
+              borderCollapse: 'collapse',
+              fontSize: '12.5px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <thead>
+              <tr style={{ backgroundColor: 'var(--bg)' }}>
+                <th
+                  style={{
+                    border: '1px solid var(--card-border-soft)',
+                    padding: '8px 12px',
+                    textAlign: 'left',
+                    minWidth: '240px',
+                    position: 'sticky',
+                    left: 0,
+                    backgroundColor: 'var(--bg)',
+                    zIndex: 20,
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '11px',
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  Pattern / Qualitative Code
+                </th>
+                <th
+                  style={{
+                    border: '1px solid var(--card-border-soft)',
+                    padding: '8px 12px',
+                    textAlign: 'left',
+                    minWidth: '150px',
+                    position: 'sticky',
+                    left: '240px',
+                    backgroundColor: 'var(--bg)',
+                    zIndex: 20,
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '11px',
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  Category
+                </th>
+                {matrixColumns.map((col) => (
+                  <th
+                    key={col}
                     style={{
-                      display: 'flex',
-                      flexDirection: 'column-reverse',
-                      height: '100%',
-                      borderRadius: '6px',
-                      overflow: 'hidden',
-                      cursor: 'pointer',
-                      transform: isHovered ? 'scaleY(1.02)' : 'scaleY(1)',
-                      transition: 'all 0.15s ease',
-                      outline: isHovered ? '2px solid var(--accent)' : 'none',
+                      border: '1px solid var(--card-border-soft)',
+                      padding: '8px 6px',
+                      textAlign: 'center',
+                      minWidth: matrixViewMode === 'lessons' ? '38px' : '58px',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '11px',
+                      color: 'var(--text-muted)',
                     }}
                   >
-                    <div style={{ height: `${(bin.warmup / total) * 100}%`, backgroundColor: '#1D5C8A', opacity: 0.85 }} />
-                    <div style={{ height: `${(bin.scaffolding / total) * 100}%`, backgroundColor: '#9E4A28', opacity: 0.85 }} />
-                    <div style={{ height: `${(bin.studentTurns / total) * 100}%`, backgroundColor: '#2D6A4F', opacity: 0.85 }} />
-                    <div style={{ height: `${(bin.praise / total) * 100}%`, backgroundColor: '#6D28D9', opacity: 0.85 }} />
-                  </div>
+                    {col}
+                  </th>
+                ))}
+                <th
+                  style={{
+                    border: '1px solid var(--card-border-soft)',
+                    padding: '8px 12px',
+                    textAlign: 'center',
+                    minWidth: '110px',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '11px',
+                    color: 'var(--accent)',
+                    fontWeight: 700,
+                    backgroundColor: 'var(--bg)',
+                  }}
+                >
+                  Breadth
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {data?.coverage_matrix.map((row, rIdx) => {
+                const isEven = rIdx % 2 === 0;
+                const rowBg = isEven ? '#FFFFFF' : '#FAF8F5';
+                const cells = matrixViewMode === 'lessons' ? row.lesson_cells : row.teacher_cells;
+                const breadth = matrixViewMode === 'lessons' ? row.breadth_lessons : row.breadth_teachers;
+                const total = matrixViewMode === 'lessons' ? row.total_lessons : row.total_teachers;
+                const pct = total > 0 ? Math.round((breadth / total) * 100) : 0;
+
+                return (
+                  <tr key={row.pattern_id || rIdx} style={{ backgroundColor: rowBg }}>
+                    {/* Code Name (Clickable) */}
+                    <td
+                      onClick={() =>
+                        handleOpenCodeDrawer(row.code, row.description, row.category, row.theme, row.evidence)
+                      }
+                      title={t('qualitativeClickToInspect')}
+                      style={{
+                        border: '1px solid var(--card-border-soft)',
+                        padding: '8px 12px',
+                        textAlign: 'left',
+                        fontFamily: 'var(--font-mono)',
+                        fontWeight: 600,
+                        color: 'var(--accent)',
+                        position: 'sticky',
+                        left: 0,
+                        backgroundColor: rowBg,
+                        zIndex: 10,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <span>{row.description || row.code}</span>
+                        <ExternalLink size={12} style={{ opacity: 0.6 }} />
+                      </span>
+                    </td>
+
+                    {/* Category */}
+                    <td
+                      style={{
+                        border: '1px solid var(--card-border-soft)',
+                        padding: '8px 12px',
+                        textAlign: 'left',
+                        fontSize: '11.5px',
+                        color: 'var(--text-muted)',
+                        position: 'sticky',
+                        left: '240px',
+                        backgroundColor: rowBg,
+                        zIndex: 10,
+                      }}
+                    >
+                      {row.category}
+                    </td>
+
+                    {/* Presence Dots */}
+                    {matrixColumns.map((col) => {
+                      const cell = cells.find((c) => c.key.toLowerCase() === col.toLowerCase());
+                      const isPresent = cell ? cell.present : false;
+
+                      return (
+                        <td
+                          key={col}
+                          style={{
+                            border: '1px solid var(--card-border-soft)',
+                            padding: '6px 4px',
+                            textAlign: 'center',
+                          }}
+                        >
+                          {isPresent && (
+                            <span
+                              onClick={() =>
+                                handleOpenCodeDrawer(row.code, row.description, row.category, row.theme, row.evidence)
+                              }
+                              title={`${col}: ${row.code} (${language === 'vi' ? 'Có bằng chứng xuất hiện' : 'Evidence Present'})`}
+                              style={{
+                                display: 'inline-block',
+                                width: '9px',
+                                height: '9px',
+                                borderRadius: '50%',
+                                backgroundColor: 'var(--accent)',
+                                cursor: 'pointer',
+                                transition: 'transform 0.1s ease',
+                              }}
+                            />
+                          )}
+                        </td>
+                      );
+                    })}
+
+                    {/* Breadth Summary */}
+                    <td
+                      style={{
+                        border: '1px solid var(--card-border-soft)',
+                        padding: '8px 12px',
+                        textAlign: 'center',
+                        fontFamily: 'var(--font-mono)',
+                        fontWeight: 700,
+                        color: 'var(--accent)',
+                        fontSize: '11.5px',
+                        backgroundColor: rowBg,
+                      }}
+                    >
+                      {breadth} / {total} ({pct}%)
+                    </td>
+                  </tr>
                 );
               })}
-            </div>
-
-            {/* X Labels */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '6px', textAlign: 'center' }}>
-              {streamBins.map((bin, i) => (
-                <span
-                  key={bin.bin}
-                  style={{
-                    fontSize: '11px',
-                    fontFamily: 'var(--font-mono)',
-                    fontWeight: hoveredStreamIdx === i ? 700 : 500,
-                    color: hoveredStreamIdx === i ? 'var(--accent)' : 'var(--text-muted)',
-                  }}
-                >
-                  {bin.bin}
-                </span>
-              ))}
-            </div>
-          </div>
+            </tbody>
+          </table>
         </div>
 
-        {/* Pedagogical Quadrant Map (Fixed hit-box to prevent hover jitter) */}
-        <div style={{
-          backgroundColor: 'var(--card-bg)',
-          border: '1px solid var(--card-border)',
-          borderRadius: 'var(--radius-md)',
-          padding: '22px',
-          boxShadow: 'var(--shadow-sm)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
-            <div>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 3px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CompassIcon size={18} color="var(--accent-purple)" />
-                {t('chartQuadrantTitle')}
-              </h3>
-              <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>
-                {t('chartQuadrantDesc')}
-              </p>
-            </div>
-            <button
-              onClick={handleExportQuadrant}
-              title={t('analyticsExportQuadrant')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '5px 10px',
-                borderRadius: '6px',
-                fontSize: '11.5px',
-                fontWeight: 600,
-                border: '1px solid var(--card-border)',
-                backgroundColor: 'var(--bg)',
-                color: 'var(--text-main)',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <Download size={13} color="var(--accent-purple)" />
-              <span>{t('analyticsExportSingleBtn')}</span>
-            </button>
-          </div>
-
-          {/* 2D Coordinate Scatter Space */}
-          <div style={{
-            position: 'relative',
-            width: '100%',
-            height: '240px',
-            backgroundColor: 'var(--bg)',
-            border: '1px dashed var(--card-border)',
-            borderRadius: 'var(--radius-sm)',
-            overflow: 'hidden',
-          }}>
-            {/* Center Crosshairs */}
-            <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '1px', borderTop: '1px dashed var(--card-border)', pointerEvents: 'none' }} />
-            <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '1px', borderLeft: '1px dashed var(--card-border)', pointerEvents: 'none' }} />
-
-            {/* Quadrant Watermark Labels */}
-            <span style={{ position: 'absolute', top: '8px', right: '8px', fontSize: '10px', color: 'var(--accent)', fontWeight: 700, textTransform: 'uppercase', pointerEvents: 'none', userSelect: 'none' }}>
-              {t('quadrantFacilitative')}
-            </span>
-            <span style={{ position: 'absolute', top: '8px', left: '8px', fontSize: '10px', color: 'var(--text-subtle)', fontWeight: 600, textTransform: 'uppercase', pointerEvents: 'none', userSelect: 'none' }}>
-              {t('quadrantStructured')}
-            </span>
-            <span style={{ position: 'absolute', bottom: '8px', right: '8px', fontSize: '10px', color: 'var(--text-subtle)', fontWeight: 600, textTransform: 'uppercase', pointerEvents: 'none', userSelect: 'none' }}>
-              {t('quadrantConversational')}
-            </span>
-            <span style={{ position: 'absolute', bottom: '8px', left: '8px', fontSize: '10px', color: 'var(--text-subtle)', fontWeight: 600, textTransform: 'uppercase', pointerEvents: 'none', userSelect: 'none' }}>
-              {t('quadrantTraditional')}
-            </span>
-
-            {/* Teacher Plotted Points with FIXED 28px HIT-BOX and stable coordinates */}
-            {displayedTeachers.map((tp) => {
-              const isHovered = hoveredTeacher?.id === tp.id;
-              return (
-                <div
-                  key={tp.id}
-                  onMouseEnter={() => setHoveredTeacher(tp)}
-                  onMouseLeave={() => setHoveredTeacher((prev) => (prev?.id === tp.id ? null : prev))}
-                  style={{
-                    position: 'absolute',
-                    left: `${Math.min(90, Math.max(10, tp.agency))}%`,
-                    top: `${Math.min(90, Math.max(10, 100 - tp.scaffolding))}%`,
-                    transform: 'translate(-50%, -50%)',
-                    width: '28px',
-                    height: '28px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    zIndex: isHovered ? 20 : 10,
-                  }}
-                >
-                  {/* Stable circular dot animated with CSS transform only */}
-                  <div style={{
-                    width: '10px',
-                    height: '10px',
-                    borderRadius: '50%',
-                    backgroundColor: isHovered ? 'var(--accent)' : 'var(--accent-hover)',
-                    border: '2px solid #FFFFFF',
-                    boxShadow: isHovered ? '0 0 0 3px rgba(158, 74, 40, 0.35)' : '0 1px 3px rgba(0,0,0,0.2)',
-                    transform: isHovered ? 'scale(1.3)' : 'scale(1)',
-                    transition: 'transform 0.12s ease-out',
-                    pointerEvents: 'none',
-                    willChange: 'transform',
-                  }} />
-                  <span style={{
-                    fontSize: '10px',
-                    fontFamily: 'var(--font-mono)',
-                    fontWeight: 700,
-                    whiteSpace: 'nowrap',
-                    color: isHovered ? 'var(--accent)' : 'var(--text-muted)',
-                    marginTop: '2px',
-                    pointerEvents: 'none',
-                    userSelect: 'none',
-                  }}>
-                    {tp.id}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Hovered Teacher Details: STRICT FIXED HEIGHT (30px) ensures 0 layout jitter */}
-          <div style={{
-            fontSize: '11.5px',
-            fontFamily: 'var(--font-mono)',
-            color: 'var(--text-muted)',
+        <div
+          style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            height: '30px',
-            minHeight: '30px',
-            maxHeight: '30px',
-            overflow: 'hidden',
-            boxSizing: 'border-box',
-            borderTop: '1px solid var(--card-border-soft)',
-            paddingTop: '4px',
-          }}>
-            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0 }}>
-              {t('tooltipTeacher')} <strong>{hoveredTeacher ? hoveredTeacher.id : '---'}</strong>
-            </span>
-            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'right', fontSize: '11px' }}>
-              {hoveredTeacher
-                ? `${hoveredTeacher.total_events} ${t('tooltipEvents')} • ${t('chartQuadrantAgencyShort')}: ${hoveredTeacher.agency}%`
-                : t('tooltipHoverTeacher')}
-            </span>
-          </div>
+            fontSize: '12px',
+            color: 'var(--text-muted)',
+            marginTop: '2px',
+            flexWrap: 'wrap',
+            gap: '8px',
+          }}
+        >
+          <span>{t('qualitativeMatrixLegend')}</span>
+          <span style={{ fontFamily: 'var(--font-mono)' }}>
+            {t('qualitativeMethodStandard')}
+          </span>
         </div>
       </section>
 
-      {/* Qualitative Outlier Evidence Trace Callout */}
-      {data?.outlier_evidence && (
-        <section style={{
-          backgroundColor: 'var(--accent-soft)',
-          borderLeft: '4px solid var(--accent)',
-          borderRadius: '0 var(--radius-md) var(--radius-md) 0',
-          padding: '16px 20px',
+      {/* ============================================================
+           SECTION 2: THEME – CATEGORY – CODE HIERARCHY MAP
+           ============================================================ */}
+      <section
+        style={{
+          backgroundColor: 'var(--card-bg)',
+          border: '1px solid var(--card-border)',
+          borderRadius: 'var(--radius-md)',
+          padding: '24px',
+          boxShadow: 'var(--shadow-sm)',
           display: 'flex',
           flexDirection: 'column',
-          gap: '6px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{
-              fontSize: '11px',
-              fontWeight: 800,
-              letterSpacing: '0.8px',
-              textTransform: 'uppercase',
-              color: 'var(--accent)',
-              fontFamily: 'var(--font-mono)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}>
-              <Info size={14} />
-              {t('evidenceTitle')}
-            </span>
-            <span style={{ fontSize: '12px', fontFamily: 'var(--font-mono)', color: 'var(--accent-hover)', fontWeight: 600 }}>
-              {t('analyticsTeacherPrefix')} {data.outlier_evidence.teacher_id} • {data.outlier_evidence.lesson} • {data.outlier_evidence.timestamp_str}
-            </span>
+          gap: '16px',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            borderBottom: '1px solid var(--card-border-soft)',
+            paddingBottom: '14px',
+            gap: '16px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div>
+            <h2
+              style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: '24px',
+                color: 'var(--accent)',
+                fontWeight: 400,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                margin: '0 0 4px 0',
+              }}
+            >
+              <GitFork size={20} />
+              {t('qualitativeHierarchyTitle')}
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0 }}>
+              {t('qualitativeHierarchySubtitle')}
+            </p>
           </div>
-          <p style={{
-            fontSize: '13.5px',
-            lineHeight: 1.55,
-            color: 'var(--text-main)',
-            fontStyle: 'italic',
-            margin: 0,
-          }}>
-            "{data.outlier_evidence.quote}"
-          </p>
-          {data.outlier_evidence.context && (
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-              <strong>{t('evidenceContext')}</strong> {data.outlier_evidence.context}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div
+              style={{
+                display: 'inline-flex',
+                backgroundColor: 'var(--bg)',
+                border: '1px solid var(--card-border)',
+                borderRadius: '6px',
+                padding: '2px',
+                gap: '2px',
+              }}
+            >
+              <button
+                onClick={() => setHierarchyViewMode('tree')}
+                style={{
+                  border: 'none',
+                  backgroundColor: hierarchyViewMode === 'tree' ? 'var(--card-bg)' : 'transparent',
+                  color: hierarchyViewMode === 'tree' ? 'var(--accent)' : 'var(--text-muted)',
+                  padding: '5px 12px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  boxShadow: hierarchyViewMode === 'tree' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                }}
+              >
+                Tree View (SVG)
+              </button>
+              <button
+                onClick={() => setHierarchyViewMode('bento')}
+                style={{
+                  border: 'none',
+                  backgroundColor: hierarchyViewMode === 'bento' ? 'var(--card-bg)' : 'transparent',
+                  color: hierarchyViewMode === 'bento' ? 'var(--accent)' : 'var(--text-muted)',
+                  padding: '5px 12px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  boxShadow: hierarchyViewMode === 'bento' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                }}
+              >
+                Bento Cards
+              </button>
+            </div>
+
+            <button
+              onClick={handleExportHierarchySVG}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '5px 10px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: 600,
+                border: '1px solid var(--card-border)',
+                backgroundColor: 'var(--card-bg)',
+                color: 'var(--text-main)',
+                cursor: 'pointer',
+              }}
+            >
+              <Download size={13} />
+              {t('analyticsExportSingleBtn')}
+            </button>
+          </div>
+        </div>
+
+        {/* View Mode A: Tree SVG View */}
+        {hierarchyViewMode === 'tree' && (
+          <div
+            style={{
+              overflowX: 'auto',
+              border: '1px solid var(--card-border-soft)',
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: '#FCFAF8',
+              padding: '16px',
+            }}
+          >
+            <svg style={{ width: '100%', minWidth: '1100px', height: '480px' }} viewBox="0 0 1380 480">
+              {/* Column Headers */}
+              <text x="60" y="30" fontFamily="Plus Jakarta Sans" fontSize="12" fontWeight="700" fill="#736B63" letterSpacing="0.5">
+                {language === 'vi' ? 'CHỦ ĐỀ BAO QUÁT (CHƯƠNG 4)' : 'OVERARCHING THEMES (CHAPTER 4)'}
+              </text>
+              <text x="440" y="30" fontFamily="Plus Jakarta Sans" fontSize="12" fontWeight="700" fill="#736B63" letterSpacing="0.5">
+                {language === 'vi' ? 'CỤM HÀNH VI (CATEGORIES)' : 'PEDAGOGICAL CATEGORIES'}
+              </text>
+              <text x="810" y="30" fontFamily="Plus Jakarta Sans" fontSize="12" fontWeight="700" fill="#736B63" letterSpacing="0.5">
+                {language === 'vi' ? 'MÃ & MẪU QUAN SÁT (CODES)' : 'INITIAL CODES & PATTERNS'}
+              </text>
+              <text x="1130" y="30" fontFamily="Plus Jakarta Sans" fontSize="12" fontWeight="700" fill="#736B63" letterSpacing="0.5">
+                {language === 'vi' ? 'TRÍCH DẪN MINH HỌA TIÊU BIỂU' : 'KEY EXCERPT SAMPLES'}
+              </text>
+
+              <line x1="390" y1="20" x2="390" y2="460" stroke="#E8E3D9" strokeDasharray="4 4" />
+              <line x1="760" y1="20" x2="760" y2="460" stroke="#E8E3D9" strokeDasharray="4 4" />
+              <line x1="1080" y1="20" x2="1080" y2="460" stroke="#E8E3D9" strokeDasharray="4 4" />
+
+              {/* Theme 1 */}
+              <rect x="50" y="60" width="300" height="175" rx="8" fill="#FFFFFF" stroke="#9E4A28" strokeWidth="2" />
+              <text x="68" y="92" fontFamily="Instrument Serif" fontSize="20" fill="#9E4A28">
+                {language === 'vi' ? 'Chủ Đề 1: Khung Giàn Giáo' : 'Theme 1: Multimodal Scaffolding'}
+              </text>
+              {language === 'vi' ? (
+                <>
+                  <text x="68" y="112" fontFamily="Plus Jakarta Sans" fontSize="11" fill="#736B63">
+                    Duy trì vùng phát triển gần nhất (ZPD)
+                  </text>
+                  <text x="68" y="128" fontFamily="Plus Jakarta Sans" fontSize="11" fill="#736B63">
+                    qua kết hợp hình ảnh và tín hiệu số
+                  </text>
+                </>
+              ) : (
+                <>
+                  <text x="68" y="112" fontFamily="Plus Jakarta Sans" fontSize="11" fill="#736B63">
+                    Sustaining Zone of Proximal Development
+                  </text>
+                  <text x="68" y="128" fontFamily="Plus Jakarta Sans" fontSize="11" fill="#736B63">
+                    via visual anchors &amp; digital cues
+                  </text>
+                </>
+              )}
+              <rect x="68" y="142" width="84" height="20" rx="4" fill="#EAF4EE" />
+              <text x="76" y="156" fontFamily="Plus Jakarta Sans" fontSize="10" fontWeight="700" fill="#2D6A4F">
+                CONFIRMED
+              </text>
+
+              <path d="M 350 110 C 400 110, 400 95, 430 95" fill="none" stroke="#9E4A28" strokeWidth="1.8" />
+              <path d="M 350 185 C 400 185, 400 190, 430 190" fill="none" stroke="#9E4A28" strokeWidth="1.8" />
+
+              {/* Cat 1.1 */}
+              <rect x="430" y="65" width="280" height="60" rx="6" fill="#FFFFFF" stroke="#E8E3D9" strokeWidth="1.5" />
+              <text x="446" y="90" fontFamily="Plus Jakarta Sans" fontSize="13" fontWeight="700" fill="#1A1612">
+                {language === 'vi' ? 'Cụm A: Neo Hình Ảnh Chỉ Dẫn' : 'Cat A: Visual-Graphic Anchor'}
+              </text>
+              <text x="446" y="108" fontFamily="Plus Jakarta Sans" fontSize="11" fill="#736B63">
+                {language === 'vi' ? 'Neo hình ảnh giảm tải nhận thức từ vựng' : 'Visual anchors reduce cognitive load'}
+              </text>
+
+              {/* Cat 1.2 */}
+              <rect x="430" y="160" width="280" height="60" rx="6" fill="#FFFFFF" stroke="#E8E3D9" strokeWidth="1.5" />
+              <text x="446" y="185" fontFamily="Plus Jakarta Sans" fontSize="13" fontWeight="700" fill="#1A1612">
+                {language === 'vi' ? 'Cụm B: Tín Hiệu Phản Hồi Số' : 'Cat B: Digital Reaction Signaling'}
+              </text>
+              <text x="446" y="203" fontFamily="Plus Jakarta Sans" fontSize="11" fill="#736B63">
+                {language === 'vi' ? 'Phản hồi qua icon & thumbs-up chat' : 'Non-verbal feedback via chat & icons'}
+              </text>
+
+              {/* Codes */}
+              <path d="M 710 95 C 750 95, 760 80, 800 80" fill="none" stroke="#C4B5A5" strokeWidth="1.5" />
+              <path d="M 710 95 C 750 95, 760 120, 800 120" fill="none" stroke="#C4B5A5" strokeWidth="1.5" />
+              <path d="M 710 190 L 800 190" fill="none" stroke="#C4B5A5" strokeWidth="1.5" />
+
+              <rect x="800" y="65" width="240" height="30" rx="4" fill="#FFFFFF" stroke="#E8E3D9" />
+              <text x="814" y="85" fontFamily="JetBrains Mono" fontSize="11" fontWeight="600" fill="#9E4A28">
+                VSC-01: Pointing Gestures
+              </text>
+
+              <rect x="800" y="105" width="240" height="30" rx="4" fill="#FFFFFF" stroke="#E8E3D9" />
+              <text x="814" y="125" fontFamily="JetBrains Mono" fontSize="11" fontWeight="600" fill="#9E4A28">
+                VSC-02: Graphic Organizers
+              </text>
+
+              <rect x="800" y="175" width="240" height="30" rx="4" fill="#FFFFFF" stroke="#E8E3D9" />
+              <text x="814" y="195" fontFamily="JetBrains Mono" fontSize="11" fontWeight="600" fill="#9E4A28">
+                DRS-01: Emoji Hand Raise
+              </text>
+
+              {/* Sample Excerpts */}
+              <path d="M 1040 80 L 1090 80" fill="none" stroke="#E8E3D9" strokeWidth="1" />
+              <rect x="1090" y="60" width="260" height="40" rx="4" fill="#FBF9F5" stroke="#E8E3D9" />
+              <text x="1102" y="76" fontFamily="JetBrains Mono" fontSize="10" fontWeight="700" fill="#1D5C8A">
+                [14:12] T02-L1
+              </text>
+              <text x="1102" y="90" fontFamily="Plus Jakarta Sans" fontSize="11" fontStyle="italic" fill="#57534E">
+                &ldquo;Look at the red circle, what animal is here?&rdquo;
+              </text>
+
+              <path d="M 1040 120 L 1090 120" fill="none" stroke="#E8E3D9" strokeWidth="1" />
+              <rect x="1090" y="105" width="260" height="40" rx="4" fill="#FBF9F5" stroke="#E8E3D9" />
+              <text x="1102" y="121" fontFamily="JetBrains Mono" fontSize="10" fontWeight="700" fill="#1D5C8A">
+                [22:45] T07-L2
+              </text>
+              <text x="1102" y="135" fontFamily="Plus Jakarta Sans" fontSize="11" fontStyle="italic" fill="#57534E">
+                &ldquo;Compare box A and box B before answering&rdquo;
+              </text>
+
+              <path d="M 1040 190 L 1090 190" fill="none" stroke="#E8E3D9" strokeWidth="1" />
+              <rect x="1090" y="170" width="260" height="40" rx="4" fill="#FBF9F5" stroke="#E8E3D9" />
+              <text x="1102" y="186" fontFamily="JetBrains Mono" fontSize="10" fontWeight="700" fill="#1D5C8A">
+                [08:30] T11-L1
+              </text>
+              <text x="1102" y="200" fontFamily="Plus Jakarta Sans" fontSize="11" fontStyle="italic" fill="#57534E">
+                &ldquo;Drop a clapping hands icon if you agree!&rdquo;
+              </text>
+
+              {/* Theme 2 */}
+              <rect x="50" y="270" width="300" height="175" rx="8" fill="#FFFFFF" stroke="#9E4A28" strokeWidth="2" />
+              <text x="68" y="302" fontFamily="Instrument Serif" fontSize="20" fill="#9E4A28">
+                {language === 'vi' ? 'Chủ Đề 2: Nhịp Độ & An Toàn' : 'Theme 2: Pacing & Safe-Failure'}
+              </text>
+              {language === 'vi' ? (
+                <>
+                  <text x="68" y="322" fontFamily="Plus Jakarta Sans" fontSize="11" fill="#736B63">
+                    Chiến lược kéo dài thời gian chờ đợi và
+                  </text>
+                  <text x="68" y="338" fontFamily="Plus Jakarta Sans" fontSize="11" fill="#736B63">
+                    khen ngợi nỗ lực xây dựng sự tự tin
+                  </text>
+                </>
+              ) : (
+                <>
+                  <text x="68" y="322" fontFamily="Plus Jakarta Sans" fontSize="11" fill="#736B63">
+                    Deliberate wait-time buffers &amp; effort praise
+                  </text>
+                  <text x="68" y="338" fontFamily="Plus Jakarta Sans" fontSize="11" fill="#736B63">
+                    building communicative confidence
+                  </text>
+                </>
+              )}
+              <rect x="68" y="352" width="84" height="20" rx="4" fill="#EAF4EE" />
+              <text x="76" y="366" fontFamily="Plus Jakarta Sans" fontSize="10" fontWeight="700" fill="#2D6A4F">
+                CONFIRMED
+              </text>
+
+              <path d="M 350 340 L 430 340" fill="none" stroke="#9E4A28" strokeWidth="1.8" />
+              <rect x="430" y="310" width="280" height="60" rx="6" fill="#FFFFFF" stroke="#E8E3D9" strokeWidth="1.5" />
+              <text x="446" y="335" fontFamily="Plus Jakarta Sans" fontSize="13" fontWeight="700" fill="#1A1612">
+                {language === 'vi' ? 'Cụm C: Đệm Thời Gian Chờ Kéo Dài' : 'Cat C: Extended Wait-Time Buffer'}
+              </text>
+              <text x="446" y="353" fontFamily="Plus Jakarta Sans" fontSize="11" fill="#736B63">
+                {language === 'vi' ? 'Khoảng lặng 3–5s cho HS suy nghĩ' : '3–5s quiet contemplation window'}
+              </text>
+
+              <path d="M 710 340 L 800 340" fill="none" stroke="#C4B5A5" strokeWidth="1.5" />
+              <rect x="800" y="325" width="240" height="30" rx="4" fill="#FFFFFF" stroke="#E8E3D9" />
+              <text x="814" y="345" fontFamily="JetBrains Mono" fontSize="11" fontWeight="600" fill="#9E4A28">
+                PAC-01: Silent Thinking Window
+              </text>
+
+              <path d="M 1040 340 L 1090 340" fill="none" stroke="#E8E3D9" strokeWidth="1" />
+              <rect x="1090" y="320" width="260" height="40" rx="4" fill="#FBF9F5" stroke="#E8E3D9" />
+              <text x="1102" y="336" fontFamily="JetBrains Mono" fontSize="10" fontWeight="700" fill="#1D5C8A">
+                [19:05] T04-L2
+              </text>
+              <text x="1102" y="350" fontFamily="Plus Jakarta Sans" fontSize="11" fontStyle="italic" fill="#57534E">
+                &ldquo;Take 5 seconds quietly... no rush, Nam.&rdquo;
+              </text>
+            </svg>
+          </div>
+        )}
+
+        {/* View Mode B: Grounded Bento Cards View */}
+        {hierarchyViewMode === 'bento' && (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+              gap: '20px',
+            }}
+          >
+            {data?.thematic_hierarchy.map((th) => (
+              <div
+                key={th.id}
+                style={{
+                  border: '1px solid var(--card-border)',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: '#FFFFFF',
+                  padding: '20px',
+                  boxShadow: 'var(--shadow-sm)',
+                  borderTop: '4px solid var(--accent)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <h3
+                    style={{
+                      fontFamily: 'var(--font-serif)',
+                      fontSize: '20px',
+                      color: 'var(--accent)',
+                      margin: 0,
+                      fontWeight: 400,
+                      lineHeight: 1.25,
+                    }}
+                  >
+                    {(language === 'vi' && th.name_vi) ? th.name_vi : th.name}
+                  </h3>
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      textTransform: 'uppercase',
+                      fontWeight: 700,
+                      letterSpacing: '0.5px',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      backgroundColor: 'var(--accent-green-soft)',
+                      color: 'var(--accent-green)',
+                    }}
+                  >
+                    {th.status}
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--text-muted)',
+                    fontStyle: 'italic',
+                    backgroundColor: 'var(--bg)',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    borderLeft: '2px solid var(--accent)',
+                    lineHeight: 1.45,
+                  }}
+                >
+                  {(language === 'vi' && th.reasoning_trace_vi)
+                    ? th.reasoning_trace_vi
+                    : ((language === 'vi' && th.description_vi)
+                      ? th.description_vi
+                      : (th.reasoning_trace || th.description))}
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {th.categories.map((cat) => (
+                    <div
+                      key={cat.id}
+                      style={{
+                        border: '1px solid var(--card-border-soft)',
+                        borderRadius: '8px',
+                        padding: '10px 12px',
+                        backgroundColor: '#FAFAFA',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          fontSize: '12.5px',
+                          color: 'var(--text-main)',
+                          marginBottom: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        <span>{(language === 'vi' && cat.name_vi) ? cat.name_vi : cat.name}</span>
+                        <span style={{ fontSize: '11px', fontWeight: 'normal', color: 'var(--text-muted)' }}>
+                          ({cat.codes.length} {t('qualitativePatternsCount')})
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                        {cat.codes.map((cd) => (
+                          <button
+                            key={cd.id}
+                            onClick={() =>
+                              handleOpenCodeDrawer(
+                                cd.code,
+                                cd.name,
+                                (language === 'vi' && cat.name_vi) ? cat.name_vi : cat.name,
+                                (language === 'vi' && th.name_vi) ? th.name_vi : th.name,
+                                cd.sample_quotes
+                              )
+                            }
+                            style={{
+                              background: '#FFFFFF',
+                              border: '1px solid var(--card-border)',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              fontFamily: 'var(--font-mono)',
+                              fontSize: '11px',
+                              color: 'var(--accent)',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            <span>{cd.name}</span>
+                            <ExternalLink size={10} />
+                          </button>
+                        ))}
+                      </div>
+
+                      {cat.codes[0]?.sample_quotes && cat.codes[0].sample_quotes[0] && (
+                        <div
+                          style={{
+                            fontSize: '11.5px',
+                            color: 'var(--text-muted)',
+                            fontStyle: 'italic',
+                            paddingLeft: '8px',
+                            borderLeft: '2px solid var(--card-border)',
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          <strong>[{cat.codes[0].sample_quotes[0].timestamp_str}] {cat.codes[0].sample_quotes[0].lesson}:</strong>{' '}
+                          &ldquo;{cat.codes[0].sample_quotes[0].quote}&rdquo;
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ============================================================
+           SECTION 3: RQ1 ENROLMENT & TRACEABILITY MAP
+           ============================================================ */}
+      <section
+        style={{
+          backgroundColor: 'var(--card-bg)',
+          border: '1px solid var(--card-border)',
+          borderRadius: 'var(--radius-md)',
+          padding: '24px',
+          boxShadow: 'var(--shadow-sm)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            borderBottom: '1px solid var(--card-border-soft)',
+            paddingBottom: '14px',
+            gap: '16px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div>
+            <h2
+              style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: '24px',
+                color: 'var(--accent)',
+                fontWeight: 400,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                margin: '0 0 4px 0',
+              }}
+            >
+              <Target size={20} />
+              {t('qualitativeRQ1Title')}
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0 }}>
+              {t('qualitativeRQ1Subtitle')}
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
+              {t('qualitativeFilterStrategy')}
             </span>
-          )}
-        </section>
-      )}
+            <select
+              value={rqFilter}
+              onChange={(e) => setRqFilter(e.target.value)}
+              style={{
+                padding: '5px 10px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                border: '1px solid var(--card-border)',
+                backgroundColor: 'var(--card-bg)',
+                color: 'var(--text-main)',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="all">{t('qualitativeAllStrategies')}</option>
+              <option value="turn">{language === 'vi' ? 'Quy chuẩn điều phối lượt nói' : 'Turn-Taking & Equity Protocols'}</option>
+              <option value="wait">{language === 'vi' ? 'Đệm cảm xúc & Thời gian chờ' : 'Wait-Time & Pacing'}</option>
+              <option value="digital">{language === 'vi' ? 'Điều phối công cụ số' : 'Digital Tool Orchestration'}</option>
+            </select>
 
+            <button
+              onClick={handleExportRQ1SVG}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '5px 10px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: 600,
+                border: '1px solid var(--card-border)',
+                backgroundColor: 'var(--card-bg)',
+                color: 'var(--text-main)',
+                cursor: 'pointer',
+              }}
+            >
+              <Download size={13} />
+              {t('analyticsExportSingleBtn')}
+            </button>
+          </div>
+        </div>
+
+        {/* 4-Column RQ1 Grid */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {/* Header Row */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '260px 1fr 180px 1fr',
+              padding: '10px 16px',
+              backgroundColor: 'var(--bg)',
+              border: '1px solid var(--card-border)',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '11.5px',
+              fontWeight: 700,
+              color: 'var(--text-muted)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              gap: '12px',
+            }}
+          >
+            <div>{t('qualitativeColStrategy')}</div>
+            <div>{t('qualitativeColEnactments')}</div>
+            <div>{t('qualitativeColLessons')}</div>
+            <div>{t('qualitativeColQuotes')}</div>
+          </div>
+
+          {/* Rows */}
+          {filteredRQ1Rows.map((row, idx) => {
+            const stratName = (language === 'vi' && row.strategy_name_vi) ? row.strategy_name_vi : row.strategy_name;
+            const stratSub = (language === 'vi' && row.strategy_subtext_vi) ? row.strategy_subtext_vi : row.strategy_subtext;
+            const enactList = (language === 'vi' && row.observed_enactments_vi && row.observed_enactments_vi.length > 0)
+              ? row.observed_enactments_vi
+              : row.observed_enactments;
+
+            return (
+              <div
+                key={idx}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '260px 1fr 180px 1fr',
+                  border: '1px solid var(--card-border)',
+                  borderRadius: 'var(--radius-sm)',
+                  overflow: 'hidden',
+                  backgroundColor: '#FFFFFF',
+                  boxShadow: 'var(--shadow-sm)',
+                  gap: '12px',
+                }}
+              >
+                {/* Col 1: Strategy */}
+                <div
+                  style={{
+                    padding: '16px',
+                    backgroundColor: 'var(--bg)',
+                    borderRight: '1px solid var(--card-border-soft)',
+                  }}
+                >
+                  <div style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--accent)', marginBottom: '4px' }}>
+                    {stratName}
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                    {stratSub}
+                  </div>
+                </div>
+
+                {/* Col 2: Observed Enactments */}
+                <div style={{ padding: '16px', borderRight: '1px solid var(--card-border-soft)', fontSize: '12.5px' }}>
+                  {enactList.map((en, eIdx) => {
+                    const parts = en.split(':');
+                    const title = parts[0];
+                    const desc = parts.slice(1).join(':');
+                    return (
+                      <div key={eIdx} style={{ marginBottom: '8px', lineHeight: 1.4 }}>
+                        <strong style={{ color: 'var(--text-main)' }}>• {title}:</strong>
+                        <span> {desc}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+              {/* Col 3: Representative Lessons */}
+              <div style={{ padding: '16px', borderRight: '1px solid var(--card-border-soft)' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                  {row.representative_lessons.map((ls) => (
+                    <span
+                      key={ls}
+                      style={{
+                        backgroundColor: 'var(--bg)',
+                        border: '1px solid var(--card-border)',
+                        borderRadius: '4px',
+                        padding: '2px 6px',
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '11px',
+                        color: 'var(--text-main)',
+                      }}
+                    >
+                      {ls}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Col 4: Direct Quotes & Timestamps */}
+              <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {row.direct_quotes.map((q, qIdx) => (
+                  <div
+                    key={qIdx}
+                    style={{
+                      backgroundColor: 'var(--bg)',
+                      borderRadius: '6px',
+                      padding: '8px 12px',
+                      borderLeft: '3px solid var(--accent)',
+                      fontSize: '12px',
+                    }}
+                  >
+                    <div style={{ marginBottom: '2px' }}>
+                      <span
+                        style={{
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          color: 'var(--accent-blue)',
+                          marginRight: '6px',
+                        }}
+                      >
+                        [{q.timestamp_str}] {q.lesson}:
+                      </span>
+                    </div>
+                    <div style={{ fontStyle: 'italic', color: 'var(--text-main)' }}>
+                      &ldquo;{q.quote}&rdquo;
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        </div>
+      </section>
+
+      {/* Code Evidence Slideover Drawer */}
+      <CodeEvidenceDrawer
+        isOpen={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        codeTitle={activeCodeDrawer?.code || ''}
+        codeDescription={activeCodeDrawer?.description || ''}
+        category={activeCodeDrawer?.category}
+        theme={activeCodeDrawer?.theme}
+        evidence={activeCodeDrawer?.evidence || []}
+      />
     </div>
-  );
-}
-
-// Custom Compass SVG Icon
-function CompassIcon({ size = 18, color = 'currentColor' }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" fill={color} fillOpacity="0.2" />
-    </svg>
   );
 }

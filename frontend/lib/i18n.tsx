@@ -27,9 +27,126 @@ export const translations: TranslationDict = {
   navApiDocs: { en: 'API Docs', vi: 'Tài Liệu API' },
   language: { en: 'Language', vi: 'Ngôn Ngữ' },
 
-  // Research Analytics & Trends
-  analyticsTitle: { en: 'Pedagogical Analytics & Longitudinal Trends', vi: 'Phân Tích & Xu Hướng Sư Phạm' },
-  analyticsSubtitle: { en: 'Quantitative behavioral metrics, teacher comparative benchmarking, and longitudinal trajectories.', vi: 'Phân tích định lượng hành vi sư phạm, đối sánh giáo viên và xu hướng tiến triển theo chuỗi tiết dạy.' },
+  // Research Analytics & Trends (Qualitative Evidence & Thematic Synthesis)
+  analyticsTitle: { en: 'Qualitative Evidence & Thematic Synthesis', vi: 'Bằng Chứng Định Tính & Tổng Hợp Chủ Đề' },
+  analyticsSubtitle: { en: 'Academic qualitative research visualizations: Cross-case Coverage Matrix, Inductive Audit Trail, and RQ1 Enactment Framework.', vi: 'Trực quan hoá định tính phục vụ luận văn: Ma trận độ phủ 24 bài giảng, Sơ đồ chuỗi quy nạp (Audit Trail) và Bản đồ truy vết RQ1.' },
+  qualitativeStudioTitle: { en: 'Qualitative Evidence & Thematic Synthesis', vi: 'Bằng Chứng Định Tính & Tổng Hợp Chủ Đề' },
+  qualitativeStudioSubtitle: {
+    en: 'Academic qualitative research visualizations: Cross-case Coverage Matrix, Inductive Audit Trail, and RQ1 Enactment Framework.',
+    vi: 'Trực quan hoá định tính phục vụ luận văn: Ma trận độ phủ 24 bài giảng, Sơ đồ chuỗi quy nạp (Audit Trail) và Bản đồ truy vết RQ1.',
+  },
+  qualitativeMatrixTitle: { en: '1. Pattern & Code × Lesson Coverage Matrix', vi: '1. Ma Trận Độ Phủ Mã & Mẫu Hành Vi × Bài Giảng' },
+  qualitativeMatrixSubtitle: {
+    en: 'Demonstrates cross-case qualitative presence across 24 lessons (T01-L1 to T12-L2) without positivist ranking.',
+    vi: 'Chứng minh sự xuất hiện định tính phổ quát trên 24 bài giảng mà không biến nghiên cứu thành bảng xếp hạng điểm số.',
+  },
+  qualitativeHierarchyTitle: { en: '2. Theme – Category – Code Analytic Hierarchy Map', vi: '2. Sơ Đồ Phả Hệ Phân Tích: Chủ Đề – Cụm – Mã' },
+  qualitativeHierarchySubtitle: {
+    en: 'Inductive analytic progression and audit trail: Raw Observation Evidence → Codes → Categories → Candidate Themes.',
+    vi: 'Chuỗi logic quy nạp (Audit Trail): Trích dẫn thực địa → Mã ban đầu → Cụm hành vi → Chủ đề ứng viên.',
+  },
+  qualitativeRQ1Title: { en: '3. RQ1 Enactment & Traceability Map', vi: '3. Bản Đồ Truy Vết Triển Khai Chiến Lược (RQ1)' },
+  qualitativeRQ1Subtitle: {
+    en: 'Empirical framework connecting classroom management strategies to observable enactments, representative lessons, and verifiable timestamps.',
+    vi: 'Khung đối chiếu thực nghiệm kết nối chiến lược quản lý lớp học với hành vi triển khai cụ thể, giáo viên đại diện và mốc thời gian thực tế.',
+  },
+  qualitativeViewLessons: { en: '24 Lessons (T01-L1...T12-L2)', vi: '24 Bài Học (T01-L1...T12-L2)' },
+  qualitativeViewTeachers: { en: '12 Teachers (T01...T12)', vi: '12 Giáo Viên (T01...T12)' },
+  qualitativeExportMatrixSVG: { en: 'Coverage Matrix (SVG)', vi: 'Ma Trận Độ Phủ (SVG)' },
+  qualitativeExportHierarchySVG: { en: 'Hierarchy Tree (SVG)', vi: 'Sơ Đồ Phả Hệ (SVG)' },
+  qualitativeExportRQ1SVG: { en: 'RQ1 Enactment Map (SVG)', vi: 'Bản Đồ RQ1 (SVG)' },
+  qualitativeExportAllBundle: { en: 'Export All 3 Qualitative Diagrams (SVG Bundle)', vi: 'Xuất Toàn Bộ 3 Biểu Đồ Định Tính (SVG)' },
+  qualitativeExportWordAPA: { en: 'Export Word (APA Table)', vi: 'Xuất Báo Cáo Word (Bảng APA 7th)' },
+  analyticsViewBy: { en: 'View by:', vi: 'Xem theo:' },
+  qualitativeTreeView: { en: 'Tree View (SVG)', vi: 'Sơ Đồ Cây (SVG)' },
+  qualitativeBentoView: { en: 'Bento Cards', vi: 'Thẻ Phân Cụm' },
+  qualitativeFilterStrategy: { en: 'Filter Strategy:', vi: 'Lọc chiến lược:' },
+  qualitativeAllStrategies: { en: 'All Strategies', vi: 'Tất cả chiến lược' },
+  qualitativeMatrixLegend: {
+    en: 'Legend: ● = Qualitative evidence present in lesson transcript/video. Click code name to inspect citations.',
+    vi: 'Ký hiệu: ● = Có bằng chứng định tính xuất hiện trong bài học. Bấm vào tên mã để xem trích dẫn minh họa.',
+  },
+  qualitativeMethodStandard: {
+    en: 'Miles & Huberman Qualitative Cross-Case Analytic Standard',
+    vi: 'Tiêu chuẩn phân tích đa trường hợp định tính Miles & Huberman',
+  },
+  qualitativeClickToInspect: {
+    en: 'Click to inspect raw qualitative citations',
+    vi: 'Bấm vào để xem trích dẫn bằng chứng thực địa',
+  },
+  qualitativeAuditTrailNote: {
+    en: 'Lincoln & Guba (1985) Audit Trail Framework • Generated via Observation Studio Qualitative Engine',
+    vi: 'Khung chuỗi kiểm tra độc lập Lincoln & Guba (1985) • Trích xuất qua Observation Studio',
+  },
+  qualitativeColStrategy: { en: 'Classroom Management Strategy', vi: 'Chiến Lược Quản Lý Lớp Học' },
+  qualitativeColEnactments: { en: 'Observed Pedagogical Enactments', vi: 'Hành Vi Triển Khai Quan Sát Được' },
+  qualitativeColLessons: { en: 'Representative Lessons', vi: 'Bài Giảng Tiêu Biểu' },
+  qualitativeColQuotes: { en: 'Verifiable Direct Quotes & Timestamps', vi: 'Trích Dẫn & Mốc Thời Gian Xác Thực' },
+  qualitativePatternsCount: { en: 'Patterns', vi: 'Mẫu hành vi' },
+  qualitativeDrawerTitle: { en: 'Code Drill-Down & Audit Trail', vi: 'Truy Vết Bằng Chứng & Chuỗi Phân Tích' },
+  qualitativeDrawerCategory: { en: 'Category:', vi: 'Phân mục:' },
+  qualitativeDrawerTheme: { en: 'Theme:', vi: 'Chủ đề:' },
+  qualitativeDrawerTotalCitations: { en: 'Total Citations:', vi: 'Tổng số trích dẫn:' },
+  qualitativeDrawerExcerpts: { en: 'excerpts', vi: 'trích dẫn' },
+  qualitativeDrawerEvidenceHeading: {
+    en: 'Raw Observation Evidence Across Corpus (Direct Citations):',
+    vi: 'Bằng chứng quan sát thực địa trên toàn bộ tập dữ liệu (Trích dẫn trực tiếp):',
+  },
+  qualitativeDrawerNoEvidence: {
+    en: 'No raw citations recorded for this code yet.',
+    vi: 'Chưa có trích dẫn thực địa được ghi nhận cho mã này.',
+  },
+  qualitativeDrawerContext: { en: 'Context:', vi: 'Ngữ cảnh:' },
+  qualitativeDrawerClose: { en: 'Close', vi: 'Đóng' },
+
+  // Qualitative Thematic Content Bilingual Translations
+  theme1Title: { en: 'Theme 1: Multimodal Scaffolding Framework', vi: 'Chủ Đề 1: Khung Giàn Giáo Đa Phương Thức' },
+  theme1Desc: {
+    en: 'Synchronous integration of visual anchors and digital signaling to sustain the Zone of Proximal Development (ZPD) for young EFL learners.',
+    vi: 'Sự kết hợp đồng bộ giữa neo thị giác (Visual anchors) và phản hồi kỹ thuật số nhằm duy trì vùng phát triển gần nhất (ZPD) cho học sinh tiểu học.',
+  },
+  theme1Reasoning: {
+    en: 'AI Synthesis: Teachers strategically leverage split-screen organizers, laser spotlights, and emoji polling to relieve lexical cognitive load prior to oral production.',
+    vi: 'Tổng hợp AI: Giáo viên khai thác triệt để đa phương thức trên lớp trực tuyến (slide chia sẻ, con trỏ laser, icon chat) để giảm tải nhận thức từ vựng trước khi yêu cầu học sinh nói trọn câu.',
+  },
+
+  theme2Title: { en: 'Theme 2: Pacing & Safe-Failure Environment', vi: 'Chủ Đề 2: Kiểm Soát Nhịp Độ & Môi Trường An Toàn' },
+  theme2Desc: {
+    en: 'Flexible pacing architecture featuring deliberate silence buffers and effort-oriented praise to neutralize foreign language speaking anxiety.',
+    vi: 'Kiến tạo nhịp độ bài học linh hoạt với khoảng đệm im lặng và phản hồi khen ngợi nỗ lực, giải tỏa nỗi sợ sai cho người học EFL trực tuyến.',
+  },
+  theme2Reasoning: {
+    en: 'AI Synthesis: Teachers deliberately elongate wait-time buffers beyond 3 seconds and pivot praise from grammatical correctness to communicative effort.',
+    vi: 'Tổng hợp AI: Giáo viên chủ động giãn thời gian chờ (>3s) và chuyển đổi từ khen ngợi kết quả sang khen ngợi sự nỗ lực sửa sai, hình thành tâm lý dám giao tiếp.',
+  },
+
+  theme3Title: { en: 'Theme 3: Routine-Governed Learner Agency', vi: 'Chủ Đề 3: Quyền Tự Chủ Điều Phối Qua Quy Tắc' },
+  theme3Desc: {
+    en: 'Establishment of transparent digital turn-taking protocols (randomized wheel, nomination chains) decentralizing conversational authority.',
+    vi: 'Thiết lập các quy tắc trực tuyến công bằng (vòng quay ngẫu nhiên, chỉ định nối tiếp) giúp học sinh làm chủ lượt nói thay vì giáo viên độc thoại.',
+  },
+  theme3Reasoning: {
+    en: 'AI Synthesis: Visual randomized selection routines ensure 100% alertness across the cohort and promote equitable turn allocation without teacher monologue dominance.',
+    vi: 'Tổng hợp AI: Quy trình chọn ngẫu nhiên trực quan giúp duy trì sự tập trung 100% của cả lớp và công bằng cơ hội tham gia mà không bị giáo viên độc thoại chi phối.',
+  },
+
+  // RQ1 Strategies
+  rq1Strat1Title: { en: 'Structured Turn-Taking & Equity Protocols', vi: 'Quy Chuẩn Điều Phối Lượt Nói Công Bằng' },
+  rq1Strat1Sub: {
+    en: 'Equitable speaking distribution preventing vocal student domination and shielding reluctant participants.',
+    vi: 'Điều phối lượt nói công bằng, tránh tình trạng học sinh hoạt ngôn áp đảo hoặc học sinh nhút nhát lẩn tránh.',
+  },
+  rq1Strat2Title: { en: 'Affective Buffering & Extended Wait Pacing', vi: 'Đệm Cảm Xúc & Kéo Dài Thời Gian Chờ' },
+  rq1Strat2Sub: {
+    en: 'Pacing regulation creating safe pauses for student self-repair and communication anxiety alleviation.',
+    vi: 'Kiểm soát nhịp độ, tạo khoảng lặng an toàn tâm lý giúp học sinh tự sửa lỗi phát âm và giảm âu lo giao tiếp.',
+  },
+  rq1Strat3Title: { en: 'Multimodal Digital Tool Orchestration', vi: 'Điều Phối Công Cụ Kỹ Thuật Số Đa Phương Thức' },
+  rq1Strat3Sub: {
+    en: 'Simultaneous mobilization of chat box, reaction icons, and annotation tools to ensure 100% active engagement.',
+    vi: 'Khai thác đồng thời hộp chat, icon cảm xúc và bảng vẽ trực tiếp để duy trì sự tham gia của 100% học sinh.',
+  },
+
   analyticsCorpusLabel: { en: 'Corpus', vi: 'Tập dữ liệu' },
   analyticsVideos: { en: 'videos', vi: 'video' },
   analyticsEvents: { en: 'verified pedagogical events', vi: 'sự kiện sư phạm đã xác thực' },
@@ -635,7 +752,55 @@ export const translations: TranslationDict = {
   },
   interviewEditCoreBtn: { en: 'Review & Edit Core Questions', vi: 'Xem & Chỉnh Sửa Core Questions' },
   interviewResynthesizeBtn: { en: 'AI Re-synthesize', vi: 'AI Tổng Hợp Lại' },
-  interviewApproveBtn: { en: 'Approve & Generate Guides', vi: 'Phê Duyệt & Sinh Câu Hỏi Sâu' },
+  interviewApproveBtn: { en: 'Approve & Synchronize', vi: 'Phê Duyệt & Đồng Bộ' },
+  interviewUnapproveBtn: { en: 'Unlock to Edit (Revert to Draft)', vi: 'Mở Khóa Duyệt (Quay Lại Nháp)' },
+  interviewToastUnapproveSuccess: { en: 'Core questions unlocked and reverted to Draft.', vi: 'Đã mở khóa duyệt. Bộ câu hỏi chuyển về trạng thái Dự thảo để chỉnh sửa.' },
+  interviewToastUnapproveError: { en: 'Failed to unlock core questions.', vi: 'Không thể mở khóa duyệt bộ câu hỏi.' },
+  interviewThemeVersionTitle: { en: 'Linked Teaching Theme Version', vi: 'Phiên Phân Tích Chủ Đề Liên Kết' },
+  interviewThemeVersionBadge: { en: 'Theme Linked View', vi: 'Xem Theo Phiên Kích Hoạt' },
+  interviewThemeVersionNote: { en: 'Interview Studio is locked to this active theme run. To switch versions, please select a different run in Teaching Themes.', vi: 'Interview Studio tự động khóa hiển thị theo phiên chủ đề đang kích hoạt này. Để đổi phiên, vui lòng chuyển tại mục Teaching Themes.' },
+  interviewThemeGoToThemes: { en: 'Manage in Teaching Themes', vi: 'Quản Lý Tại Teaching Themes' },
+  interviewApproveConfirmTitle: { en: 'Confirm Core Questions Approval', vi: 'Xác Nhận Phê Duyệt Bộ Câu Hỏi Cốt Lõi' },
+  interviewApproveConfirmDesc: { en: 'Approving locks these core questions as the standardized research foundation across all 12 teachers while strictly preserving all participant-specific dynamic follow-up questions.', vi: 'Phê duyệt sẽ chốt bộ câu hỏi cốt lõi làm khung nghiên cứu chuẩn hóa cho cả 12 giáo viên và bảo lưu nguyên vẹn toàn bộ câu hỏi đào sâu hiện có.' },
+  interviewApproveConfirmPoint1: { en: 'Standardizes common RQ1–RQ3 core inquiry for all 12 teachers.', vi: 'Chuẩn hóa bộ câu hỏi chung RQ1–RQ3 cho toàn bộ 12 giáo viên.' },
+  interviewApproveConfirmPoint2: { en: 'All personalized video-evidence questions remain 100% preserved.', vi: 'Bảo lưu nguyên vẹn 100% các câu hỏi đào sâu theo bằng chứng video của từng giáo viên.' },
+  interviewApproveConfirmPoint3: { en: 'You can unlock to edit (Unapprove) at any time without data loss.', vi: 'Bạn có thể mở khóa để chỉnh sửa lại bất cứ lúc nào mà không lo mất dữ liệu.' },
+  interviewApproveConfirmSubmit: { en: 'Confirm & Synchronize', vi: 'Xác Nhận & Đồng Bộ' },
+  interviewApproveConfirmCancel: { en: 'Cancel', vi: 'Hủy' },
+  interviewApproveNoticeTitle: { en: 'Approval Workflow & Data Safety Guide', vi: 'Chú Thích Cơ Chế Phê Duyệt & Bảo Toàn Dữ Liệu' },
+  interviewApproveNoticeDraftP1: {
+    en: 'Standardized Core Baseline: These core questions provide the uniform framework across all 12 teachers to answer RQ1, RQ2, and RQ3.',
+    vi: 'Khung cốt lõi chuẩn hóa: Bộ câu hỏi này là khung chuẩn chung hỏi cả 12 giáo viên để trả lời đầy đủ RQ1, RQ2 và RQ3.'
+  },
+  interviewApproveNoticeDraftP2: {
+    en: 'Safe Synchronization: Clicking "Approve & Synchronize" locks this core set and synchronizes it to all teachers without touching or wiping out any participant-specific follow-up questions.',
+    vi: 'Đồng bộ an toàn: Nhấn "Phê Duyệt & Đồng Bộ" sẽ chốt khung và đồng bộ cho cả 12 giáo viên mà không xóa hoặc ảnh hưởng đến bất kỳ câu hỏi đào sâu video nào.'
+  },
+  interviewApproveNoticeDraftP3: {
+    en: 'Reversible Anytime: You can click "Unlock to Edit (Unapprove)" at any point to return to Draft mode and adjust questions freely.',
+    vi: 'Hoàn tác bất cứ lúc nào: Bạn có thể nhấn "Mở khóa duyệt (Quay lại nháp)" bất cứ lúc nào để chỉnh sửa lại mà không mất dữ liệu.'
+  },
+  interviewApproveNoticeApprovedP1: {
+    en: 'Locked & Synchronized: This core question set is officially approved and locked across all 12 teacher interview guides.',
+    vi: 'Đã khóa & Đồng bộ: Bộ câu hỏi cốt lõi đã được phê duyệt chính thức và áp dụng đồng bộ trên phiếu phỏng vấn của cả 12 giáo viên.'
+  },
+  interviewApproveNoticeApprovedP2: {
+    en: 'Individual Evidence Ready: Participant-specific follow-up questions below are fully intact and ready for fieldwork interviewing and Word (.docx) export.',
+    vi: 'Bằng chứng sẵn sàng: Toàn bộ câu hỏi đào sâu riêng biệt bên dưới được bảo lưu nguyên vẹn, sẵn sàng để phỏng vấn thực địa và xuất file Word.'
+  },
+  interviewApproveNoticeApprovedP3: {
+    en: 'Need modifications? Click "Unlock to Edit (Revert to Draft)" above to unlock editing without data loss.',
+    vi: 'Cần sửa đổi? Nhấn nút "Mở Khóa Duyệt (Quay Lại Nháp)" ở trên để mở khóa chỉnh sửa mà không lo mất dữ liệu.'
+  },
+  interviewModalApproveHint: {
+    en: 'Saving & Approving will lock these core questions across all 12 teachers while strictly preserving all video-evidence dynamic questions. You can unlock to edit at any time.',
+    vi: 'Lưu & Phê duyệt sẽ chốt bộ câu hỏi cốt lõi cho 12 giáo viên và bảo lưu nguyên vẹn toàn bộ câu hỏi đào sâu theo video. Bạn có thể mở khóa duyệt lại bất cứ lúc nào.'
+  },
+  interviewHubCoreTitle: { en: 'Core Protocol (RQ1–RQ3)', vi: 'Đề Cương Cốt Lõi (RQ1–RQ3)' },
+  interviewHubCoreSub: { en: 'Standardized baseline inquiry for all 12 teachers', vi: 'Bộ câu hỏi chuẩn áp dụng chung cho tất cả 12 giáo viên' },
+  interviewHubPillar1: { en: '8 Standardized RQ1–RQ3 Questions for 12 Teachers', vi: '8 câu hỏi cốt lõi (RQ1–RQ3) chuẩn hóa đồng bộ cho 12 GV' },
+  interviewHubPillar2: { en: '100% Video Evidence & Dynamic Follow-ups Safely Preserved', vi: 'Bảo toàn 100% video evidence & câu hỏi đào sâu riêng biệt' },
+  interviewHubPillar3: { en: 'Fully Reversible: Unlock back to Draft anytime without data loss', vi: 'Mở khóa duyệt quay lại bản nháp bất cứ lúc nào' },
   interviewLoadingTeacher: { en: 'Loading interview data for teacher', vi: 'Đang tải dữ liệu phỏng vấn của giáo viên' },
   interviewCoreColTitle: { en: 'Core Questions (All 12 Teachers)', vi: 'Core Questions (Chung cho 12 GV)' },
   interviewCoreColDesc: {

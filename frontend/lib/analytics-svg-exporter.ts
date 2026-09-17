@@ -1,66 +1,28 @@
 /**
- * High-Resolution Vector (SVG) Exporter for Pedagogical Analytics
- * Publication-ready SVG generation with full explanatory legends, metadata, and high-contrast typography
+ * High-Resolution Vector (SVG) Exporter for Qualitative Research Analytics
+ * Publication-ready SVG generation for Qualitative Thesis (Braun & Clarke / Miles & Huberman)
  */
 
-export interface ExportTrajectoryParams {
-  trendData: Array<{
-    lesson: string;
-    teacher_id: string;
-    scaffolding: number;
-    waitTime: number;
-    praise: number;
-    agency: number;
-  }>;
-  cohort: string;
-  sectionFilter: string;
-  timeframe: string;
-  trendViewMode: 'perLesson' | 'ma';
-  isSectionVisible: (section: 'A' | 'B' | 'C' | 'E') => boolean;
-  t: (key: any) => string;
-}
-
-export interface ExportRadarParams {
-  dimensions: Array<{
-    key: string;
-    score: number;
-    count: number;
-  }>;
-  cohort: string;
-  timeframe: string;
-  t: (key: any) => string;
-}
-
-export interface ExportStreamParams {
-  bins: Array<{
-    bin: string;
-    warmup: number;
-    scaffolding: number;
-    studentTurns: number;
-    praise: number;
-  }>;
-  cohort: string;
-  timeframe: string;
-  t: (key: any) => string;
-}
-
-export interface ExportQuadrantParams {
-  teachers: Array<{
-    id: string;
-    scaffolding: number;
-    agency: number;
-    total_events: number;
-  }>;
-  cohort: string;
-  t: (key: any) => string;
-}
+import { CoverageMatrixRow, ThematicTheme, RQ1EnactmentRow } from './api';
 
 /**
  * Safely escapes special XML/SVG characters (<, >, &, ', ")
+ * and normalizes common HTML entities that are not recognized by XML parsers.
  */
 export function escapeXml(unsafe: string | number | null | undefined): string {
   if (unsafe == null) return '';
-  return String(unsafe).replace(/[<>&'"]/g, (c) => {
+  // Normalize HTML entities that break standard XML parsers
+  const normalized = String(unsafe)
+    .replace(/&ldquo;/g, '“')
+    .replace(/&rdquo;/g, '”')
+    .replace(/&lsquo;/g, '‘')
+    .replace(/&rsquo;/g, '’')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&hellip;/g, '…')
+    .replace(/&mdash;/g, '—')
+    .replace(/&ndash;/g, '–');
+
+  return normalized.replace(/[<>&'"]/g, (c) => {
     switch (c) {
       case '<': return '&lt;';
       case '>': return '&gt;';
@@ -88,530 +50,361 @@ export function downloadSVG(svgContent: string, filename: string) {
 }
 
 /**
- * 1. Longitudinal Trajectory SVG with Full Legend & Header
+ * 1. Code/Pattern × Coverage Matrix SVG Exporter
  */
-export function generateTrajectorySVG({
-  trendData,
-  cohort,
-  sectionFilter,
-  timeframe,
-  trendViewMode,
-  isSectionVisible,
-  t,
-}: ExportTrajectoryParams): string {
-  const width = 880;
-  const height = 480;
-  const paddingX = 55;
-  const chartTop = 85;
-  const chartH = 220;
-  const chartW = width - paddingX * 2;
+export function generateCoverageMatrixSVG({
+  rows,
+  viewMode,
+  columnsList,
+  title,
+  language = 'en',
+}: {
+  rows: CoverageMatrixRow[];
+  viewMode: 'lessons' | 'teachers';
+  columnsList: string[];
+  title?: string;
+  language?: 'en' | 'vi';
+}): string {
+  const isVi = language === 'vi';
+  const defaultTitle = isVi
+    ? 'Hình 4.1. Ma Trận Độ Phủ Mã & Mẫu Hành Vi Định Tính Qua 24 Bài Học'
+    : 'Figure 4.1. Qualitative Pattern & Code Coverage Matrix Across 24 Lessons';
+  const finalTitle = title || defaultTitle;
+  const colWidth = viewMode === 'lessons' ? 36 : 60;
+  const headerCol1Width = 260;
+  const headerCol2Width = 180;
+  const summaryColWidth = 120;
+  const gridWidth = headerCol1Width + headerCol2Width + columnsList.length * colWidth + summaryColWidth;
+  const rowHeight = 34;
+  const headerHeight = 120;
+  const footerHeight = 70;
+  const totalHeight = headerHeight + (rows.length + 1) * rowHeight + footerHeight;
+  const totalWidth = Math.max(1200, gridWidth + 80);
 
-  // Max value calculation
-  const values: number[] = [];
-  trendData.forEach((d) => {
-    if (isSectionVisible('A')) values.push(d.scaffolding);
-    if (isSectionVisible('B')) values.push(d.waitTime);
-    if (isSectionVisible('C')) values.push(d.praise);
-    if (isSectionVisible('E')) values.push(d.agency);
+  let gridX = 40;
+  let gridY = headerHeight;
+
+  // Build Table Header
+  let colsSvg = '';
+  let startX = gridX + headerCol1Width + headerCol2Width;
+  columnsList.forEach((col, idx) => {
+    const x = startX + idx * colWidth + colWidth / 2;
+    colsSvg += `
+      <rect x="${startX + idx * colWidth}" y="${gridY}" width="${colWidth}" height="${rowHeight}" fill="#FBF9F5" stroke="#E8E3D9" stroke-width="1" />
+      <text x="${x}" y="${gridY + 22}" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="600" fill="#736B63" text-anchor="middle">${escapeXml(col)}</text>
+    `;
   });
-  const highest = values.length ? Math.max(...values) : 20;
-  const maxVal = Math.max(20, Math.ceil((highest * 1.15) / 10) * 10);
 
-  const getCoordinates = (val: number, idx: number, total: number) => {
-    const x = paddingX + (idx / Math.max(1, total - 1)) * chartW;
-    const y = chartTop + chartH - (val / Math.max(1, maxVal)) * chartH;
-    return { x, y };
-  };
+  // Table Body Rows
+  let rowsSvg = '';
+  rows.forEach((r, rIdx) => {
+    const y = gridY + (rIdx + 1) * rowHeight;
+    const isEven = rIdx % 2 === 0;
+    const bgRow = isEven ? '#FFFFFF' : '#FAF8F5';
 
-  const generateSmoothPath = (pts: Array<{ x: number; y: number }>) => {
-    if (pts.length === 0) return '';
-    if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
-    let path = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p0 = pts[i === 0 ? 0 : i - 1];
-      const p1 = pts[i];
-      const p2 = pts[i + 1];
-      const p3 = pts[i + 2] || p2;
-      const cp1x = p1.x + (p2.x - p0.x) / 6;
-      const cp1y = p1.y + (p2.y - p0.y) / 6;
-      const cp2x = p2.x - (p3.x - p1.x) / 6;
-      const cp2y = p2.y - (p3.y - p1.y) / 6;
-      path += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
-    }
-    return path;
-  };
+    // Col 1: Code & Name
+    rowsSvg += `
+      <rect x="${gridX}" y="${y}" width="${headerCol1Width}" height="${rowHeight}" fill="${bgRow}" stroke="#E8E3D9" stroke-width="1" />
+      <text x="${gridX + 12}" y="${y + 21}" font-family="'Plus Jakarta Sans', sans-serif" font-size="12" font-weight="600" fill="#9E4A28">${escapeXml(r.description || r.code)}</text>
+    `;
 
-  // Grid Lines
-  const gridSteps = [0, Math.round(maxVal / 3), Math.round((maxVal * 2) / 3), maxVal];
-  const gridLinesSVG = gridSteps
-    .map((val) => {
-      const y = chartTop + chartH - (val / maxVal) * chartH;
-      return `
-        <line x1="${paddingX}" y1="${y}" x2="${paddingX + chartW}" y2="${y}" stroke="#E5E7EB" stroke-dasharray="${val === 0 ? 'none' : '3 3'}" stroke-width="1" />
-        <text x="${paddingX - 12}" y="${y + 4}" text-anchor="end" font-size="10.5" font-family="'SF Mono', Menlo, Consolas, monospace" fill="#6B7280">${val}</text>
+    // Col 2: Category
+    rowsSvg += `
+      <rect x="${gridX + headerCol1Width}" y="${y}" width="${headerCol2Width}" height="${rowHeight}" fill="${bgRow}" stroke="#E8E3D9" stroke-width="1" />
+      <text x="${gridX + headerCol1Width + 12}" y="${y + 21}" font-family="'Plus Jakarta Sans', sans-serif" font-size="11.5" fill="#736B63">${escapeXml(r.category)}</text>
+    `;
+
+    // Cells
+    const cells = viewMode === 'lessons' ? r.lesson_cells : r.teacher_cells;
+    columnsList.forEach((col, cIdx) => {
+      const cX = startX + cIdx * colWidth;
+      const cell = cells.find((c) => c.key.toLowerCase() === col.toLowerCase());
+      const isPresent = cell ? cell.present : false;
+
+      rowsSvg += `
+        <rect x="${cX}" y="${y}" width="${colWidth}" height="${rowHeight}" fill="${bgRow}" stroke="#E8E3D9" stroke-width="1" />
       `;
-    })
-    .join('');
+      if (isPresent) {
+        rowsSvg += `
+          <circle cx="${cX + colWidth / 2}" cy="${y + rowHeight / 2}" r="5" fill="#9E4A28" />
+        `;
+      }
+    });
 
-  // X Axis Lesson Labels
-  const xLabelsSVG = trendData
-    .map((d, i) => {
-      const { x } = getCoordinates(0, i, trendData.length);
-      return `<text x="${x}" y="${chartTop + chartH + 22}" text-anchor="middle" font-size="11" font-family="'SF Mono', Menlo, Consolas, monospace" font-weight="600" fill="#4B5563">${escapeXml(d.lesson)}</text>`;
-    })
-    .join('');
-
-  // Path & Dots Generation
-  const scaffoldPts = trendData.map((d, i) => getCoordinates(d.scaffolding, i, trendData.length));
-  const waitPts = trendData.map((d, i) => getCoordinates(d.waitTime, i, trendData.length));
-  const praisePts = trendData.map((d, i) => getCoordinates(d.praise, i, trendData.length));
-  const agencyPts = trendData.map((d, i) => getCoordinates(d.agency, i, trendData.length));
-
-  const pathA = isSectionVisible('A') ? generateSmoothPath(scaffoldPts) : '';
-  const pathB = isSectionVisible('B') ? generateSmoothPath(waitPts) : '';
-  const pathC = isSectionVisible('C') ? generateSmoothPath(praisePts) : '';
-  const pathE = isSectionVisible('E') ? generateSmoothPath(agencyPts) : '';
-
-  const dotsSVG = trendData
-    .map((d, i) => {
-      let circles = '';
-      if (isSectionVisible('A')) circles += `<circle cx="${scaffoldPts[i].x.toFixed(1)}" cy="${scaffoldPts[i].y.toFixed(1)}" r="4" fill="#9E4A28" stroke="#FFFFFF" stroke-width="2" />`;
-      if (isSectionVisible('B')) circles += `<circle cx="${waitPts[i].x.toFixed(1)}" cy="${waitPts[i].y.toFixed(1)}" r="4" fill="#2D6A4F" stroke="#FFFFFF" stroke-width="2" />`;
-      if (isSectionVisible('C')) circles += `<circle cx="${praisePts[i].x.toFixed(1)}" cy="${praisePts[i].y.toFixed(1)}" r="4" fill="#1D5C8A" stroke="#FFFFFF" stroke-width="2" />`;
-      if (isSectionVisible('E')) circles += `<circle cx="${agencyPts[i].x.toFixed(1)}" cy="${agencyPts[i].y.toFixed(1)}" r="4" fill="#B26A00" stroke="#FFFFFF" stroke-width="2" />`;
-      return circles;
-    })
-    .join('');
-
-  const areaA =
-    isSectionVisible('A') && trendData.length > 0
-      ? `<path d="${pathA} L ${scaffoldPts[scaffoldPts.length - 1].x} ${chartTop + chartH} L ${paddingX} ${chartTop + chartH} Z" fill="#9E4A28" fill-opacity="0.1" />`
-      : '';
-
-  const teacherLabel = cohort === 'all' ? t('analyticsTeacherAll') : `${t('analyticsTeacherPrefix')} ${cohort}`;
-  const timeframeLabel = timeframe === 'all' ? t('analyticsTimeframeAll') : timeframe === 'pre' ? t('analyticsTimeframePre') : t('analyticsTimeframePost');
-  const modeLabel = trendViewMode === 'perLesson' ? t('chartTrajectoryViewPerLesson') : t('chartTrajectoryViewMA');
+    // Summary Column (Breadth)
+    const sumX = startX + columnsList.length * colWidth;
+    const breadth = viewMode === 'lessons' ? r.breadth_lessons : r.breadth_teachers;
+    const total = viewMode === 'lessons' ? r.total_lessons : r.total_teachers;
+    const pct = total > 0 ? Math.round((breadth / total) * 100) : 0;
+    rowsSvg += `
+      <rect x="${sumX}" y="${y}" width="${summaryColWidth}" height="${rowHeight}" fill="${bgRow}" stroke="#E8E3D9" stroke-width="1" />
+      <text x="${sumX + summaryColWidth / 2}" y="${y + 21}" font-family="'JetBrains Mono', monospace" font-size="11.5" font-weight="700" fill="#9E4A28" text-anchor="middle">${breadth} / ${total} (${pct}%)</text>
+    `;
+  });
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
-  <style>
-    text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
-    .title { font-size: 18px; font-weight: 700; fill: #1F2937; }
-    .subtitle { font-size: 11.5px; fill: #6B7280; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-    .legend-title { font-size: 10.5px; font-weight: 700; fill: #4B5563; text-transform: uppercase; letter-spacing: 0.6px; }
-    .legend-name { font-size: 11.5px; font-weight: 700; }
-    .legend-desc { font-size: 11px; fill: #4B5563; }
-  </style>
+<svg width="${totalWidth}" height="${totalHeight}" viewBox="0 0 ${totalWidth} ${totalHeight}" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="100%" height="100%" fill="#FFFFFF" />
 
-  <!-- Clean Canvas Background -->
-  <rect width="100%" height="100%" fill="#FFFFFF" rx="8" />
-  <rect x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" fill="none" stroke="#E5E7EB" rx="8" />
+  <!-- Header -->
+  <text x="40" y="44" font-family="'Instrument Serif', Georgia, serif" font-size="24" fill="#9E4A28" font-weight="400">${escapeXml(finalTitle)}</text>
+  <text x="40" y="68" font-family="'Plus Jakarta Sans', sans-serif" font-size="13" fill="#736B63">${escapeXml(isVi ? 'Ma trận đa trường hợp chứng minh sự xuất hiện định tính phổ quát của các mẫu hành vi sư phạm qua 24 bài giảng.' : 'Cross-case matrix demonstrating recurring qualitative pedagogical codes across the 24-lesson EFL corpus without quantitative scoring.')}</text>
+  <text x="40" y="88" font-family="'Plus Jakarta Sans', sans-serif" font-size="11.5" fill="#A39B92">${escapeXml(isVi ? 'Chú giải: ● = Có bằng chứng định tính xuất hiện trong video/bản ghi. Tổng mẫu: 12 Giáo viên / 24 Bài học.' : 'Legend: ● = Qualitative evidence present in lesson transcript/video. Total Corpus: 12 Teachers / 24 Lessons.')}</text>
 
-  <!-- Title & Research Header -->
-  <text x="${paddingX}" y="36" class="title">${escapeXml(t('chartTrajectoryTitle'))}</text>
-  <text x="${paddingX}" y="56" class="subtitle">${escapeXml(t('analyticsCorpusLabel'))}: ${escapeXml(teacherLabel)}  |  ${escapeXml(t('analyticsTimeframe'))}: ${escapeXml(timeframeLabel)}  |  ${escapeXml(t('chartTrajectoryViewPerLesson'))}: ${escapeXml(modeLabel)}</text>
+  <!-- Grid Header: Col 1 & 2 -->
+  <rect x="${gridX}" y="${gridY}" width="${headerCol1Width}" height="${rowHeight}" fill="#FBF9F5" stroke="#E8E3D9" stroke-width="1" />
+  <text x="${gridX + 12}" y="${gridY + 22}" font-family="'Plus Jakarta Sans', sans-serif" font-size="12" font-weight="700" fill="#1A1612">${escapeXml(isVi ? 'Mã Định Tính & Mẫu Hành Vi' : 'Pattern / Qualitative Code')}</text>
 
-  <!-- Grid & Axes -->
-  ${gridLinesSVG}
-  ${xLabelsSVG}
+  <rect x="${gridX + headerCol1Width}" y="${gridY}" width="${headerCol2Width}" height="${rowHeight}" fill="#FBF9F5" stroke="#E8E3D9" stroke-width="1" />
+  <text x="${gridX + headerCol1Width + 12}" y="${gridY + 22}" font-family="'Plus Jakarta Sans', sans-serif" font-size="12" font-weight="700" fill="#1A1612">${escapeXml(isVi ? 'Cụm Hành Vi' : 'Category')}</text>
 
-  <!-- Paths & Data -->
-  ${areaA}
-  ${pathA ? `<path d="${pathA}" fill="none" stroke="#9E4A28" stroke-width="2.8" stroke-linecap="round" />` : ''}
-  ${pathB ? `<path d="${pathB}" fill="none" stroke="#2D6A4F" stroke-width="2.2" stroke-linecap="round" />` : ''}
-  ${pathC ? `<path d="${pathC}" fill="none" stroke="#1D5C8A" stroke-width="2.2" stroke-linecap="round" />` : ''}
-  ${pathE ? `<path d="${pathE}" fill="none" stroke="#B26A00" stroke-width="2.2" stroke-dasharray="5 4" stroke-linecap="round" />` : ''}
-  ${dotsSVG}
+  <!-- Grid Header Columns -->
+  ${colsSvg}
 
-  <!-- Explanatory Legend Section (Below Chart) -->
-  <g transform="translate(${paddingX}, ${chartTop + chartH + 42})">
-    <line x1="0" y1="0" x2="${chartW}" y2="0" stroke="#E5E7EB" stroke-width="1" />
-    <text x="0" y="18" class="legend-title">PEDAGOGICAL STRATEGY CLASSIFICATION &amp; EXPLANATION:</text>
+  <!-- Grid Header Summary -->
+  <rect x="${startX + columnsList.length * colWidth}" y="${gridY}" width="${summaryColWidth}" height="${rowHeight}" fill="#FBF9F5" stroke="#E8E3D9" stroke-width="1" />
+  <text x="${startX + columnsList.length * colWidth + summaryColWidth / 2}" y="${gridY + 22}" font-family="'Plus Jakarta Sans', sans-serif" font-size="12" font-weight="700" fill="#1A1612" text-anchor="middle">${escapeXml(isVi ? 'Độ Phủ' : 'Breadth')}</text>
 
-    <!-- Section A -->
-    <g transform="translate(0, 32)">
-      <line x1="0" y1="4" x2="22" y2="4" stroke="#9E4A28" stroke-width="3" stroke-linecap="round" />
-      <circle cx="11" cy="4" r="3.5" fill="#9E4A28" stroke="#FFFFFF" stroke-width="1.5" />
-      <text x="30" y="8" class="legend-name" fill="#9E4A28">${escapeXml(t('chartTrajectoryLegendScaffolding'))}:</text>
-      <text x="285" y="8" class="legend-desc">Teacher instructional cues, conceptual hints, and guided question scaffolding</text>
-    </g>
+  <!-- Grid Body -->
+  ${rowsSvg}
 
-    <!-- Section B -->
-    <g transform="translate(0, 49)">
-      <line x1="0" y1="4" x2="22" y2="4" stroke="#2D6A4F" stroke-width="2.5" stroke-linecap="round" />
-      <circle cx="11" cy="4" r="3.5" fill="#2D6A4F" stroke="#FFFFFF" stroke-width="1.5" />
-      <text x="30" y="8" class="legend-name" fill="#2D6A4F">${escapeXml(t('chartTrajectoryLegendWaitTime'))}:</text>
-      <text x="285" y="8" class="legend-desc">Extended wait-time pauses (&gt;3s) allowing student reflection &amp; cognitive formulation</text>
-    </g>
-
-    <!-- Section C -->
-    <g transform="translate(0, 66)">
-      <line x1="0" y1="4" x2="22" y2="4" stroke="#1D5C8A" stroke-width="2.5" stroke-linecap="round" />
-      <circle cx="11" cy="4" r="3.5" fill="#1D5C8A" stroke="#FFFFFF" stroke-width="1.5" />
-      <text x="30" y="8" class="legend-name" fill="#1D5C8A">${escapeXml(t('chartTrajectoryLegendPraise'))}:</text>
-      <text x="285" y="8" class="legend-desc">Constructive affirmation, praise for effort, and positive feedback reinforcement</text>
-    </g>
-
-    <!-- Section E -->
-    <g transform="translate(0, 83)">
-      <line x1="0" y1="4" x2="22" y2="4" stroke="#B26A00" stroke-width="2.5" stroke-dasharray="5 3" stroke-linecap="round" />
-      <circle cx="11" cy="4" r="3.5" fill="#B26A00" stroke="#FFFFFF" stroke-width="1.5" />
-      <text x="30" y="8" class="legend-name" fill="#B26A00">${escapeXml(t('chartTrajectoryLegendAgency'))}:</text>
-      <text x="285" y="8" class="legend-desc">Student-initiated questions, peer discourse, and autonomous exploration turns</text>
-    </g>
-  </g>
+  <!-- Footer Note -->
+  <text x="40" y="${totalHeight - 25}" font-family="'JetBrains Mono', monospace" font-size="11" fill="#A39B92">Observation Studio Qualitative Analytic Engine • Miles, Huberman &amp; Saldaña Qualitative Data Analysis Standards</text>
 </svg>`;
 }
 
 /**
- * 2. 5D Pedagogical Radar SVG with Full Legend & Header
+ * 2. Theme–Category–Code Analytic Hierarchy Map SVG Exporter (Audit Trail)
  */
-export function generateRadarSVG({
-  dimensions,
-  cohort,
-  timeframe,
-  t,
-}: ExportRadarParams): string {
-  const width = 640;
-  const height = 540;
-  const centerX = width / 2;
-  const centerY = 210;
-  const radius = 115;
+export function generateThematicHierarchySVG({
+  themes,
+  title,
+  language = 'en',
+}: {
+  themes: ThematicTheme[];
+  title?: string;
+  language?: 'en' | 'vi';
+}): string {
+  const isVi = language === 'vi';
+  const defaultTitle = isVi
+    ? 'Hình 4.2. Sơ Đồ Cây Phân Tích Chủ Đề Quy Nạp & Chuỗi Bằng Chứng (Audit Trail)'
+    : 'Figure 4.2. Grounded Thematic Coding Tree & Audit Trail';
+  const finalTitle = title || defaultTitle;
+  const width = 1440;
+  const themeCardHeight = 170;
+  const spacing = 35;
+  const totalHeight = 130 + themes.length * (themeCardHeight + spacing) + 80;
 
-  const count = Math.max(1, dimensions.length);
-  const angles = dimensions.map((_, i) => (Math.PI * 2 * i) / count - Math.PI / 2);
+  let contentSvg = '';
+  let curY = 120;
 
-  const getPoint = (score: number, angle: number) => {
-    const r = (Math.min(100, Math.max(0, score)) / 100) * radius;
-    return {
-      x: centerX + r * Math.cos(angle),
-      y: centerY + r * Math.sin(angle),
-    };
-  };
+  themes.forEach((th, tIdx) => {
+    const tBoxY = curY;
+    const tBoxHeight = Math.max(themeCardHeight, th.categories.length * 75 + 30);
+    const thName = isVi && th.name_vi ? th.name_vi : th.name;
+    const thDesc = isVi && th.description_vi ? th.description_vi : th.description;
 
-  const getLabel = (key: string) => {
-    const sec = key.replace('sec', '');
-    if (sec === 'A') return t('analyticsRadarA');
-    if (sec === 'B') return t('analyticsRadarB');
-    if (sec === 'C') return t('analyticsRadarC');
-    if (sec === 'D') return t('analyticsRadarD');
-    if (sec === 'E') return t('analyticsRadarE');
-    return sec;
-  };
+    // Theme Box (Column 1)
+    contentSvg += `
+      <g id="theme-${tIdx}">
+        <rect x="50" y="${tBoxY}" width="300" height="${tBoxHeight}" rx="8" fill="#FFFFFF" stroke="#9E4A28" stroke-width="2" />
+        <text x="70" y="${tBoxY + 34}" font-family="'Instrument Serif', Georgia, serif" font-size="19" fill="#9E4A28">${escapeXml(thName)}</text>
+        
+        <rect x="70" y="${tBoxY + 48}" width="80" height="18" rx="4" fill="#EAF4EE" />
+        <text x="78" y="${tBoxY + 61}" font-family="'Plus Jakarta Sans', sans-serif" font-size="10" font-weight="700" fill="#2D6A4F">${escapeXml(th.status.toUpperCase())}</text>
 
-  // Concentric Rings
-  const ringsSVG = [0.2, 0.4, 0.6, 0.8, 1.0]
-    .map((scale) => {
-      const pts = angles.map((a) => {
-        const pt = getPoint(scale * 100, a);
-        return `${pt.x.toFixed(1)},${pt.y.toFixed(1)}`;
+        <foreignObject x="70" y="${tBoxY + 74}" width="260" height="85">
+          <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;color:#736B63;line-height:1.4;">
+            ${escapeXml(thDesc)}
+          </div>
+        </foreignObject>
+      </g>
+    `;
+
+    // Categories (Column 2) & Codes (Column 3)
+    let catY = tBoxY + 10;
+    th.categories.forEach((cat) => {
+      const catBoxHeight = Math.max(65, cat.codes.length * 40 + 20);
+      const catName = isVi && cat.name_vi ? cat.name_vi : cat.name;
+      const catDesc = isVi && cat.description_vi ? cat.description_vi : (cat.description || '');
+
+      // Connector line from Theme to Category
+      contentSvg += `
+        <path d="M 350 ${tBoxY + 60} C 400 ${tBoxY + 60}, 410 ${catY + 30}, 440 ${catY + 30}" fill="none" stroke="#9E4A28" stroke-width="1.6" />
+      `;
+
+      // Category Box
+      contentSvg += `
+        <rect x="440" y="${catY}" width="280" height="${catBoxHeight}" rx="6" fill="#FFFFFF" stroke="#E8E3D9" stroke-width="1.5" />
+        <text x="456" y="${catY + 24}" font-family="'Plus Jakarta Sans', sans-serif" font-size="13" font-weight="700" fill="#1A1612">${escapeXml(catName)}</text>
+        <text x="456" y="${catY + 40}" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="#736B63">${escapeXml(catDesc)}</text>
+      `;
+
+      // Codes & Sample Excerpts
+      let codeY = catY + 5;
+      cat.codes.forEach((cd) => {
+        // Connector from Category to Code
+        contentSvg += `
+          <path d="M 720 ${catY + 30} C 760 ${catY + 30}, 770 ${codeY + 16}, 800 ${codeY + 16}" fill="none" stroke="#C4B5A5" stroke-width="1.4" />
+        `;
+
+        // Code Box
+        contentSvg += `
+          <rect x="800" y="${codeY}" width="250" height="34" rx="4" fill="#FFFFFF" stroke="#E8E3D9" stroke-width="1" />
+          <text x="814" y="${codeY + 22}" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="600" fill="#9E4A28">${escapeXml(cd.name || cd.code)}</text>
+        `;
+
+        // First sample excerpt
+        if (cd.sample_quotes && cd.sample_quotes.length > 0) {
+          const q = cd.sample_quotes[0];
+          contentSvg += `
+            <path d="M 1050 ${codeY + 17} L 1100 ${codeY + 17}" fill="none" stroke="#E8E3D9" stroke-width="1" />
+            <rect x="1100" y="${codeY - 6}" width="290" height="46" rx="4" fill="#FBF9F5" stroke="#E8E3D9" stroke-width="1" />
+            <text x="1112" y="${codeY + 10}" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" fill="#1D5C8A">[${escapeXml(q.timestamp_str)}] ${escapeXml(q.lesson)}</text>
+            <text x="1112" y="${codeY + 26}" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" font-style="italic" fill="#44403C">“${escapeXml(q.quote.slice(0, 42))}...”</text>
+          `;
+        }
+
+        codeY += 44;
       });
-      const percentY = centerY - scale * radius;
-      return `
-        <polygon points="${pts.join(' ')}" fill="none" stroke="#E5E7EB" stroke-width="${scale === 1 ? '1.5' : '0.8'}" />
-        <text x="${centerX + 4}" y="${percentY - 2}" font-size="9" fill="#9CA3AF" font-family="'SF Mono', Menlo, monospace">${Math.round(scale * 100)}%</text>
-      `;
-    })
-    .join('');
 
-  // Spokes & Axis Labels
-  const spokesSVG = dimensions
-    .map((d, i) => {
-      const edge = getPoint(100, angles[i]);
-      const labelPt = getPoint(124, angles[i]);
-      return `
-        <line x1="${centerX}" y1="${centerY}" x2="${edge.x.toFixed(1)}" y2="${edge.y.toFixed(1)}" stroke="#D1D5DB" stroke-width="1" />
-        <text x="${labelPt.x.toFixed(1)}" y="${(labelPt.y + 4).toFixed(1)}" text-anchor="middle" font-size="11.5" font-weight="600" fill="#374151">${escapeXml(getLabel(d.key))}</text>
-      `;
-    })
-    .join('');
+      catY += catBoxHeight + 15;
+    });
 
-  // Polygon Path & Points
-  const polygonPoints = dimensions
-    .map((d, i) => {
-      const pt = getPoint(d.score, angles[i]);
-      return `${pt.x.toFixed(1)},${pt.y.toFixed(1)}`;
-    })
-    .join(' ');
-
-  const vertexCircles = dimensions
-    .map((d, i) => {
-      const pt = getPoint(d.score, angles[i]);
-      return `
-        <circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="4.5" fill="#9E4A28" stroke="#FFFFFF" stroke-width="2" />
-        <text x="${pt.x.toFixed(1)}" y="${(pt.y - 8).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="700" fill="#9E4A28" font-family="'SF Mono', monospace">${Math.round(d.score)}%</text>
-      `;
-    })
-    .join('');
-
-  const teacherLabel = cohort === 'all' ? t('analyticsTeacherAll') : `${t('analyticsTeacherPrefix')} ${cohort}`;
-
-  // Explanatory breakdown items
-  const legendItems = dimensions
-    .map((d, idx) => {
-      const yOffset = 26 + idx * 20;
-      return `
-        <g transform="translate(0, ${yOffset})">
-          <circle cx="6" cy="4" r="4" fill="#9E4A28" />
-          <text x="18" y="8" font-size="11.5" font-weight="700" fill="#1F2937">${escapeXml(getLabel(d.key))}:</text>
-          <text x="190" y="8" font-size="11" fill="#4B5563">Score: <strong>${Math.round(d.score)}%</strong>  •  Count: <strong>${d.count}</strong> ${escapeXml(t('tooltipEvents'))}</text>
-        </g>
-      `;
-    })
-    .join('');
+    curY += tBoxHeight + spacing;
+  });
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
-  <style>
-    text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
-    .title { font-size: 18px; font-weight: 700; fill: #1F2937; }
-    .subtitle { font-size: 11.5px; fill: #6B7280; }
-    .legend-title { font-size: 10.5px; font-weight: 700; fill: #4B5563; text-transform: uppercase; letter-spacing: 0.6px; }
-  </style>
+<svg width="${width}" height="${totalHeight}" viewBox="0 0 ${width} ${totalHeight}" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100%" height="100%" fill="#FFFFFF" />
 
-  <!-- Clean Canvas Background -->
-  <rect width="100%" height="100%" fill="#FFFFFF" rx="8" />
-  <rect x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" fill="none" stroke="#E5E7EB" rx="8" />
+  <!-- Title & Headers -->
+  <text x="50" y="44" font-family="'Instrument Serif', Georgia, serif" font-size="24" fill="#9E4A28" font-weight="400">${escapeXml(finalTitle)}</text>
+  <text x="50" y="68" font-family="'Plus Jakarta Sans', sans-serif" font-size="13" fill="#736B63">${escapeXml(isVi ? 'Chuỗi phân tích quy nạp: Trích dẫn thực địa → Mã ban đầu → Cụm hành vi → Chủ đề ứng viên.' : 'Inductive analytic progression: Raw Observation Evidence → Initial Codes → Pedagogical Categories → Overarching Candidate Themes.')}</text>
 
-  <!-- Header -->
-  <text x="45" y="36" class="title">${escapeXml(t('chartRadarTitle'))}</text>
-  <text x="45" y="56" class="subtitle">${escapeXml(t('analyticsCorpusLabel'))}: ${escapeXml(teacherLabel)}  |  ${escapeXml(t('analyticsTimeframe'))}: ${escapeXml(timeframe.toUpperCase())}  |  5 Core Pedagogical Dimensions</text>
+  <!-- Flow Columns Guide -->
+  <text x="50" y="102" font-family="'Plus Jakarta Sans', sans-serif" font-size="11.5" font-weight="700" fill="#736B63" letter-spacing="0.5">${escapeXml(isVi ? 'CHỦ ĐỀ BAO QUÁT (CHƯƠNG 4)' : 'OVERARCHING THEMES')}</text>
+  <text x="440" y="102" font-family="'Plus Jakarta Sans', sans-serif" font-size="11.5" font-weight="700" fill="#736B63" letter-spacing="0.5">${escapeXml(isVi ? 'CỤM HÀNH VI (CATEGORIES)' : 'BEHAVIOR CATEGORIES')}</text>
+  <text x="800" y="102" font-family="'Plus Jakarta Sans', sans-serif" font-size="11.5" font-weight="700" fill="#736B63" letter-spacing="0.5">${escapeXml(isVi ? 'MÃ QUAN SÁT & PATTERNS' : 'INITIAL CODES & PATTERNS')}</text>
+  <text x="1100" y="102" font-family="'Plus Jakarta Sans', sans-serif" font-size="11.5" font-weight="700" fill="#736B63" letter-spacing="0.5">${escapeXml(isVi ? 'TRÍCH DẪN XÁC THỰC TIÊU BIỂU' : 'KEY VERIFIED EXCERPTS')}</text>
 
-  <!-- Radar Graph -->
-  ${ringsSVG}
-  ${spokesSVG}
-  <polygon points="${polygonPoints}" fill="#9E4A28" fill-opacity="0.22" stroke="#9E4A28" stroke-width="2.6" />
-  ${vertexCircles}
+  <!-- Dividers -->
+  <line x1="390" y1="88" x2="390" y2="${totalHeight - 40}" stroke="#E8E3D9" stroke-dasharray="4 4" />
+  <line x1="760" y1="88" x2="760" y2="${totalHeight - 40}" stroke="#E8E3D9" stroke-dasharray="4 4" />
+  <line x1="1075" y1="88" x2="1075" y2="${totalHeight - 40}" stroke="#E8E3D9" stroke-dasharray="4 4" />
 
-  <!-- Legend & Explanations below -->
-  <g transform="translate(45, 390)">
-    <line x1="0" y1="0" x2="${width - 90}" y2="0" stroke="#E5E7EB" stroke-width="1" />
-    <text x="0" y="16" class="legend-title">DIMENSIONAL METRICS &amp; EVENT SUMMARY:</text>
-    ${legendItems}
-  </g>
+  <!-- Content Tree -->
+  ${contentSvg}
+
+  <text x="50" y="${totalHeight - 20}" font-family="'JetBrains Mono', monospace" font-size="11" fill="#A39B92">Audit Trail Grounded Model • Lincoln &amp; Guba (1985) Dependability Framework • Video Teaching Research</text>
 </svg>`;
 }
 
 /**
- * 3. Intra-Lesson Temporal Dynamics SVG with Full Legend & Header
+ * 3. RQ1 Enactment & Traceability Map SVG Exporter
  */
-export function generateStreamSVG({
-  bins,
-  cohort,
-  timeframe,
-  t,
-}: ExportStreamParams): string {
-  const width = 880;
-  const height = 480;
-  const paddingX = 55;
-  const chartTop = 85;
-  const chartH = 200;
-  const chartW = width - paddingX * 2;
+export function generateRQ1TraceabilitySVG({
+  enactments,
+  title,
+  language = 'en',
+}: {
+  enactments: RQ1EnactmentRow[];
+  title?: string;
+  language?: 'en' | 'vi';
+}): string {
+  const isVi = language === 'vi';
+  const defaultTitle = isVi
+    ? 'Hình 4.3. Bản Đồ Truy Vết Triển Khai Thực Nghiệm Câu Hỏi Nghiên Cứu 1 (RQ1)'
+    : 'Figure 4.3. Research Question 1 (RQ1) Enactment & Evidence Traceability Map';
+  const finalTitle = title || defaultTitle;
+  const width = 1440;
+  const rowHeight = 150;
+  const headerHeight = 110;
+  const totalHeight = headerHeight + enactments.length * (rowHeight + 15) + 60;
 
-  const binCount = Math.max(1, bins.length);
-  const colWidth = (chartW - (binCount - 1) * 8) / binCount;
+  let rowsSvg = '';
+  let curY = headerHeight;
 
-  const barsSVG = bins
-    .map((bin, i) => {
-      const total = Math.max(1, bin.warmup + bin.scaffolding + bin.studentTurns + bin.praise);
-      const x = paddingX + i * (colWidth + 8);
+  enactments.forEach((row, idx) => {
+    const y = curY;
+    const stratName = isVi && row.strategy_name_vi ? row.strategy_name_vi : row.strategy_name;
+    const stratSub = isVi && row.strategy_subtext_vi ? row.strategy_subtext_vi : row.strategy_subtext;
+    const enactList = isVi && row.observed_enactments_vi && row.observed_enactments_vi.length > 0
+      ? row.observed_enactments_vi
+      : row.observed_enactments;
 
-      const hWarm = (bin.warmup / total) * chartH;
-      const hScaffold = (bin.scaffolding / total) * chartH;
-      const hTurns = (bin.studentTurns / total) * chartH;
-      const hPraise = (bin.praise / total) * chartH;
+    // Row Container
+    rowsSvg += `
+      <g id="rq-row-${idx}">
+        <!-- Col 1: Strategy -->
+        <rect x="40" y="${y}" width="280" height="${rowHeight}" fill="#FBF9F5" stroke="#E8E3D9" stroke-width="1" />
+        <text x="56" y="${y + 28}" font-family="'Plus Jakarta Sans', sans-serif" font-size="13.5" font-weight="700" fill="#9E4A28">${escapeXml(stratName)}</text>
+        <foreignObject x="56" y="${y + 36}" width="248" height="100">
+          <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:'Plus Jakarta Sans',sans-serif;font-size:11.5px;color:#736B63;line-height:1.4;">
+            ${escapeXml(stratSub)}
+          </div>
+        </foreignObject>
 
-      // stacked from bottom to top
-      const yWarm = chartTop + chartH - hWarm;
-      const yScaffold = yWarm - hScaffold;
-      const yTurns = yScaffold - hTurns;
-      const yPraise = yTurns - hPraise;
+        <!-- Col 2: Observed Enactments -->
+        <rect x="320" y="${y}" width="420" height="${rowHeight}" fill="#FFFFFF" stroke="#E8E3D9" stroke-width="1" />
+        <foreignObject x="336" y="${y + 14}" width="388" height="${rowHeight - 28}">
+          <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:'Plus Jakarta Sans',sans-serif;font-size:11.5px;color:#1A1612;line-height:1.45;">
+            ${enactList.map((en) => `<div style="margin-bottom:6px;">• <strong>${escapeXml(en.split(':')[0])}:</strong> ${escapeXml(en.split(':')[1] || '')}</div>`).join('')}
+          </div>
+        </foreignObject>
 
-      return `
-        <g>
-          <rect x="${x.toFixed(1)}" y="${yPraise.toFixed(1)}" width="${colWidth.toFixed(1)}" height="${hPraise.toFixed(1)}" fill="#6D28D9" opacity="0.9" />
-          <rect x="${x.toFixed(1)}" y="${yTurns.toFixed(1)}" width="${colWidth.toFixed(1)}" height="${hTurns.toFixed(1)}" fill="#2D6A4F" opacity="0.9" />
-          <rect x="${x.toFixed(1)}" y="${yScaffold.toFixed(1)}" width="${colWidth.toFixed(1)}" height="${hScaffold.toFixed(1)}" fill="#9E4A28" opacity="0.9" />
-          <rect x="${x.toFixed(1)}" y="${yWarm.toFixed(1)}" width="${colWidth.toFixed(1)}" height="${hWarm.toFixed(1)}" fill="#1D5C8A" opacity="0.9" />
-          <rect x="${x.toFixed(1)}" y="${chartTop}" width="${colWidth.toFixed(1)}" height="${chartH}" fill="none" stroke="#E5E7EB" stroke-width="1" rx="3" />
-          <!-- Bin Label -->
-          <text x="${(x + colWidth / 2).toFixed(1)}" y="${chartTop + chartH + 20}" text-anchor="middle" font-size="11" font-family="'SF Mono', Menlo, monospace" font-weight="600" fill="#4B5563">${escapeXml(bin.bin)}</text>
-        </g>
-      `;
-    })
-    .join('');
+        <!-- Col 3: Representative Lessons -->
+        <rect x="740" y="${y}" width="200" height="${rowHeight}" fill="#FFFFFF" stroke="#E8E3D9" stroke-width="1" />
+        <foreignObject x="752" y="${y + 14}" width="176" height="${rowHeight - 28}">
+          <div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-wrap:wrap;gap:4px;">
+            ${row.representative_lessons.map((ls) => `<span style="background:#FBF9F5;border:1px solid #E8E3D9;padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#1A1612;">${escapeXml(ls)}</span>`).join('')}
+          </div>
+        </foreignObject>
 
-  const teacherLabel = cohort === 'all' ? t('analyticsTeacherAll') : `${t('analyticsTeacherPrefix')} ${cohort}`;
+        <!-- Col 4: Verifiable Quotes -->
+        <rect x="940" y="${y}" width="460" height="${rowHeight}" fill="#FFFFFF" stroke="#E8E3D9" stroke-width="1" />
+        <foreignObject x="956" y="${y + 10}" width="428" height="${rowHeight - 20}">
+          <div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;gap:6px;">
+            ${row.direct_quotes.slice(0, 2).map((q) => `
+              <div style="background:#FBF9F5;border-radius:6px;padding:6px 10px;border-left:3px solid #9E4A28;font-size:11.5px;">
+                <span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:#1D5C8A;">[${escapeXml(q.timestamp_str)}] ${escapeXml(q.lesson)}: </span>
+                <span style="font-style:italic;color:#44403C;">“${escapeXml(q.quote)}”</span>
+              </div>
+            `).join('')}
+          </div>
+        </foreignObject>
+      </g>
+    `;
+
+    curY += rowHeight + 12;
+  });
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
-  <style>
-    text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
-    .title { font-size: 18px; font-weight: 700; fill: #1F2937; }
-    .subtitle { font-size: 11.5px; fill: #6B7280; }
-    .legend-title { font-size: 10.5px; font-weight: 700; fill: #4B5563; text-transform: uppercase; letter-spacing: 0.6px; }
-    .legend-name { font-size: 11.5px; font-weight: 700; }
-    .legend-desc { font-size: 11px; fill: #4B5563; }
-  </style>
+<svg width="${width}" height="${totalHeight}" viewBox="0 0 ${width} ${totalHeight}" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100%" height="100%" fill="#FFFFFF" />
 
-  <!-- Clean Canvas Background -->
-  <rect width="100%" height="100%" fill="#FFFFFF" rx="8" />
-  <rect x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" fill="none" stroke="#E5E7EB" rx="8" />
+  <!-- Title & Description -->
+  <text x="40" y="40" font-family="'Instrument Serif', Georgia, serif" font-size="24" fill="#9E4A28" font-weight="400">${escapeXml(finalTitle)}</text>
+  <text x="40" y="64" font-family="'Plus Jakarta Sans', sans-serif" font-size="13" fill="#736B63">${escapeXml(isVi ? 'Chuỗi bằng chứng thực nghiệm kết nối các chiến lược quản lý lớp học với hành vi quan sát được và mốc thời gian video.' : 'Direct empirical audit trail connecting classroom management strategies to observable teacher actions and verifiable video timestamps.')}</text>
 
-  <!-- Header -->
-  <text x="${paddingX}" y="36" class="title">${escapeXml(t('chartStreamTitle'))}</text>
-  <text x="${paddingX}" y="56" class="subtitle">${escapeXml(t('analyticsCorpusLabel'))}: ${escapeXml(teacherLabel)}  |  ${escapeXml(t('analyticsTimeframe'))}: ${escapeXml(timeframe.toUpperCase())}  |  Temporal Activity Density (0–45 min)</text>
+  <!-- Table Headers -->
+  <rect x="40" y="80" width="280" height="30" fill="#F4EFE6" stroke="#E8E3D9" stroke-width="1" />
+  <text x="56" y="100" font-family="'Plus Jakarta Sans', sans-serif" font-size="11.5" font-weight="700" fill="#1A1612" letter-spacing="0.5">${escapeXml(isVi ? 'CHIẾN LƯỢC QUẢN LÝ LỚP HỌC' : 'CLASSROOM MANAGEMENT STRATEGY')}</text>
 
-  <!-- Background Grid Horizontal Lines -->
-  <line x1="${paddingX}" y1="${chartTop}" x2="${paddingX + chartW}" y2="${chartTop}" stroke="#E5E7EB" stroke-dasharray="3 3" />
-  <line x1="${paddingX}" y1="${chartTop + chartH / 2}" x2="${paddingX + chartW}" y2="${chartTop + chartH / 2}" stroke="#E5E7EB" stroke-dasharray="3 3" />
-  <line x1="${paddingX}" y1="${chartTop + chartH}" x2="${paddingX + chartW}" y2="${chartTop + chartH}" stroke="#D1D5DB" stroke-width="1.2" />
+  <rect x="320" y="80" width="420" height="30" fill="#F4EFE6" stroke="#E8E3D9" stroke-width="1" />
+  <text x="336" y="100" font-family="'Plus Jakarta Sans', sans-serif" font-size="11.5" font-weight="700" fill="#1A1612" letter-spacing="0.5">${escapeXml(isVi ? 'HÀNH VI TRIỂN KHAI QUAN SÁT ĐƯỢC' : 'OBSERVED PEDAGOGICAL ENACTMENTS')}</text>
 
-  <!-- Stacked Bars & X Labels -->
-  ${barsSVG}
+  <rect x="740" y="80" width="200" height="30" fill="#F4EFE6" stroke="#E8E3D9" stroke-width="1" />
+  <text x="756" y="100" font-family="'Plus Jakarta Sans', sans-serif" font-size="11.5" font-weight="700" fill="#1A1612" letter-spacing="0.5">${escapeXml(isVi ? 'BÀI GIẢNG TIÊU BIỂU' : 'REPRESENTATIVE LESSONS')}</text>
 
-  <!-- Explanatory Legend below -->
-  <g transform="translate(${paddingX}, ${chartTop + chartH + 42})">
-    <line x1="0" y1="0" x2="${chartW}" y2="0" stroke="#E5E7EB" stroke-width="1" />
-    <text x="0" y="18" class="legend-title">INSTRUCTIONAL SEGMENT CLASSIFICATION &amp; PHASES:</text>
+  <rect x="940" y="80" width="460" height="30" fill="#F4EFE6" stroke="#E8E3D9" stroke-width="1" />
+  <text x="956" y="100" font-family="'Plus Jakarta Sans', sans-serif" font-size="11.5" font-weight="700" fill="#1A1612" letter-spacing="0.5">${escapeXml(isVi ? 'TRÍCH DẪN & MỐC THỜI GIAN XÁC THỰC' : 'VERIFIABLE VIDEO QUOTES & TIMESTAMPS')}</text>
 
-    <!-- Warmup -->
-    <g transform="translate(0, 32)">
-      <rect x="0" y="0" width="16" height="10" fill="#1D5C8A" rx="2" />
-      <text x="24" y="9" class="legend-name" fill="#1D5C8A">${escapeXml(t('chartStreamWarmup'))}:</text>
-      <text x="240" y="9" class="legend-desc">Initial lesson activation, prior knowledge elicitation, and goal orientation</text>
-    </g>
+  <!-- Content Rows -->
+  ${rowsSvg}
 
-    <!-- Scaffolding -->
-    <g transform="translate(0, 49)">
-      <rect x="0" y="0" width="16" height="10" fill="#9E4A28" rx="2" />
-      <text x="24" y="9" class="legend-name" fill="#9E4A28">${escapeXml(t('chartStreamScaffolding'))}:</text>
-      <text x="240" y="9" class="legend-desc">Explicit teacher modeling, structured explanation, and procedural guidance</text>
-    </g>
-
-    <!-- Student Turns -->
-    <g transform="translate(0, 66)">
-      <rect x="0" y="0" width="16" height="10" fill="#2D6A4F" rx="2" />
-      <text x="24" y="9" class="legend-name" fill="#2D6A4F">${escapeXml(t('chartStreamStudentTurns'))}:</text>
-      <text x="240" y="9" class="legend-desc">Active student verbalization, peer discussions, and independent practice turns</text>
-    </g>
-
-    <!-- Praise -->
-    <g transform="translate(0, 83)">
-      <rect x="0" y="0" width="16" height="10" fill="#6D28D9" rx="2" />
-      <text x="24" y="9" class="legend-name" fill="#6D28D9">${escapeXml(t('chartStreamPraise'))}:</text>
-      <text x="240" y="9" class="legend-desc">Positive reinforcement, constructive synthesis, and formative closing review</text>
-    </g>
-  </g>
+  <text x="40" y="${totalHeight - 15}" font-family="'JetBrains Mono', monospace" font-size="11" fill="#A39B92">RQ1 Traceability Matrix • Research Verification Standard • Video Teaching Research</text>
 </svg>`;
 }
 
-/**
- * 4. Pedagogical Quadrant Map SVG with Full Legend & Header
- */
-export function generateQuadrantSVG({
-  teachers,
-  cohort,
-  t,
-}: ExportQuadrantParams): string {
-  const width = 720;
-  const height = 560;
-  const paddingX = 55;
-  const chartTop = 85;
-  const chartH = 290;
-  const chartW = width - paddingX * 2;
-
-  const midX = paddingX + chartW / 2;
-  const midY = chartTop + chartH / 2;
-
-  // Scatter dots
-  const teacherDots = teachers
-    .map((tp) => {
-      const agencyPct = Math.min(90, Math.max(10, tp.agency)) / 100;
-      const scaffoldPct = Math.min(90, Math.max(10, tp.scaffolding)) / 100;
-
-      const x = paddingX + agencyPct * chartW;
-      const y = chartTop + (1 - scaffoldPct) * chartH;
-
-      return `
-        <g>
-          <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7" fill="#9E4A28" stroke="#FFFFFF" stroke-width="2.5" />
-          <text x="${x.toFixed(1)}" y="${(y + 16).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="700" font-family="'SF Mono', Menlo, monospace" fill="#9E4A28">${escapeXml(tp.id)}</text>
-        </g>
-      `;
-    })
-    .join('');
-
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
-  <style>
-    text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
-    .title { font-size: 18px; font-weight: 700; fill: #1F2937; }
-    .subtitle { font-size: 11.5px; fill: #6B7280; }
-    .quadrant-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-    .legend-title { font-size: 10.5px; font-weight: 700; fill: #4B5563; text-transform: uppercase; letter-spacing: 0.6px; }
-    .legend-name { font-size: 11px; font-weight: 700; fill: #1F2937; }
-    .legend-desc { font-size: 10.5px; fill: #4B5563; }
-  </style>
-
-  <!-- Clean Canvas Background -->
-  <rect width="100%" height="100%" fill="#FFFFFF" rx="8" />
-  <rect x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" fill="none" stroke="#E5E7EB" rx="8" />
-
-  <!-- Header -->
-  <text x="${paddingX}" y="36" class="title">${escapeXml(t('chartQuadrantTitle'))}</text>
-  <text x="${paddingX}" y="56" class="subtitle">${escapeXml(t('chartQuadrantXLabel'))} (X) vs ${escapeXml(t('chartQuadrantYLabel'))} (Y)  |  4 Teaching Archetypes</text>
-
-  <!-- Coordinate Box -->
-  <rect x="${paddingX}" y="${chartTop}" width="${chartW}" height="${chartH}" fill="#FAFAF9" stroke="#D6D3D1" stroke-width="1.2" rx="4" />
-
-  <!-- Crosshairs -->
-  <line x1="${paddingX}" y1="${midY}" x2="${paddingX + chartW}" y2="${midY}" stroke="#D6D3D1" stroke-dasharray="4 4" stroke-width="1" />
-  <line x1="${midX}" y1="${chartTop}" x2="${midX}" y2="${chartTop + chartH}" stroke="#D6D3D1" stroke-dasharray="4 4" stroke-width="1" />
-
-  <!-- Quadrant Watermarks -->
-  <!-- Top Right: Facilitative Mentors -->
-  <text x="${paddingX + chartW - 12}" y="${chartTop + 20}" text-anchor="end" class="quadrant-label" fill="#9E4A28">${escapeXml(t('quadrantFacilitative'))}</text>
-  <!-- Top Left: Structured Direct -->
-  <text x="${paddingX + 12}" y="${chartTop + 20}" text-anchor="start" class="quadrant-label" fill="#6B7280">${escapeXml(t('quadrantStructured'))}</text>
-  <!-- Bottom Left: Traditional Guided -->
-  <text x="${paddingX + 12}" y="${chartTop + chartH - 12}" text-anchor="start" class="quadrant-label" fill="#6B7280">${escapeXml(t('quadrantTraditional'))}</text>
-  <!-- Bottom Right: Open Conversational -->
-  <text x="${paddingX + chartW - 12}" y="${chartTop + chartH - 12}" text-anchor="end" class="quadrant-label" fill="#6B7280">${escapeXml(t('quadrantConversational'))}</text>
-
-  <!-- Axes Arrows & Labels -->
-  <text x="${midX}" y="${chartTop + chartH + 24}" text-anchor="middle" font-size="11" font-weight="600" fill="#4B5563">Student Agency &amp; Production Ratio (%) →</text>
-  <text x="${paddingX - 12}" y="${midY}" text-anchor="middle" transform="rotate(-90 ${paddingX - 12} ${midY})" font-size="11" font-weight="600" fill="#4B5563">Teacher Scaffolding Quality (%) →</text>
-
-  <!-- Plotted Teacher Dots -->
-  ${teacherDots}
-
-  <!-- Explanatory Legend below -->
-  <g transform="translate(${paddingX}, ${chartTop + chartH + 42})">
-    <line x1="0" y1="0" x2="${chartW}" y2="0" stroke="#E5E7EB" stroke-width="1" />
-    <text x="0" y="16" class="legend-title">PEDAGOGICAL ARCHETYPE DEFINITIONS:</text>
-
-    <!-- Quadrant I & II -->
-    <g transform="translate(0, 30)">
-      <text x="0" y="8" class="legend-name" fill="#9E4A28">• ${escapeXml(t('quadrantFacilitative'))}:</text>
-      <text x="180" y="8" class="legend-desc">High scaffolding + High student agency. Strategic prompting with ample student autonomy.</text>
-    </g>
-
-    <g transform="translate(0, 47)">
-      <text x="0" y="8" class="legend-name" fill="#4B5563">• ${escapeXml(t('quadrantStructured'))}:</text>
-      <text x="180" y="8" class="legend-desc">High scaffolding + Lower student agency. Explicit direct modeling with teacher-led cadence.</text>
-    </g>
-
-    <!-- Quadrant III & IV -->
-    <g transform="translate(0, 64)">
-      <text x="0" y="8" class="legend-name" fill="#4B5563">• ${escapeXml(t('quadrantConversational'))}:</text>
-      <text x="180" y="8" class="legend-desc">Lower scaffolding + High student agency. Open student-centric discussion with fluid facilitation.</text>
-    </g>
-
-    <g transform="translate(0, 81)">
-      <text x="0" y="8" class="legend-name" fill="#4B5563">• ${escapeXml(t('quadrantTraditional'))}:</text>
-      <text x="180" y="8" class="legend-desc">Lower scaffolding + Lower student agency. Conventional transmission lecture and silent listening.</text>
-    </g>
-  </g>
-</svg>`;
-}

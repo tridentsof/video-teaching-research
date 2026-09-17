@@ -27,3 +27,15 @@ func (h *AnalyticsHandler) GetPedagogical(c *gin.Context) {
 	}
 	RespondSuccess(c, data)
 }
+
+// GetQualitative returns qualitative thematic hierarchy, coverage matrix, and RQ1 enactment maps.
+// GET /api/analytics/qualitative
+func (h *AnalyticsHandler) GetQualitative(c *gin.Context) {
+	data, err := h.repo.GetQualitativeAnalytics(c.Request.Context())
+	if err != nil {
+		RespondError(c, http.StatusInternalServerError, "failed to compute qualitative analytics: "+err.Error())
+		return
+	}
+	RespondSuccess(c, data)
+}
+

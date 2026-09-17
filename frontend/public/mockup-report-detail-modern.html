@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="vi" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup: Report & Stats Detail UI Redesign Options</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Calibri:wght@400;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'Calibri', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            navy: {
+              50: '#F0F4F8',
+              100: '#D9E2EC',
+              800: '#102A43',
+              900: '#1E3A8A',
+            },
+            academic: {
+              primary: '#1E3A8A',
+              secondary: '#4B5563',
+              accent: '#9E4A28',
+              emerald: '#166534',
+              emeraldBg: '#EAF4EE',
+              amber: '#92400E',
+              amberBg: '#FEF7EA',
+              border: '#E2E8F0',
+              bgHeader: '#F1F5F9',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #F8FAFC;
+      color: #1E293B;
+      font-family: 'Inter', 'Calibri', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .custom-shadow {
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.03);
+    }
+    .badge-yes {
+      background-color: #EAF4EE;
+      color: #166534;
+      border: 1px solid #BBF7D0;
+    }
+    .badge-no {
+      background-color: #F1F5F9;
+      color: #94A3B8;
+      border: 1px solid #E2E8F0;
+    }
+    .tab-active {
+      background-color: #1E3A8A;
+      color: #FFFFFF;
+      box-shadow: 0 2px 8px rgba(30, 58, 138, 0.25);
+    }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+
+  <!-- Control Bar & Design Review Banner -->
+  <div class="max-w-6xl mx-auto mb-8 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-blue-100 text-blue-800 border border-blue-200">UI Mockup Gate</span>
+          <span class="text-xs text-slate-500 font-medium">Design Review for /reports/[id]</span>
+        </div>
+        <h1 class="text-xl font-bold text-slate-900 mt-1">Đề Xuất Cải Thiện Giao Diện Hiển Thị Báo Cáo Chi Tiết (Report Detail)</h1>
+        <p class="text-sm text-slate-600">Đồng bộ triệt để với giao diện Word mới & phong cách Interview Studio, loại bỏ hoàn toàn viền đen thô và font Times New Roman cũ.</p>
+      </div>
+
+      <!-- Option Switcher -->
+      <div class="flex items-center bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+        <button onclick="setDesignOption(1)" id="btn-opt-1" class="px-4 py-2 rounded-lg text-xs md:text-sm font-semibold transition-all tab-active">
+          Option 1: Đồng Bộ Chuẩn Word & Interview Studio (Khuyên Dùng)
+        </button>
+        <button onclick="setDesignOption(2)" id="btn-opt-2" class="px-4 py-2 rounded-lg text-xs md:text-sm font-semibold transition-all text-slate-600 hover:text-slate-900">
+          Option 2: Dashboard Tương Tác & Stats
+        </button>
+        <button onclick="setDesignOption(3)" id="btn-opt-3" class="px-4 py-2 rounded-lg text-xs md:text-sm font-semibold transition-all text-slate-600 hover:text-slate-900">
+          Option 3: Minimalist Tinh Giản
+        </button>
+      </div>
+    </div>
+
+    <!-- Quick explanation of selected option -->
+    <div id="opt-desc-1" class="text-xs text-slate-600 flex items-center gap-2 bg-blue-50/60 text-blue-900 px-4 py-2.5 rounded-xl border border-blue-100">
+      <svg class="w-4 h-4 text-blue-700 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+      <span><strong>Option 1:</strong> Bố cục dạng thẻ học thuật trang nhã. Sử dụng màu chủ đạo Navy Blue (<code class="text-blue-800">#1E3A8A</code>), mã GV cam đất (<code class="text-amber-800">#9E4A28</code>), viền xám mềm (<code class="text-slate-700">#E2E8F0</code>), bảng thẻ thông tin tiết học 2x2, dẫn chứng in nghiêng trang trọng. Trải nghiệm trên Web đồng nhất 100% khi in ra hoặc xuất file Word!</span>
+    </div>
+    <div id="opt-desc-2" class="text-xs text-slate-600 hidden items-center gap-2 bg-indigo-50/60 text-indigo-900 px-4 py-2.5 rounded-xl border border-indigo-100">
+      <svg class="w-4 h-4 text-indigo-700 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+      <span><strong>Option 2:</strong> Bổ sung thanh tiến độ hoàn thành các Section (A-E), chỉ số nhanh (% Observed, Tổng tần suất), bộ lọc tìm kiếm chỉ báo nhanh và nút nhảy trực tiếp đến video player.</span>
+    </div>
+    <div id="opt-desc-3" class="text-xs text-slate-600 hidden items-center gap-2 bg-emerald-50/60 text-emerald-900 px-4 py-2.5 rounded-xl border border-emerald-100">
+      <svg class="w-4 h-4 text-emerald-700 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
+      <span><strong>Option 3:</strong> Phong cách Editorial tinh gọn, tối giản viền (chỉ có đường kẻ ngang mỏng nhẹ), tăng khoảng trắng (whitespace) tối đa, thích hợp cho đọc tài liệu học thuật tập trung cao độ.</span>
+    </div>
+  </div>
+
+  <!-- MAIN PREVIEW CONTAINER -->
+  <main class="max-w-6xl mx-auto space-y-6">
+
+    <!-- Top Action Bar (Same across all, sleek styling) -->
+    <div class="flex flex-wrap items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl px-5 py-3 shadow-sm">
+      <a href="#" class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+        <span>Quay Lại Danh Sách Báo Cáo</span>
+      </a>
+
+      <div class="flex items-center gap-2.5">
+        <!-- View Mode Tab -->
+        <div class="flex bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-semibold">
+          <button class="px-3 py-1.5 rounded-md bg-white text-blue-900 shadow-sm">Bảng Kiểm (Checklist)</button>
+          <button class="px-3 py-1.5 rounded-md text-slate-500 hover:text-slate-900">Markdown</button>
+        </div>
+
+        <!-- Export Word Button (Green like Interview Studio) -->
+        <button class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 shadow-sm transition">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+          <span>Xuất File Word (.docx)</span>
+        </button>
+
+        <!-- Download MD -->
+        <button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+          <span>Tải File .md</span>
+        </button>
+      </div>
+    </div>
+
+
+    <!-- ========================================================================= -->
+    <!-- VIEW OPTION 1: ACADEMIC PAPER PRO (Matching Word & Interview Studio)     -->
+    <!-- ========================================================================= -->
+    <div id="view-option-1" class="bg-white border border-slate-200 rounded-2xl p-6 md:p-10 custom-shadow space-y-8">
+      
+      <!-- Title & Academic Subtitle -->
+      <div class="text-center space-y-2 border-b border-slate-100 pb-6">
+        <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200/60 mb-1">
+          Hồ Sơ Quan Sát Sư Phạm Chuẩn Học Thuật
+        </span>
+        <h2 class="text-2xl md:text-3xl font-bold tracking-tight text-academic-primary">
+          BẢNG KIỂM QUAN SÁT LỚP HỌC TRỰC TUYẾN
+        </h2>
+        <p class="text-sm text-slate-600 italic max-w-3xl mx-auto">
+          Nghiên cứu: Chiến lược quản lý lớp học trực tuyến & Khả năng tương tác nói tiếng Anh của học sinh tiểu học
+        </p>
+        <p class="text-xs text-slate-400">
+          Khung nghiên cứu: Bảng kiểm quan sát video sư phạm 5 phần (Phần A đến E — 29 Chỉ báo hành vi)
+        </p>
+      </div>
+
+      <!-- Lesson Information Table (Card Grid 2x2 matching Word Export) -->
+      <div class="space-y-3">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-academic-primary flex items-center gap-2">
+          <span class="w-1.5 h-3.5 bg-blue-800 rounded-sm inline-block"></span>
+          Thông Tin Tiết Học Quan Sát (Lesson Information)
+        </h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 border border-slate-200 rounded-xl overflow-hidden text-sm">
+          <!-- Row 1 Left -->
+          <div class="flex border-b border-r border-slate-200">
+            <div class="w-40 bg-slate-50 px-4 py-2.5 font-semibold text-slate-700 border-r border-slate-200 flex items-center">
+              Lượt quan sát:
+            </div>
+            <div class="px-4 py-2.5 font-bold text-academic-primary flex items-center">
+              #01 (Video #4a7b9e10)
+            </div>
+          </div>
+          <!-- Row 1 Right -->
+          <div class="flex border-b border-slate-200">
+            <div class="w-40 bg-slate-50 px-4 py-2.5 font-semibold text-slate-700 border-r border-slate-200 flex items-center">
+              Giáo viên:
+            </div>
+            <div class="px-4 py-2.5 font-bold text-academic-accent flex items-center">
+              T01 (Cô Hoàng Lan)
+            </div>
+          </div>
+
+          <!-- Row 2 Left -->
+          <div class="flex border-b border-r border-slate-200">
+            <div class="w-40 bg-slate-50 px-4 py-2.5 font-semibold text-slate-700 border-r border-slate-200 flex items-center">
+              Ngày quan sát:
+            </div>
+            <div class="px-4 py-2.5 text-slate-800 flex items-center">
+              2024-01-15
+            </div>
+          </div>
+          <!-- Row 2 Right -->
+          <div class="flex border-b border-slate-200">
+            <div class="w-40 bg-slate-50 px-4 py-2.5 font-semibold text-slate-700 border-r border-slate-200 flex items-center">
+              Thời lượng video:
+            </div>
+            <div class="px-4 py-2.5 text-slate-800 flex items-center">
+              25:40 phút (Toàn bộ tiết dạy)
+            </div>
+          </div>
+
+          <!-- Row 3 Left -->
+          <div class="flex border-b border-r border-slate-200">
+            <div class="w-40 bg-slate-50 px-4 py-2.5 font-semibold text-slate-700 border-r border-slate-200 flex items-center">
+              Lớp học:
+            </div>
+            <div class="px-4 py-2.5 text-slate-800 flex items-center">
+              Lớp Tiếng Anh 2A3 (Online)
+            </div>
+          </div>
+          <!-- Row 3 Right -->
+          <div class="flex border-b border-slate-200">
+            <div class="w-40 bg-slate-50 px-4 py-2.5 font-semibold text-slate-700 border-r border-slate-200 flex items-center">
+              Nền tảng dạy:
+            </div>
+            <div class="px-4 py-2.5 text-slate-800 flex items-center">
+              Zoom Meeting
+            </div>
+          </div>
+
+          <!-- Row 4 Full Col: Lesson Topic -->
+          <div class="md:col-span-2 flex">
+            <div class="w-40 bg-slate-50 px-4 py-2.5 font-semibold text-slate-700 border-r border-slate-200 flex items-center flex-shrink-0">
+              Chủ đề bài học:
+            </div>
+            <div class="px-4 py-2.5 font-semibold text-slate-900 flex items-center">
+              Unit 4: Animals Around Us — Phonics /p/ & /b/ and Speaking Turn-taking Practice
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Summary Metric Bar -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50/70 border border-slate-200 rounded-xl p-3.5 text-center">
+        <div>
+          <div class="text-xs text-slate-500 font-medium">Chỉ báo được ghi nhận</div>
+          <div class="text-lg font-bold text-academic-emerald mt-0.5">21 / 29 (72.4%)</div>
+        </div>
+        <div>
+          <div class="text-xs text-slate-500 font-medium">Tổng tần suất hành vi</div>
+          <div class="text-lg font-bold text-academic-primary mt-0.5">38 lần</div>
+        </div>
+        <div>
+          <div class="text-xs text-slate-500 font-medium">Section nhiều tương tác nhất</div>
+          <div class="text-lg font-bold text-academic-accent mt-0.5">Section B (14 lần)</div>
+        </div>
+        <div>
+          <div class="text-xs text-slate-500 font-medium">Trạng thái phê duyệt</div>
+          <div class="text-lg font-bold text-slate-800 mt-0.5 flex items-center justify-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Hoàn Tất
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION A DEMO TABLE -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold text-academic-primary flex items-center gap-2">
+            <span class="w-2 h-4 bg-academic-primary rounded-sm inline-block"></span>
+            Phần A. Thiết lập quy tắc và nền nếp trực tuyến (Section A: Rules & Routines)
+          </h3>
+          <span class="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+            5 / 5 Đạt (100%)
+          </span>
+        </div>
+
+        <div class="border border-slate-200 rounded-xl overflow-hidden">
+          <table class="w-full text-left text-sm border-collapse">
+            <thead>
+              <tr class="bg-slate-100 text-slate-800 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                <th class="p-3 w-[36%] border-r border-slate-200">Chỉ báo hành vi (Indicators)</th>
+                <th class="p-3 w-[12%] text-center border-r border-slate-200">Quan sát</th>
+                <th class="p-3 w-[12%] text-center border-r border-slate-200">Tần suất</th>
+                <th class="p-3 w-[16%] text-center border-r border-slate-200">Mốc thời gian</th>
+                <th class="p-3 w-[24%]">Bối cảnh / Dẫn chứng (Context)</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 text-slate-700 text-xs md:text-sm">
+              <!-- Item 1 -->
+              <tr class="hover:bg-slate-50/50 transition">
+                <td class="p-3 border-r border-slate-200 font-medium text-slate-800">
+                  Teacher explains classroom rules
+                  <div class="text-xs text-slate-400 font-normal mt-0.5">Giải thích nội quy lớp học online</div>
+                </td>
+                <td class="p-3 border-r border-slate-200 text-center">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold badge-yes">
+                    <svg class="w-3 h-3 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+                    Yes
+                  </span>
+                </td>
+                <td class="p-3 border-r border-slate-200 text-center font-bold text-academic-primary">
+                  2
+                </td>
+                <td class="p-3 border-r border-slate-200 text-center">
+                  <div class="inline-flex flex-col gap-1 font-mono text-xs">
+                    <span class="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100 font-medium">00:01:15</span>
+                    <span class="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100 font-medium">00:03:40</span>
+                  </div>
+                </td>
+                <td class="p-3 italic text-slate-600 bg-slate-50/30">
+                  “Nhắc nhở mở camera và giữ mic tắt trước khi bắt đầu bài học.”
+                </td>
+              </tr>
+
+              <!-- Item 2 -->
+              <tr class="hover:bg-slate-50/50 transition">
+                <td class="p-3 border-r border-slate-200 font-medium text-slate-800">
+                  Teacher reminds students of classroom expectations
+                  <div class="text-xs text-slate-400 font-normal mt-0.5">Nhắc nhở kỳ vọng về hành vi và phát biểu</div>
+                </td>
+                <td class="p-3 border-r border-slate-200 text-center">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold badge-yes">
+                    <svg class="w-3 h-3 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+                    Yes
+                  </span>
+                </td>
+                <td class="p-3 border-r border-slate-200 text-center font-bold text-academic-primary">
+                  1
+                </td>
+                <td class="p-3 border-r border-slate-200 text-center">
+                  <span class="font-mono text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100 font-medium">00:08:22</span>
+                </td>
+                <td class="p-3 italic text-slate-600 bg-slate-50/30">
+                  “Giáo viên yêu cầu bấm icon giơ tay trước khi trả lời câu hỏi.”
+                </td>
+              </tr>
+
+              <!-- Item 3: Not Observed Example -->
+              <tr class="bg-slate-50/20 hover:bg-slate-50/50 transition">
+                <td class="p-3 border-r border-slate-200 font-normal text-slate-500">
+                  Teacher establishes lesson routines
+                  <div class="text-xs text-slate-400 font-normal mt-0.5">Thiết lập các nền nếp bài giảng định kỳ</div>
+                </td>
+                <td class="p-3 border-r border-slate-200 text-center">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium badge-no">
+                    No
+                  </span>
+                </td>
+                <td class="p-3 border-r border-slate-200 text-center font-normal text-slate-400">
+                  -
+                </td>
+                <td class="p-3 border-r border-slate-200 text-center font-mono text-xs text-slate-400">
+                  -
+                </td>
+                <td class="p-3 italic text-slate-400">
+                  Không ghi nhận hoạt động khởi động nền nếp riêng biệt.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- General Observation Notes Box (Card Styling) -->
+      <div class="space-y-2">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-academic-primary flex items-center gap-2">
+          <span class="w-1.5 h-3.5 bg-blue-800 rounded-sm inline-block"></span>
+          Ghi Chú Quan Sát Chung (General Observation Notes)
+        </h3>
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 text-sm leading-relaxed text-slate-700 space-y-3">
+          <p class="italic">
+            “Giáo viên duy trì tương tác tốt với lớp học thông qua việc gọi tên và dùng lời khen ngợi tích cực. Tốc độ bài giảng vừa phải, thời gian chờ (wait time) được điều chỉnh hợp lý giúp học sinh tự tin trả lời phát âm tiếng Anh.”
+          </p>
+          <div class="border-t border-dashed border-slate-300 pt-3 flex items-center justify-between text-xs text-slate-500">
+            <span>Người quan sát & mã hóa: <strong>VTR AI Pipeline v1.2 + Nghiên Cứu Viên</strong></span>
+            <span>Phiên bản rubric: <strong>v1.0 (29 Indicators)</strong></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+
+    <!-- ========================================================================= -->
+    <!-- VIEW OPTION 2: MODERN RESEARCH DASHBOARD                                  -->
+    <!-- ========================================================================= -->
+    <div id="view-option-2" class="hidden bg-white border border-slate-200 rounded-2xl p-6 md:p-8 custom-shadow space-y-6">
+      <!-- Section Tabs & Filter -->
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Chi Tiết Bảng Kiểm Theo Từng Section</h2>
+          <p class="text-xs text-slate-500">Xem nhanh tỷ lệ chỉ báo theo 5 nhóm hành vi sư phạm</p>
+        </div>
+        <!-- Section Filter Chips -->
+        <div class="flex flex-wrap gap-1.5 bg-slate-100 p-1.5 rounded-xl text-xs font-semibold">
+          <button class="px-3 py-1 rounded-lg bg-white text-indigo-700 shadow-sm">Tất Cả (29)</button>
+          <button class="px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900">Phần A (5/5)</button>
+          <button class="px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900">Phần B (5/6)</button>
+          <button class="px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900">Phần C (4/6)</button>
+          <button class="px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900">Phần D (4/6)</button>
+          <button class="px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900">Phần E (3/6)</button>
+        </div>
+      </div>
+
+      <!-- Mini Progress Bars per Section -->
+      <div class="grid grid-cols-1 sm:grid-cols-5 gap-3">
+        <div class="bg-indigo-50/50 border border-indigo-100 rounded-xl p-3">
+          <div class="text-xs font-semibold text-indigo-900">Section A</div>
+          <div class="text-base font-bold text-indigo-700 mt-1">100% (5/5)</div>
+          <div class="w-full bg-indigo-200 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div class="bg-indigo-600 h-full w-full"></div>
+          </div>
+        </div>
+        <div class="bg-blue-50/50 border border-blue-100 rounded-xl p-3">
+          <div class="text-xs font-semibold text-blue-900">Section B</div>
+          <div class="text-base font-bold text-blue-700 mt-1">83.3% (5/6)</div>
+          <div class="w-full bg-blue-200 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div class="bg-blue-600 h-full w-[83%]"></div>
+          </div>
+        </div>
+        <div class="bg-emerald-50/50 border border-emerald-100 rounded-xl p-3">
+          <div class="text-xs font-semibold text-emerald-900">Section C</div>
+          <div class="text-base font-bold text-emerald-700 mt-1">66.7% (4/6)</div>
+          <div class="w-full bg-emerald-200 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div class="bg-emerald-600 h-full w-[67%]"></div>
+          </div>
+        </div>
+        <div class="bg-amber-50/50 border border-amber-100 rounded-xl p-3">
+          <div class="text-xs font-semibold text-amber-900">Section D</div>
+          <div class="text-base font-bold text-amber-700 mt-1">66.7% (4/6)</div>
+          <div class="w-full bg-amber-200 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div class="bg-amber-600 h-full w-[67%]"></div>
+          </div>
+        </div>
+        <div class="bg-purple-50/50 border border-purple-100 rounded-xl p-3">
+          <div class="text-xs font-semibold text-purple-900">Section E</div>
+          <div class="text-base font-bold text-purple-700 mt-1">50.0% (3/6)</div>
+          <div class="w-full bg-purple-200 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div class="bg-purple-600 h-full w-[50%]"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-6 text-center text-slate-400 text-sm border border-dashed border-slate-200 rounded-xl">
+        (Bảng danh sách chỉ báo tương tác với bộ lọc tương tự Option 1 nhưng có thêm các nút bấm nhảy timestamp đến video player)
+      </div>
+    </div>
+
+
+    <!-- ========================================================================= -->
+    <!-- VIEW OPTION 3: MINIMALIST EDITORIAL                                      -->
+    <!-- ========================================================================= -->
+    <div id="view-option-3" class="hidden bg-white border border-slate-200 rounded-2xl p-8 md:p-12 custom-shadow space-y-8">
+      <div class="border-b border-slate-800 pb-4">
+        <div class="text-xs uppercase tracking-widest text-slate-500">Academic Field Notes</div>
+        <h2 class="text-2xl font-serif font-bold text-slate-900 mt-1">Classroom Observation Checklist</h2>
+        <div class="text-xs text-slate-600 mt-1">Teacher ID: <strong>T01</strong> &bull; Lesson: <strong>#01 (Phonics & Turn-Taking)</strong> &bull; Date: <strong>2024-01-15</strong></div>
+      </div>
+
+      <!-- Minimal Table without vertical borders -->
+      <table class="w-full text-left text-sm border-collapse">
+        <thead>
+          <tr class="border-b-2 border-slate-800 text-slate-800 text-xs font-bold uppercase tracking-wider">
+            <th class="py-2.5">Indicator</th>
+            <th class="py-2.5 text-center">Observed</th>
+            <th class="py-2.5 text-center">Freq</th>
+            <th class="py-2.5 text-center">Timestamp</th>
+            <th class="py-2.5">Context</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 text-xs">
+          <tr>
+            <td class="py-3 font-medium text-slate-900">Teacher explains classroom rules</td>
+            <td class="py-3 text-center text-emerald-700 font-bold">Yes</td>
+            <td class="py-3 text-center font-bold">2</td>
+            <td class="py-3 text-center font-mono text-slate-600">00:01:15, 00:03:40</td>
+            <td class="py-3 italic text-slate-600">Sets mic and camera expectations at opening.</td>
+          </tr>
+          <tr>
+            <td class="py-3 font-medium text-slate-900">Teacher reminds students of classroom expectations</td>
+            <td class="py-3 text-center text-emerald-700 font-bold">Yes</td>
+            <td class="py-3 text-center font-bold">1</td>
+            <td class="py-3 text-center font-mono text-slate-600">00:08:22</td>
+            <td class="py-3 italic text-slate-600">Reminder to raise virtual hand before unmuting.</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="text-xs text-slate-400 italic">Phong cách tinh giản không viền dọc, tối ưu cho mắt khi đọc văn bản dài và in ấn giấy A4 trực tiếp.</div>
+    </div>
+
+  </main>
+
+  <script>
+    function setDesignOption(opt) {
+      // Toggle views
+      document.getElementById('view-option-1').classList.toggle('hidden', opt !== 1);
+      document.getElementById('view-option-2').classList.toggle('hidden', opt !== 2);
+      document.getElementById('view-option-3').classList.toggle('hidden', opt !== 3);
+
+      // Toggle descriptions
+      document.getElementById('opt-desc-1').classList.toggle('hidden', opt !== 1);
+      document.getElementById('opt-desc-1').classList.toggle('flex', opt === 1);
+      document.getElementById('opt-desc-2').classList.toggle('hidden', opt !== 2);
+      document.getElementById('opt-desc-2').classList.toggle('flex', opt === 2);
+      document.getElementById('opt-desc-3').classList.toggle('hidden', opt !== 3);
+      document.getElementById('opt-desc-3').classList.toggle('flex', opt === 3);
+
+      // Toggle tab classes
+      const buttons = [document.getElementById('btn-opt-1'), document.getElementById('btn-opt-2'), document.getElementById('btn-opt-3')];
+      buttons.forEach((btn, idx) => {
+        if (idx + 1 === opt) {
+          btn.className = 'px-4 py-2 rounded-lg text-xs md:text-sm font-semibold transition-all tab-active';
+        } else {
+          btn.className = 'px-4 py-2 rounded-lg text-xs md:text-sm font-semibold transition-all text-slate-600 hover:text-slate-900';
+        }
+      });
+    }
+  </script>
+</body>
+</html>

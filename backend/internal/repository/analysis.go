@@ -430,6 +430,86 @@ func (r *AnalysisRepository) UpdateInterviewQuestion(ctx context.Context, qID uu
 	return nil
 }
 
+// SyncTeacherCoreQuestions synchronizes approved core questions across all teacher analyses for a run
+// while strictly preserving all participant-specific dynamic questions and teacher qualitative narratives.
+func (r *AnalysisRepository) SyncTeacherCoreQuestions(ctx context.Context, runID uuid.UUID, coreQuestions []model.CoreQuestionItem) error {
+	tx, err := r.db.Pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Fetch all teacher analyses for this run
+	taRows, err := tx.Query(ctx, `SELECT id, teacher_id FROM teacher_analyses WHERE analysis_run_id = $1`, runID)
+	if err != nil {
+		return fmt.Errorf("failed to query teacher analyses: %w", err)
+	}
+	type taMeta struct {
+		id        uuid.UUID
+		teacherID string
+	}
+	var teacherAnalyses []taMeta
+	for taRows.Next() {
+		var m taMeta
+		if err := taRows.Scan(&m.id, &m.teacherID); err != nil {
+			taRows.Close()
+			return fmt.Errorf("failed to scan teacher analysis: %w", err)
+		}
+		teacherAnalyses = append(teacherAnalyses, m)
+	}
+	taRows.Close()
+
+	if len(teacherAnalyses) == 0 {
+		return tx.Commit(ctx)
+	}
+
+	// Remove ONLY the existing core questions for all teacher analyses belonging to this run
+	// Dynamic questions (type = 'dynamic') and teacher qualitative analyses are completely untouched!
+	delQuery := `
+		DELETE FROM interview_questions
+		WHERE teacher_analysis_id IN (SELECT id FROM teacher_analyses WHERE analysis_run_id = $1)
+		  AND type = 'core'
+	`
+	if _, err := tx.Exec(ctx, delQuery, runID); err != nil {
+		return fmt.Errorf("failed to delete old core questions: %w", err)
+	}
+
+	// Insert the updated/approved core questions for each teacher analysis
+	insertQuery := `
+		INSERT INTO interview_questions (
+			id, teacher_analysis_id, teacher_id, type, rq_category, question_text, is_user_edited, sort_order, created_at
+		) VALUES ($1, $2, $3, 'core', $4, $5, false, $6, $7)
+	`
+	now := time.Now()
+	for _, ta := range teacherAnalyses {
+		for idx, cq := range coreQuestions {
+			rq := cq.RQCategory
+			var rqPtr *string
+			if rq != "" {
+				rqPtr = &rq
+			}
+			sortOrder := idx + 1
+			if _, err := tx.Exec(ctx, insertQuery,
+				uuid.New(), ta.id, ta.teacherID, rqPtr, cq.QuestionText, sortOrder, now,
+			); err != nil {
+				return fmt.Errorf("failed to insert core question for teacher %s: %w", ta.teacherID, err)
+			}
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+// UpdateCoreQuestionsStatus sets the core questions status (draft / approved) for an analysis run.
+func (r *AnalysisRepository) UpdateCoreQuestionsStatus(ctx context.Context, runID uuid.UUID, status string) error {
+	query := `UPDATE analysis_runs SET core_questions_status = $1 WHERE id = $2`
+	_, err := r.db.Pool.Exec(ctx, query, status, runID)
+	if err != nil {
+		return fmt.Errorf("failed to update core questions status: %w", err)
+	}
+	return nil
+}
+
 // GetActiveRun returns any run that is currently in-progress (not completed or error).
 func (r *AnalysisRepository) GetActiveRun(ctx context.Context) (*model.AnalysisRun, error) {
 	query := `

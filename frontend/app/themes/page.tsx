@@ -97,8 +97,11 @@ export default function ThemesPage() {
 
       // Determine active target run ID
       let targetId: string | null = null;
+      const storedRunId = typeof window !== 'undefined' ? localStorage.getItem('active_theme_run_id') : null;
       if (preferredRunId && runs?.some((r) => r.id === preferredRunId)) {
         targetId = preferredRunId;
+      } else if (storedRunId && runs?.some((r) => r.id === storedRunId)) {
+        targetId = storedRunId;
       } else if (selectedRunId && runs?.some((r) => r.id === selectedRunId)) {
         targetId = selectedRunId;
       } else if (latest?.id) {
@@ -108,6 +111,9 @@ export default function ThemesPage() {
       }
 
       setSelectedRunId(targetId);
+      if (targetId && typeof window !== 'undefined') {
+        localStorage.setItem('active_theme_run_id', targetId);
+      }
 
       if (targetId) {
         const data = await api.getThemes(targetId);
@@ -130,6 +136,9 @@ export default function ThemesPage() {
     try {
       setLoading(true);
       setSelectedRunId(runId);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('active_theme_run_id', runId);
+      }
       const data = await api.getThemes(runId);
       setThemes(data || []);
     } catch (err: any) {
@@ -142,6 +151,9 @@ export default function ThemesPage() {
   const handleSelectRun = (runId: string) => {
     loadThemesForRun(runId);
     setShowHistoryModal(false);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('active_theme_run_id', runId);
+    }
     const target = runsList.find((r) => r.id === runId);
     if (target) {
       toast.info(

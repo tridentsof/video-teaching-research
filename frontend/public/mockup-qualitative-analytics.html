@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup: Qualitative Analytics & Evidence Studio - Observation Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #FBF9F5;
+      --sidebar-bg: #F4EFE6;
+      --card-bg: #FFFFFF;
+      --card-border: #E8E3D9;
+      --card-border-soft: #F0EAE1;
+      --text-main: #1A1612;
+      --text-muted: #736B63;
+      --text-subtle: #A39B92;
+      
+      --accent: #9E4A28; /* Terracotta research */
+      --accent-hover: #843D1F;
+      --accent-soft: #F5EBE6;
+      
+      --accent-green: #2D6A4F;
+      --accent-green-soft: #EAF4EE;
+      
+      --accent-blue: #1D5C8A;
+      --accent-blue-soft: #EBF3F9;
+      
+      --accent-amber: #B26A00;
+      --accent-amber-soft: #FEF7EA;
+
+      --accent-purple: #6D28D9;
+      --accent-purple-soft: #F3E8FF;
+
+      --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-serif: 'Instrument Serif', Georgia, serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --shadow-sm: 0 1px 3px rgba(40, 30, 20, 0.04);
+      --shadow-md: 0 8px 24px -4px rgba(40, 30, 20, 0.08);
+      --radius-sm: 6px;
+      --radius-md: 12px;
+      --radius-lg: 18px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      font-size: 13.5px;
+      line-height: 1.5;
+      padding: 0;
+      overflow-x: hidden;
+    }
+
+    /* Top Reviewer Switcher Bar */
+    .mockup-bar {
+      position: sticky;
+      top: 0;
+      z-index: 200;
+      background: #1C1917;
+      color: #F5F5F4;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+    }
+    .mockup-bar-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .mockup-badge {
+      background: var(--accent);
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .mockup-tabs {
+      display: flex;
+      gap: 8px;
+      background: rgba(255,255,255,0.08);
+      padding: 4px;
+      border-radius: 8px;
+    }
+    .mockup-tab-btn {
+      background: transparent;
+      border: none;
+      color: #D6D3D1;
+      padding: 6px 14px;
+      font-size: 12.5px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .mockup-tab-btn.active {
+      background: #FFFFFF;
+      color: #1C1917;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+
+    /* Container */
+    .app-container {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 32px 28px 80px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    /* Header */
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 22px;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      background-color: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid var(--card-border);
+      margin-bottom: 8px;
+    }
+    .header-title {
+      font-family: var(--font-serif);
+      font-size: 34px;
+      font-weight: 400;
+      color: var(--accent);
+      letter-spacing: -0.5px;
+      line-height: 1.15;
+      margin-bottom: 6px;
+    }
+    .header-desc {
+      color: var(--text-muted);
+      font-size: 14px;
+      max-width: 780px;
+    }
+
+    .action-btn-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--card-border);
+      background-color: var(--card-bg);
+      color: var(--text-main);
+      transition: all 0.15s ease;
+    }
+    .btn:hover {
+      background-color: var(--bg);
+      border-color: var(--accent);
+    }
+    .btn-primary {
+      background-color: var(--accent);
+      color: #FFFFFF;
+      border-color: transparent;
+    }
+    .btn-primary:hover {
+      background-color: var(--accent-hover);
+    }
+
+    /* Card Wrapper */
+    .section-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      box-shadow: var(--shadow-sm);
+      position: relative;
+    }
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--card-border-soft);
+      padding-bottom: 14px;
+      gap: 16px;
+    }
+    .section-title {
+      font-family: var(--font-serif);
+      font-size: 24px;
+      color: var(--accent);
+      font-weight: 400;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-caption {
+      color: var(--text-muted);
+      font-size: 12.5px;
+      margin-top: 4px;
+    }
+    .section-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Sub-controls (Radio toggle pills) */
+    .pill-group {
+      display: inline-flex;
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 2px;
+      gap: 2px;
+    }
+    .pill-btn {
+      border: none;
+      background: transparent;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+    .pill-btn.active {
+      background: var(--card-bg);
+      color: var(--accent);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    /* ============================================================
+       CHART 1: COVERAGE MATRIX
+       ============================================================ */
+    .matrix-wrapper {
+      overflow-x: auto;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      background: #FFFFFF;
+    }
+    .matrix-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      white-space: nowrap;
+    }
+    .matrix-table th, .matrix-table td {
+      border: 1px solid var(--card-border-soft);
+      padding: 7px 8px;
+      text-align: center;
+    }
+    .matrix-table th {
+      background: var(--bg);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .matrix-table th.col-code {
+      text-align: left;
+      min-width: 240px;
+      position: sticky;
+      left: 0;
+      background: var(--bg);
+      z-index: 20;
+    }
+    .matrix-table th.col-cat {
+      text-align: left;
+      width: 140px;
+      position: sticky;
+      left: 240px;
+      background: var(--bg);
+      z-index: 20;
+    }
+    .matrix-table td.cell-code {
+      text-align: left;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--accent);
+      position: sticky;
+      left: 0;
+      background: #FFFFFF;
+      z-index: 10;
+      cursor: pointer;
+    }
+    .matrix-table td.cell-code:hover {
+      text-decoration: underline;
+    }
+    .matrix-table td.cell-cat {
+      text-align: left;
+      font-size: 11.5px;
+      color: var(--text-muted);
+      position: sticky;
+      left: 240px;
+      background: #FFFFFF;
+      z-index: 10;
+    }
+    .matrix-table tr:hover td {
+      background-color: #FAF6F0;
+    }
+    .matrix-table tr:hover td.cell-code,
+    .matrix-table tr:hover td.cell-cat {
+      background-color: #FAF6F0;
+    }
+
+    .matrix-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: var(--accent);
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+    .matrix-dot:hover {
+      transform: scale(1.4);
+      background-color: var(--accent-hover);
+    }
+    .matrix-summary-col {
+      background: var(--bg);
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    /* ============================================================
+       CHART 2: THEME–CATEGORY–CODE HIERARCHY MAP
+       ============================================================ */
+    .hierarchy-container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-x: auto;
+      padding: 10px 4px;
+    }
+
+    /* SVG Tree View */
+    .tree-view-svg {
+      width: 100%;
+      min-height: 480px;
+      border: 1px solid var(--card-border-soft);
+      border-radius: var(--radius-sm);
+      background: #FCFAF8;
+    }
+
+    /* Bento Flow View */
+    .bento-flow {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    .theme-bento-card {
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      background: #FFFFFF;
+      padding: 18px;
+      box-shadow: var(--shadow-sm);
+      border-top: 4px solid var(--accent);
+    }
+    .theme-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .theme-name {
+      font-family: var(--font-serif);
+      font-size: 19px;
+      color: var(--accent);
+      font-weight: 400;
+      line-height: 1.25;
+    }
+    .theme-status-tag {
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--accent-green-soft);
+      color: var(--accent-green);
+    }
+    .theme-reasoning {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-style: italic;
+      margin-bottom: 14px;
+      background: var(--bg);
+      padding: 8px 10px;
+      border-radius: 6px;
+      border-left: 2px solid var(--accent);
+    }
+    .category-group {
+      margin-bottom: 14px;
+      border: 1px solid var(--card-border-soft);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: #FAFAFA;
+    }
+    .category-title {
+      font-weight: 700;
+      font-size: 12.5px;
+      color: var(--text-main);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .code-chip-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .code-chip {
+      background: #FFFFFF;
+      border: 1px solid var(--card-border);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--accent);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.12s ease;
+    }
+    .code-chip:hover {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .code-quote-preview {
+      margin-top: 6px;
+      font-size: 11.5px;
+      color: var(--text-muted);
+      font-style: italic;
+      line-height: 1.4;
+      padding-left: 8px;
+      border-left: 2px solid var(--card-border);
+    }
+
+    /* ============================================================
+       CHART 3: RQ1 EVIDENCE & ENACTMENT MAP
+       ============================================================ */
+    .rq-map-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .rq-strategy-row {
+      display: grid;
+      grid-template-columns: 240px 360px 180px 1fr;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: #FFFFFF;
+      transition: box-shadow 0.15s ease;
+    }
+    .rq-strategy-row:hover {
+      box-shadow: var(--shadow-md);
+    }
+    .rq-col-header {
+      display: grid;
+      grid-template-columns: 240px 360px 180px 1fr;
+      padding: 8px 16px;
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .rq-cell {
+      padding: 14px 16px;
+      border-right: 1px solid var(--card-border-soft);
+      font-size: 12.5px;
+    }
+    .rq-cell:last-child {
+      border-right: none;
+    }
+    .rq-strategy-title {
+      font-weight: 700;
+      font-size: 13.5px;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+    .rq-strategy-sub {
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+    .rq-enactment-item {
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+    .rq-enactment-item:last-child {
+      margin-bottom: 0;
+    }
+    .rq-enactment-bullet {
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    .rq-teacher-tag {
+      display: inline-block;
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-main);
+      margin: 2px;
+    }
+    .rq-evidence-snippet {
+      background: var(--bg);
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin-bottom: 6px;
+      border-left: 3px solid var(--accent);
+      font-size: 12px;
+    }
+    .rq-evidence-snippet:last-child {
+      margin-bottom: 0;
+    }
+    .rq-timestamp {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent-blue);
+      margin-right: 6px;
+    }
+
+    /* Modal / Drawer for Code Quotes */
+    .drawer-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.45);
+      backdrop-filter: blur(2px);
+      z-index: 999;
+      display: none;
+      justify-content: flex-end;
+    }
+    .drawer-overlay.open {
+      display: flex;
+    }
+    .drawer-panel {
+      width: 460px;
+      height: 100%;
+      background: #FFFFFF;
+      box-shadow: -4px 0 24px rgba(0,0,0,0.2);
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      overflow-y: auto;
+    }
+    .drawer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 14px;
+    }
+    .drawer-title {
+      font-family: var(--font-serif);
+      font-size: 22px;
+      color: var(--accent);
+    }
+    .drawer-close {
+      background: transparent;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Mockup Switcher Bar -->
+  <header class="mockup-bar">
+    <div class="mockup-bar-title">
+      <span class="mockup-badge">UI Mockup Gate</span>
+      <span style="font-weight: 600; font-size: 13.5px;">Analytics & Trend Redesign: Qualitative Evidence Hub</span>
+    </div>
+    <div class="mockup-tabs">
+      <button class="mockup-tab-btn active" onclick="switchMockupOption('optA')">Option A: Academic Publication Standard</button>
+      <button class="mockup-tab-btn" onclick="switchMockupOption('optB')">Option B: Interactive Grounded-Theory Studio</button>
+    </div>
+  </header>
+
+  <div class="app-container">
+
+    <!-- Page Title & Header Actions -->
+    <header class="page-header">
+      <div>
+        <div class="header-badge">
+          <span>●</span>
+          <span>Phase 6 Qualitative Synthesis</span>
+          <span style="margin: 0 4px; opacity: 0.5;">|</span>
+          <span>Analysis Run: #AR-20260916 (Confirmed)</span>
+        </div>
+        <h1 class="header-title">Qualitative Evidence & Thematic Synthesis</h1>
+        <p class="header-desc">
+          Trực quan hoá định tính phục vụ luận văn: Ma trận độ phủ quy nạp 24 bài giảng (Coverage Matrix), chuỗi hình thành chủ đề (Audit Trail) và bằng chứng triển khai sư phạm (RQ1 Enactment Map).
+        </p>
+      </div>
+
+      <div class="action-btn-group">
+        <button class="btn" onclick="alert('Exporting Coverage Matrix to Word Table (.docx) with APA 7th format...')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          Export Word (APA Table)
+        </button>
+        <button class="btn btn-primary" onclick="alert('Exporting High-Resolution Publication Vectors (SVG 300+ DPI)...')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Export All Diagrams (SVG)
+        </button>
+      </div>
+    </header>
+
+    <!-- ============================================================
+         1. CODE/PATTERN × COVERAGE MATRIX
+         ============================================================ -->
+    <section class="section-card">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">
+            1. Pattern & Code × Lesson Coverage Matrix
+          </h2>
+          <p class="section-caption">
+            Cross-case matrix thể hiện sự xuất hiện định tính của các mẫu hành vi sư phạm lặp lại. Chứng minh tính phổ quát trên 24 bài học mà không biến nghiên cứu thành bảng xếp hạng định lượng.
+          </p>
+        </div>
+
+        <div class="section-controls">
+          <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Xem theo:</span>
+          <div class="pill-group">
+            <button class="pill-btn active" id="btn-view-lessons" onclick="toggleMatrixColumns('lessons')">24 Lessons (T01-L1...T12-L2)</button>
+            <button class="pill-btn" id="btn-view-teachers" onclick="toggleMatrixColumns('teachers')">12 Teachers (T01...T12)</button>
+          </div>
+          <button class="btn" style="padding: 5px 10px; font-size: 12px;" onclick="alert('Exporting Matrix SVG...')">Export SVG</button>
+        </div>
+      </div>
+
+      <div class="matrix-wrapper">
+        <table class="matrix-table" id="coverageTable">
+          <thead>
+            <tr id="matrixHeaderRow">
+              <th class="col-code">Pattern / Recurring Code</th>
+              <th class="col-cat">Category</th>
+              <!-- Lesson columns populated via JS -->
+              <th>T01-L1</th><th>T01-L2</th>
+              <th>T02-L1</th><th>T02-L2</th>
+              <th>T03-L1</th><th>T03-L2</th>
+              <th>T04-L1</th><th>T04-L2</th>
+              <th>T05-L1</th><th>T05-L2</th>
+              <th>T06-L1</th><th>T06-L2</th>
+              <th>T07-L1</th><th>T07-L2</th>
+              <th>T08-L1</th><th>T08-L2</th>
+              <th>T09-L1</th><th>T09-L2</th>
+              <th>T10-L1</th><th>T10-L2</th>
+              <th>T11-L1</th><th>T11-L2</th>
+              <th>T12-L1</th><th>T12-L2</th>
+              <th class="matrix-summary-col">Breadth</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="cell-code" onclick="openDrawer('Visual Scaffolding Anchor')">Visual Scaffolding Anchor</td>
+              <td class="cell-cat">Instructional Scaffolding</td>
+              <td><span class="matrix-dot" title="T01-L1: 3 occurrences"></span></td>
+              <td><span class="matrix-dot" title="T01-L2: 2 occurrences"></span></td>
+              <td><span class="matrix-dot" title="T02-L1: 4 occurrences"></span></td>
+              <td></td>
+              <td><span class="matrix-dot" title="T03-L1: 2 occurrences"></span></td>
+              <td><span class="matrix-dot" title="T03-L2: 1 occurrence"></span></td>
+              <td><span class="matrix-dot" title="T04-L1: 3 occurrences"></span></td>
+              <td><span class="matrix-dot" title="T04-L2: 5 occurrences"></span></td>
+              <td><span class="matrix-dot" title="T05-L1: 2 occurrences"></span></td>
+              <td><span class="matrix-dot" title="T05-L2: 2 occurrences"></span></td>
+              <td><span class="matrix-dot" title="T06-L1: 1 occurrence"></span></td>
+              <td></td>
+              <td><span class="matrix-dot" title="T07-L1: 3 occurrences"></span></td>
+              <td><span class="matrix-dot" title="T07-L2: 2 occurrences"></span></td>
+              <td><span class="matrix-dot" title="T08-L1: 4 occurrences"></span></td>
+              <td><span class="matrix-dot" title="T08-L2: 3 occurrences"></span></td>
+              <td><span class="matrix-dot" title="T09-L1: 2 occurrences"></span></td>
+              <td><span class="matrix-dot" title="T09-L2: 1 occurrence"></span></td>
+              <td><span class="matrix-dot" title="T10-L1: 3 occurrences"></span></td>
+              <td><span class="matrix-dot" title="T10-L2: 2 occurrences"></span></td>
+              <td><span class="matrix-dot" title="T11-L1: 4 occurrences"></span></td>
+              <td><span class="matrix-dot" title="T11-L2: 3 occurrences"></span></td>
+              <td><span class="matrix-dot" title="T12-L1: 2 occurrences"></span></td>
+              <td><span class="matrix-dot" title="T12-L2: 2 occurrences"></span></td>
+              <td class="matrix-summary-col">22 / 24 (91%)</td>
+            </tr>
+
+            <tr>
+              <td class="cell-code" onclick="openDrawer('Extended Wait-Time 3s+')">Extended Wait-Time (&gt;3s)</td>
+              <td class="cell-cat">Participation Pacing</td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td></td>
+              <td class="matrix-summary-col">18 / 24 (75%)</td>
+            </tr>
+
+            <tr>
+              <td class="cell-code" onclick="openDrawer('Micro-Affirmation & Effort Praise')">Micro-Affirmation &amp; Effort Praise</td>
+              <td class="cell-cat">Affective Reinforcement</td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td class="matrix-summary-col">24 / 24 (100%)</td>
+            </tr>
+
+            <tr>
+              <td class="cell-code" onclick="openDrawer('Structured Turn-Taking Countdown')">Structured Turn-Taking Countdown</td>
+              <td class="cell-cat">Classroom Routines</td>
+              <td><span class="matrix-dot"></span></td>
+              <td></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td></td>
+              <td><span class="matrix-dot"></span></td>
+              <td></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td class="matrix-summary-col">17 / 24 (71%)</td>
+            </tr>
+
+            <tr>
+              <td class="cell-code" onclick="openDrawer('Digital Reaction Mediation')">Digital Reaction Mediation</td>
+              <td class="cell-cat">Multi-Modal Mediation</td>
+              <td></td>
+              <td><span class="matrix-dot"></span></td>
+              <td></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td></td>
+              <td></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td></td>
+              <td><span class="matrix-dot"></span></td>
+              <td></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td><span class="matrix-dot"></span></td>
+              <td></td>
+              <td><span class="matrix-dot"></span></td>
+              <td class="matrix-summary-col">15 / 24 (63%)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-muted);">
+        <span>Ký hiệu: <strong>●</strong> = Có xuất hiện trong bài giảng (Evidence present). Bấm vào tên mã để xem trích dẫn minh họa.</span>
+        <span>Cross-case coverage: 12 Teachers / 24 Lessons total</span>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         2. THEME – CATEGORY – CODE HIERARCHY MAP
+         ============================================================ -->
+    <section class="section-card">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">
+            2. Theme – Category – Code Analytic Hierarchy Map
+          </h2>
+          <p class="section-caption">
+            Sơ đồ chuỗi phân tích quy nạp (Audit Trail) từ trích dẫn thực địa (Raw Evidence Excerpts) → Mã ban đầu (Codes) → Cụm hành vi (Categories) → Chủ đề bao quát (Candidate Themes).
+          </p>
+        </div>
+
+        <div class="section-controls">
+          <button class="btn" onclick="alert('Exporting SVG Dendrogram...')">Export Vector SVG</button>
+        </div>
+      </div>
+
+      <!-- VIEW OPTION A: Horizontal Academic Node-Link Diagram (SVG) -->
+      <div id="hierarchy-optA" class="hierarchy-container">
+        <svg class="tree-view-svg" viewBox="0 0 1380 500">
+          <defs>
+            <linearGradient id="gradTheme" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#9E4A28" stop-opacity="0.15"/>
+              <stop offset="100%" stop-color="#9E4A28" stop-opacity="0.05"/>
+            </linearGradient>
+          </defs>
+
+          <!-- Column Headers -->
+          <text x="70" y="32" font-family="Plus Jakarta Sans" font-size="12" font-weight="700" fill="#736B63" letter-spacing="0.5">OVERARCHING THEMES (CHƯƠNG 4)</text>
+          <text x="440" y="32" font-family="Plus Jakarta Sans" font-size="12" font-weight="700" fill="#736B63" letter-spacing="0.5">CATEGORIES (CỤM HÀNH VI)</text>
+          <text x="810" y="32" font-family="Plus Jakarta Sans" font-size="12" font-weight="700" fill="#736B63" letter-spacing="0.5">INITIAL CODES &amp; PATTERNS</text>
+          <text x="1130" y="32" font-family="Plus Jakarta Sans" font-size="12" font-weight="700" fill="#736B63" letter-spacing="0.5">KEY EXCERPT SAMPLES</text>
+
+          <!-- Divider lines -->
+          <line x1="380" y1="20" x2="380" y2="480" stroke="#E8E3D9" stroke-dasharray="4 4" />
+          <line x1="750" y1="20" x2="750" y2="480" stroke="#E8E3D9" stroke-dasharray="4 4" />
+          <line x1="1080" y1="20" x2="1080" y2="480" stroke="#E8E3D9" stroke-dasharray="4 4" />
+
+          <!-- ================= THEME 1 ================= -->
+          <!-- Theme Box 1 -->
+          <rect x="50" y="60" width="280" height="180" rx="8" fill="#FFFFFF" stroke="#9E4A28" stroke-width="2"/>
+          <text x="70" y="92" font-family="Instrument Serif" font-size="20" fill="#9E4A28">Theme 1: Multimodal Scaffolding</text>
+          <text x="70" y="112" font-family="Plus Jakarta Sans" font-size="11" fill="#736B63">Duy trì vùng phát triển gần nhất (ZPD)</text>
+          <text x="70" y="130" font-family="Plus Jakarta Sans" font-size="11" fill="#736B63">qua kết hợp hình ảnh và tín hiệu số</text>
+          <rect x="70" y="145" width="84" height="20" rx="4" fill="#EAF4EE" />
+          <text x="78" y="159" font-family="Plus Jakarta Sans" font-size="10" font-weight="700" fill="#2D6A4F">CONFIRMED</text>
+
+          <!-- Branch Lines from Theme 1 to Categories -->
+          <path d="M 330 110 C 390 110, 390 95, 430 95" fill="none" stroke="#9E4A28" stroke-width="1.8" />
+          <path d="M 330 190 C 390 190, 390 195, 430 195" fill="none" stroke="#9E4A28" stroke-width="1.8" />
+
+          <!-- Category 1.1 -->
+          <rect x="430" y="65" width="270" height="60" rx="6" fill="#FFFFFF" stroke="#E8E3D9" stroke-width="1.5"/>
+          <text x="446" y="90" font-family="Plus Jakarta Sans" font-size="13" font-weight="700" fill="#1A1612">Cat A: Visual-Graphic Anchor</text>
+          <text x="446" y="108" font-family="Plus Jakarta Sans" font-size="11" fill="#736B63">Neo hình ảnh giảm tải nhận thức từ vựng</text>
+
+          <!-- Category 1.2 -->
+          <rect x="430" y="165" width="270" height="60" rx="6" fill="#FFFFFF" stroke="#E8E3D9" stroke-width="1.5"/>
+          <text x="446" y="190" font-family="Plus Jakarta Sans" font-size="13" font-weight="700" fill="#1A1612">Cat B: Digital Reaction Signaling</text>
+          <text x="446" y="208" font-family="Plus Jakarta Sans" font-size="11" fill="#736B63">Phản hồi qua icon &amp; thumbs-up chat</text>
+
+          <!-- Branch lines from Categories to Codes -->
+          <path d="M 700 95 C 750 95, 760 80, 800 80" fill="none" stroke="#C4B5A5" stroke-width="1.5" />
+          <path d="M 700 95 C 750 95, 760 120, 800 120" fill="none" stroke="#C4B5A5" stroke-width="1.5" />
+          <path d="M 700 195 C 750 195, 760 195, 800 195" fill="none" stroke="#C4B5A5" stroke-width="1.5" />
+
+          <!-- Code 1 -->
+          <rect x="800" y="65" width="230" height="30" rx="4" fill="#FFFFFF" stroke="#E8E3D9"/>
+          <text x="814" y="85" font-family="JetBrains Mono" font-size="11" font-weight="600" fill="#9E4A28">VSC-01: Pointing Gestures</text>
+
+          <!-- Code 2 -->
+          <rect x="800" y="105" width="230" height="30" rx="4" fill="#FFFFFF" stroke="#E8E3D9"/>
+          <text x="814" y="125" font-family="JetBrains Mono" font-size="11" font-weight="600" fill="#9E4A28">VSC-02: Graphic Organizers</text>
+
+          <!-- Code 3 -->
+          <rect x="800" y="180" width="230" height="30" rx="4" fill="#FFFFFF" stroke="#E8E3D9"/>
+          <text x="814" y="200" font-family="JetBrains Mono" font-size="11" font-weight="600" fill="#9E4A28">DRS-01: Emoji Hand Raise</text>
+
+          <!-- Branch to Excerpts -->
+          <path d="M 1030 80 L 1090 80" fill="none" stroke="#E8E3D9" stroke-width="1" />
+          <path d="M 1030 120 L 1090 120" fill="none" stroke="#E8E3D9" stroke-width="1" />
+          <path d="M 1030 195 L 1090 195" fill="none" stroke="#E8E3D9" stroke-width="1" />
+
+          <!-- Excerpt 1 -->
+          <rect x="1090" y="60" width="250" height="40" rx="4" fill="#FBF9F5" stroke="#E8E3D9"/>
+          <text x="1102" y="76" font-family="JetBrains Mono" font-size="10" font-weight="600" fill="#1D5C8A">[14:12] T02-L1</text>
+          <text x="1102" y="90" font-family="Plus Jakarta Sans" font-size="11" font-style="italic" fill="#57534E">"Look at the red circle, what animal is here?"</text>
+
+          <!-- Excerpt 2 -->
+          <rect x="1090" y="110" width="250" height="40" rx="4" fill="#FBF9F5" stroke="#E8E3D9"/>
+          <text x="1102" y="126" font-family="JetBrains Mono" font-size="10" font-weight="600" fill="#1D5C8A">[22:45] T07-L2</text>
+          <text x="1102" y="140" font-family="Plus Jakarta Sans" font-size="11" font-style="italic" fill="#57534E">"Compare box A and box B before answering"</text>
+
+          <!-- Excerpt 3 -->
+          <rect x="1090" y="180" width="250" height="40" rx="4" fill="#FBF9F5" stroke="#E8E3D9"/>
+          <text x="1102" y="196" font-family="JetBrains Mono" font-size="10" font-weight="600" fill="#1D5C8A">[08:30] T11-L1</text>
+          <text x="1102" y="210" font-family="Plus Jakarta Sans" font-size="11" font-style="italic" fill="#57534E">"Drop a clapping hands icon if you agree!"</text>
+
+          <!-- ================= THEME 2 ================= -->
+          <rect x="50" y="280" width="280" height="180" rx="8" fill="#FFFFFF" stroke="#9E4A28" stroke-width="2"/>
+          <text x="70" y="312" font-family="Instrument Serif" font-size="20" fill="#9E4A28">Theme 2: Pacing &amp; Safe-Failure</text>
+          <text x="70" y="332" font-family="Plus Jakarta Sans" font-size="11" fill="#736B63">Chiến lược kéo dài thời gian chờ đợi và</text>
+          <text x="70" y="350" font-family="Plus Jakarta Sans" font-size="11" fill="#736B63">khen ngợi nỗ lực xây dựng sự tự tin</text>
+          <rect x="70" y="365" width="84" height="20" rx="4" fill="#EAF4EE" />
+          <text x="78" y="379" font-family="Plus Jakarta Sans" font-size="10" font-weight="700" fill="#2D6A4F">CONFIRMED</text>
+
+          <!-- Branch to Cat 2.1 -->
+          <path d="M 330 350 C 390 350, 390 350, 430 350" fill="none" stroke="#9E4A28" stroke-width="1.8" />
+          <rect x="430" y="320" width="270" height="60" rx="6" fill="#FFFFFF" stroke="#E8E3D9" stroke-width="1.5"/>
+          <text x="446" y="345" font-family="Plus Jakarta Sans" font-size="13" font-weight="700" fill="#1A1612">Cat C: Extended Wait-Time Buffer</text>
+          <text x="446" y="363" font-family="Plus Jakarta Sans" font-size="11" fill="#736B63">Khoảng lặng 3–5s cho HS suy nghĩ</text>
+
+          <!-- Branch to Code 4 -->
+          <path d="M 700 350 L 800 350" fill="none" stroke="#C4B5A5" stroke-width="1.5" />
+          <rect x="800" y="335" width="230" height="30" rx="4" fill="#FFFFFF" stroke="#E8E3D9"/>
+          <text x="814" y="355" font-family="JetBrains Mono" font-size="11" font-weight="600" fill="#9E4A28">PAC-01: Silent Thinking Window</text>
+
+          <!-- Branch to Excerpt 4 -->
+          <path d="M 1030 350 L 1090 350" fill="none" stroke="#E8E3D9" stroke-width="1" />
+          <rect x="1090" y="330" width="250" height="40" rx="4" fill="#FBF9F5" stroke="#E8E3D9"/>
+          <text x="1102" y="346" font-family="JetBrains Mono" font-size="10" font-weight="600" fill="#1D5C8A">[19:05] T04-L2</text>
+          <text x="1102" y="360" font-family="Plus Jakarta Sans" font-size="11" font-style="italic" fill="#57534E">"Take 5 seconds quietly... no rush, Nam."</text>
+        </svg>
+      </div>
+
+      <!-- VIEW OPTION B: Bento / Grounded-Theory Card Flow -->
+      <div id="hierarchy-optB" class="hierarchy-container" style="display: none;">
+        <div class="bento-flow">
+          <!-- Theme Card 1 -->
+          <div class="theme-bento-card">
+            <div class="theme-card-header">
+              <h3 class="theme-name">Theme 1: Multimodal Scaffolding Framework</h3>
+              <span class="theme-status-tag">CONFIRMED</span>
+            </div>
+            <p class="theme-reasoning">
+              "AI Synthesis: Giáo viên sử dụng tín hiệu thị giác kết hợp công cụ hội thoại số để giải phóng áp lực diễn đạt trực tiếp cho học sinh tiểu học."
+            </p>
+
+            <div class="category-group">
+              <div class="category-title">
+                <span>Category A: Visual-Graphic Anchor</span>
+                <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">(2 Patterns)</span>
+              </div>
+              <div class="code-chip-list">
+                <span class="code-chip" onclick="openDrawer('VSC-01: Pointing Gestures')">VSC-01: Pointing Gestures</span>
+                <span class="code-chip" onclick="openDrawer('VSC-02: Graphic Organizers')">VSC-02: Graphic Organizers</span>
+              </div>
+              <div class="code-quote-preview">
+                <strong>[14:12] T02-L1:</strong> "Look at the red circle, what animal is here?"
+              </div>
+            </div>
+
+            <div class="category-group">
+              <div class="category-title">
+                <span>Category B: Digital Reaction Signaling</span>
+                <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">(1 Pattern)</span>
+              </div>
+              <div class="code-chip-list">
+                <span class="code-chip" onclick="openDrawer('DRS-01: Emoji Hand Raise')">DRS-01: Emoji Hand Raise</span>
+              </div>
+              <div class="code-quote-preview">
+                <strong>[08:30] T11-L1:</strong> "Drop a clapping hands icon if you agree!"
+              </div>
+            </div>
+          </div>
+
+          <!-- Theme Card 2 -->
+          <div class="theme-bento-card">
+            <div class="theme-card-header">
+              <h3 class="theme-name">Theme 2: Pacing &amp; Safe-Failure Environment</h3>
+              <span class="theme-status-tag">CONFIRMED</span>
+            </div>
+            <p class="theme-reasoning">
+              "AI Synthesis: Thiết lập nhịp độ bài học linh hoạt kết hợp khen ngợi hành vi nỗ lực nhằm triệt tiêu nỗi sợ mắc lỗi khi phát âm tiếng Anh trực tuyến."
+            </p>
+
+            <div class="category-group">
+              <div class="category-title">
+                <span>Category C: Extended Wait-Time Buffer</span>
+                <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">(1 Pattern)</span>
+              </div>
+              <div class="code-chip-list">
+                <span class="code-chip" onclick="openDrawer('PAC-01: Silent Thinking Window')">PAC-01: Silent Thinking Window</span>
+              </div>
+              <div class="code-quote-preview">
+                <strong>[19:05] T04-L2:</strong> "Take 5 seconds quietly... no rush, Nam."
+              </div>
+            </div>
+
+            <div class="category-group">
+              <div class="category-title">
+                <span>Category D: Effort-Oriented Affirmation</span>
+                <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">(2 Patterns)</span>
+              </div>
+              <div class="code-chip-list">
+                <span class="code-chip" onclick="openDrawer('PRA-01: Process Praise')">PRA-01: Process Praise</span>
+                <span class="code-chip" onclick="openDrawer('PRA-02: Collective Choral Cheer')">PRA-02: Collective Choral Cheer</span>
+              </div>
+              <div class="code-quote-preview">
+                <strong>[11:40] T01-L2:</strong> "Great try! I love how you fixed your ending sound."
+              </div>
+            </div>
+          </div>
+
+          <!-- Theme Card 3 -->
+          <div class="theme-bento-card">
+            <div class="theme-card-header">
+              <h3 class="theme-name">Theme 3: Routine-Governed Agency</h3>
+              <span class="theme-status-tag">CONFIRMED</span>
+            </div>
+            <p class="theme-reasoning">
+              "AI Synthesis: Phân quyền làm chủ lượt nói thông qua các quy ước trực tuyến chuẩn hóa (Countdown timer, role rotation)."
+            </p>
+
+            <div class="category-group">
+              <div class="category-title">
+                <span>Category E: Turn-Taking Orchestration</span>
+                <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">(2 Patterns)</span>
+              </div>
+              <div class="code-chip-list">
+                <span class="code-chip" onclick="openDrawer('ROU-01: Visual Wheel Spinner')">ROU-01: Visual Wheel Spinner</span>
+                <span class="code-chip" onclick="openDrawer('ROU-02: Pass-the-Mic Protocol')">ROU-02: Pass-the-Mic Protocol</span>
+              </div>
+              <div class="code-quote-preview">
+                <strong>[27:10] T08-L1:</strong> "The wheel chooses Linh! Linh, pass the question to who?"
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         3. RQ1 EVIDENCE & ENACTMENT TRACEABILITY MAP
+         ============================================================ -->
+    <section class="section-card">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">
+            3. RQ1 Enactment &amp; Traceability Map
+          </h2>
+          <p class="section-caption">
+            Bản đồ truy vết bằng chứng giải quyết câu hỏi nghiên cứu RQ1: Chiến lược quản lý lớp học (Strategy) → Hành vi triển khai cụ thể (Enactment) → Giáo viên &amp; Bài học tiêu biểu (Representative Cohort) → Trích dẫn &amp; Mốc thời gian thực địa (Timestamps).
+          </p>
+        </div>
+
+        <div class="section-controls">
+          <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Lọc theo chiến lược:</span>
+          <select class="btn" style="padding: 5px 10px; font-size: 12px;">
+            <option value="all">Tất cả chiến lược (All Strategies)</option>
+            <option value="turn">Turn-Taking &amp; Pacing</option>
+            <option value="scaff">Scaffolding &amp; Prompting</option>
+            <option value="tech">Digital Tool Orchestration</option>
+          </select>
+          <button class="btn" onclick="alert('Exporting RQ1 Traceability Matrix...')">Export SVG</button>
+        </div>
+      </div>
+
+      <div class="rq-map-grid">
+        <div class="rq-col-header">
+          <div>Classroom Management Strategy</div>
+          <div>Observed Pedagogical Enactments</div>
+          <div>Representative Lessons</div>
+          <div>Verifiable Timestamps &amp; Direct Quotes</div>
+        </div>
+
+        <!-- Strategy Row 1 -->
+        <div class="rq-strategy-row">
+          <div class="rq-cell" style="background: #FAFAFA;">
+            <div class="rq-strategy-title">Structured Turn-Taking &amp; Equity Protocols</div>
+            <div class="rq-strategy-sub">Điều phối lượt nói công bằng, tránh tình trạng học sinh áp đảo hoặc lẩn tránh.</div>
+          </div>
+          <div class="rq-cell">
+            <div class="rq-enactment-item">
+              <div class="rq-enactment-bullet">• Visual Wheel of Names:</div>
+              <div>Sử dụng vòng quay ngẫu nhiên trên màn hình chia sẻ để kích hoạt sự chờ đợi hào hứng.</div>
+            </div>
+            <div class="rq-enactment-item">
+              <div class="rq-enactment-bullet">• Pass-the-Ball / Mic Protocol:</div>
+              <div>Trao quyền cho học sinh vừa nói được chỉ định bạn tiếp theo theo quy tắc nối tiếp.</div>
+            </div>
+          </div>
+          <div class="rq-cell">
+            <span class="rq-teacher-tag">T01-L2</span>
+            <span class="rq-teacher-tag">T03-L1</span>
+            <span class="rq-teacher-tag">T07-L2</span>
+            <span class="rq-teacher-tag">T08-L1</span>
+            <span class="rq-teacher-tag">T11-L2</span>
+          </div>
+          <div class="rq-cell">
+            <div class="rq-evidence-snippet">
+              <span class="rq-timestamp">[12:45] T03-L1</span>
+              <span>"I spin the wheel, 3, 2, 1... it's Mai! Mai, question number 3 is yours."</span>
+            </div>
+            <div class="rq-evidence-snippet">
+              <span class="rq-timestamp">[25:18] T08-L1</span>
+              <span>"Good job Quan. Now call out one friend who hasn't spoken yet!"</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Strategy Row 2 -->
+        <div class="rq-strategy-row">
+          <div class="rq-cell" style="background: #FAFAFA;">
+            <div class="rq-strategy-title">Affective Buffering &amp; Extended Wait Pacing</div>
+            <div class="rq-strategy-sub">Kiểm soát nhịp độ, tạo khoảng lặng an toàn tâm lý giúp học sinh tự sửa lỗi phát âm.</div>
+          </div>
+          <div class="rq-cell">
+            <div class="rq-enactment-item">
+              <div class="rq-enactment-bullet">• 3–5s Explicit Silence Window:</div>
+              <div>Thông báo rõ ràng cho cả lớp giữ im lặng để bạn đang được gọi có thời gian hình thành câu.</div>
+            </div>
+            <div class="rq-enactment-item">
+              <div class="rq-enactment-bullet">• Non-Penalizing Prompting:</div>
+              <div>Cung cấp từ khóa gợi ý (first phoneme prompt) thay vì ngắt lời sửa ngay lập tức.</div>
+            </div>
+          </div>
+          <div class="rq-cell">
+            <span class="rq-teacher-tag">T02-L1</span>
+            <span class="rq-teacher-tag">T04-L1</span>
+            <span class="rq-teacher-tag">T04-L2</span>
+            <span class="rq-teacher-tag">T09-L1</span>
+            <span class="rq-teacher-tag">T10-L2</span>
+          </div>
+          <div class="rq-cell">
+            <div class="rq-evidence-snippet">
+              <span class="rq-timestamp">[07:15] T04-L2</span>
+              <span>"Everybody count quietly in your head... Phong is thinking, no shouting out."</span>
+            </div>
+            <div class="rq-evidence-snippet">
+              <span class="rq-timestamp">[18:50] T02-L1</span>
+              <span>"Starts with /b/... /b/... yes, 'butterfly', excellent pronunciation!"</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Strategy Row 3 -->
+        <div class="rq-strategy-row">
+          <div class="rq-cell" style="background: #FAFAFA;">
+            <div class="rq-strategy-title">Multimodal Digital Tool Orchestration</div>
+            <div class="rq-strategy-sub">Khai thác thanh công cụ trực tuyến (chat box, reaction icons, digital board) làm đòn bẩy.</div>
+          </div>
+          <div class="rq-cell">
+            <div class="rq-enactment-item">
+              <div class="rq-enactment-bullet">• Chat Waterfall Verification:</div>
+              <div>Yêu cầu gõ câu trả lời vào chat nhưng chỉ bấm Enter khi giáo viên đếm đến 3.</div>
+            </div>
+            <div class="rq-enactment-item">
+              <div class="rq-enactment-bullet">• Real-time Annotation Spotlighting:</div>
+              <div>Cho phép học sinh dùng công cụ vẽ laser để khoanh đáp án trước khi đọc to.</div>
+            </div>
+          </div>
+          <div class="rq-cell">
+            <span class="rq-teacher-tag">T05-L2</span>
+            <span class="rq-teacher-tag">T06-L1</span>
+            <span class="rq-teacher-tag">T07-L1</span>
+            <span class="rq-teacher-tag">T11-L1</span>
+            <span class="rq-teacher-tag">T12-L2</span>
+          </div>
+          <div class="rq-cell">
+            <div class="rq-evidence-snippet">
+              <span class="rq-timestamp">[14:02] T07-L1</span>
+              <span>"Type your favorite color, keep fingers ready, 3-2-1 ENTER! Wow look at the chat stream!"</span>
+            </div>
+            <div class="rq-evidence-snippet">
+              <span class="rq-timestamp">[31:10] T11-L1</span>
+              <span>"Use your blue pen tool to circle the correct word, then read it aloud for us."</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Slideover Drawer for Code Quotes -->
+  <div class="drawer-overlay" id="codeDrawer" onclick="closeDrawer(event)">
+    <div class="drawer-panel" onclick="event.stopPropagation()">
+      <div class="drawer-header">
+        <div>
+          <span style="font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase;">Code Drill-Down</span>
+          <h3 class="drawer-title" id="drawerCodeTitle">Visual Scaffolding Anchor</h3>
+        </div>
+        <button class="drawer-close" onclick="closeDrawer()">&times;</button>
+      </div>
+
+      <div>
+        <p style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 14px;">
+          Tất cả các trích dẫn bằng chứng thực địa (Raw Observation Evidence) liên kết với mã này qua 24 bài giảng:
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <div class="rq-evidence-snippet">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span class="rq-timestamp">[14:12] T02-L1</span>
+              <span style="font-size: 11px; color: var(--text-muted);">Confidence: 94%</span>
+            </div>
+            <p style="font-size: 12.5px; font-style: italic;">"Look at the red circle, what animal is here?"</p>
+            <div style="font-size: 11px; color: var(--text-subtle); margin-top: 4px;">Context: Teacher points with digital spotlight cursor to elicit targeted vocabulary.</div>
+          </div>
+
+          <div class="rq-evidence-snippet">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span class="rq-timestamp">[22:45] T07-L2</span>
+              <span style="font-size: 11px; color: var(--text-muted);">Confidence: 91%</span>
+            </div>
+            <p style="font-size: 12.5px; font-style: italic;">"Compare box A and box B before answering."</p>
+            <div style="font-size: 11px; color: var(--text-subtle); margin-top: 4px;">Context: Teacher uses split screen graphic organizer to reduce cognitive load.</div>
+          </div>
+
+          <div class="rq-evidence-snippet">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span class="rq-timestamp">[05:18] T10-L1</span>
+              <span style="font-size: 11px; color: var(--text-muted);">Confidence: 96%</span>
+            </div>
+            <p style="font-size: 12.5px; font-style: italic;">"Here is the hint picture. What action is she doing?"</p>
+            <div style="font-size: 11px; color: var(--text-subtle); margin-top: 4px;">Context: Scaffolding reluctant speaker after 4s initial hesitation.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Switch between Option A (Horizontal Tree SVG) and Option B (Bento Hierarchy)
+    function switchMockupOption(opt) {
+      const btnA = document.querySelectorAll('.mockup-tab-btn')[0];
+      const btnB = document.querySelectorAll('.mockup-tab-btn')[1];
+      const viewA = document.getElementById('hierarchy-optA');
+      const viewB = document.getElementById('hierarchy-optB');
+
+      if (opt === 'optA') {
+        btnA.classList.add('active');
+        btnB.classList.remove('active');
+        viewA.style.display = 'flex';
+        viewB.style.display = 'none';
+      } else {
+        btnB.classList.add('active');
+        btnA.classList.remove('active');
+        viewA.style.display = 'none';
+        viewB.style.display = 'flex';
+      }
+    }
+
+    // Toggle Matrix between 24 Lessons and 12 Teachers
+    function toggleMatrixColumns(mode) {
+      const btnLessons = document.getElementById('btn-view-lessons');
+      const btnTeachers = document.getElementById('btn-view-teachers');
+      const thead = document.getElementById('matrixHeaderRow');
+
+      if (mode === 'teachers') {
+        btnTeachers.classList.add('active');
+        btnLessons.classList.remove('active');
+        thead.innerHTML = `
+          <th class="col-code">Pattern / Recurring Code</th>
+          <th class="col-cat">Category</th>
+          <th>T01</th><th>T02</th><th>T03</th><th>T04</th><th>T05</th><th>T06</th>
+          <th>T07</th><th>T08</th><th>T09</th><th>T10</th><th>T11</th><th>T12</th>
+          <th class="matrix-summary-col">Breadth</th>
+        `;
+        // Replace sample row cells
+        const rows = document.querySelectorAll('#coverageTable tbody tr');
+        rows.forEach(r => {
+          const code = r.querySelector('.cell-code').outerHTML;
+          const cat = r.querySelector('.cell-cat').outerHTML;
+          r.innerHTML = `
+            ${code}
+            ${cat}
+            <td><span class="matrix-dot"></span></td>
+            <td><span class="matrix-dot"></span></td>
+            <td><span class="matrix-dot"></span></td>
+            <td><span class="matrix-dot"></span></td>
+            <td><span class="matrix-dot"></span></td>
+            <td><span class="matrix-dot"></span></td>
+            <td><span class="matrix-dot"></span></td>
+            <td><span class="matrix-dot"></span></td>
+            <td><span class="matrix-dot"></span></td>
+            <td><span class="matrix-dot"></span></td>
+            <td><span class="matrix-dot"></span></td>
+            <td><span class="matrix-dot"></span></td>
+            <td class="matrix-summary-col">12 / 12 (100%)</td>
+          `;
+        });
+      } else {
+        window.location.reload();
+      }
+    }
+
+    // Open/Close Drawer
+    function openDrawer(title) {
+      document.getElementById('drawerCodeTitle').innerText = title;
+      document.getElementById('codeDrawer').classList.add('open');
+    }
+    function closeDrawer() {
+      document.getElementById('codeDrawer').classList.remove('open');
+    }
+  </script>
+</body>
+</html>
