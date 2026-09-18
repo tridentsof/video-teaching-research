@@ -434,3 +434,102 @@ type ActivityLog struct {
 	CreatedAt     time.Time              `json:"created_at" db:"created_at"`
 }
 
+// --- Post-Interview Analysis Models ---
+
+// InterviewResponse represents a teacher's audio interview response and its transcription.
+type InterviewResponse struct {
+	ID               uuid.UUID      `json:"id" db:"id"`
+	AnalysisRunID    uuid.UUID      `json:"analysis_run_id" db:"analysis_run_id"`
+	TeacherID        string         `json:"teacher_id" db:"teacher_id"`
+	QuestionID       *uuid.UUID     `json:"question_id,omitempty" db:"question_id"`
+	QuestionText     string         `json:"question_text" db:"question_text"`
+	AudioBlobPath    *string        `json:"audio_blob_path,omitempty" db:"audio_blob_path"`
+	AudioFilename    *string        `json:"audio_filename,omitempty" db:"audio_filename"`
+	AudioDurationSec float64        `json:"audio_duration_sec" db:"audio_duration_sec"`
+	Language         string         `json:"language" db:"language"` // 'vi', 'en', 'mixed'
+	RawTranscript    *string        `json:"raw_transcript,omitempty" db:"raw_transcript"`
+	TranscriptStatus string         `json:"transcript_status" db:"transcript_status"` // 'draft', 'uploading', 'transcribing', 'transcribed', 'reviewed', 'finalized'
+	ResponseText     string         `json:"response_text" db:"response_text"`
+	RecordedAt       *time.Time     `json:"recorded_at,omitempty" db:"recorded_at"`
+	CreatedAt        time.Time      `json:"created_at" db:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at" db:"updated_at"`
+	MeaningUnits     []MeaningUnit  `json:"meaning_units,omitempty" db:"-"`
+}
+
+// MeaningUnit represents an individual semantic unit extracted from an interview response.
+type MeaningUnit struct {
+	ID            uuid.UUID `json:"id" db:"id"`
+	ResponseID    uuid.UUID `json:"response_id" db:"response_id"`
+	TeacherID     string    `json:"teacher_id" db:"teacher_id"`
+	UnitText      string    `json:"unit_text" db:"unit_text"`
+	UnitIndex     int       `json:"unit_index" db:"unit_index"`
+	InitialCode   *string   `json:"initial_code,omitempty" db:"initial_code"`
+	Category      *string   `json:"category,omitempty" db:"category"`
+	IsAIGenerated bool      `json:"is_ai_generated" db:"is_ai_generated"`
+	IsUserEdited  bool      `json:"is_user_edited" db:"is_user_edited"`
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// InterviewCode represents an aggregated qualitative code categorized for the thesis.
+type InterviewCode struct {
+	ID            uuid.UUID `json:"id" db:"id"`
+	AnalysisRunID uuid.UUID `json:"analysis_run_id" db:"analysis_run_id"`
+	CodeName      string    `json:"code_name" db:"code_name"`
+	Category      string    `json:"category" db:"category"`
+	Frequency     int       `json:"frequency" db:"frequency"`
+	TeacherIDs    []string  `json:"teacher_ids" db:"teacher_ids"`
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+}
+
+// TriangulationEntry represents a qualitative cross-reference between observation findings and interview statements.
+type TriangulationEntry struct {
+	ID                 uuid.UUID  `json:"id" db:"id"`
+	AnalysisRunID      uuid.UUID  `json:"analysis_run_id" db:"analysis_run_id"`
+	ObservationFinding string     `json:"observation_finding" db:"observation_finding"`
+	InterviewEvidence  string     `json:"interview_evidence" db:"interview_evidence"`
+	TeacherRef         *string    `json:"teacher_ref,omitempty" db:"teacher_ref"`
+	Relationship       string     `json:"relationship" db:"relationship"` // 'confirms', 'explains', 'contradicts', 'adds_info'
+	ThemeID            *uuid.UUID `json:"theme_id,omitempty" db:"theme_id"`
+	IsAIGenerated      bool       `json:"is_ai_generated" db:"is_ai_generated"`
+	IsUserEdited       bool       `json:"is_user_edited" db:"is_user_edited"`
+	CreatedAt          time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at" db:"updated_at"`
+}
+
+// RepresentativeQuote represents an illustrative quote selected for thesis narrative chapters.
+type RepresentativeQuote struct {
+	ID            uuid.UUID  `json:"id" db:"id"`
+	AnalysisRunID uuid.UUID  `json:"analysis_run_id" db:"analysis_run_id"`
+	TeacherID     string     `json:"teacher_id" db:"teacher_id"`
+	QuoteText     string     `json:"quote_text" db:"quote_text"`
+	QuoteSource   *string    `json:"quote_source,omitempty" db:"quote_source"`
+	ThemeID       *uuid.UUID `json:"theme_id,omitempty" db:"theme_id"`
+	RQCategory    string     `json:"rq_category" db:"rq_category"` // 'RQ1', 'RQ2', 'RQ3'
+	RelevanceType string     `json:"relevance_type" db:"relevance_type"`
+	IsSelected    bool       `json:"is_selected" db:"is_selected"`
+	CreatedAt     time.Time  `json:"created_at" db:"created_at"`
+}
+
+// FinalizeResponseDTO represents the payload to finalize a reviewed transcript.
+type FinalizeResponseDTO struct {
+	ResponseText string `json:"response_text" binding:"required"`
+}
+
+// MeaningUnitUpdateDTO represents an update to a meaning unit or its code.
+type MeaningUnitUpdateDTO struct {
+	UnitText    *string `json:"unit_text,omitempty"`
+	InitialCode *string `json:"initial_code,omitempty"`
+	Category    *string `json:"category,omitempty"`
+}
+
+// CreateMeaningUnitDTO represents adding a meaning unit manually.
+type CreateMeaningUnitDTO struct {
+	ResponseID  uuid.UUID `json:"response_id" binding:"required"`
+	TeacherID   string    `json:"teacher_id" binding:"required"`
+	UnitText    string    `json:"unit_text" binding:"required"`
+	UnitIndex   int       `json:"unit_index"`
+	InitialCode *string   `json:"initial_code,omitempty"`
+	Category    *string   `json:"category,omitempty"`
+}
+

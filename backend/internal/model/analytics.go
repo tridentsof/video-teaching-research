@@ -128,16 +128,24 @@ type ThematicTheme struct {
 	Categories       []ThematicCategory `json:"categories"`
 }
 
-// RQ1EnactmentRow represents a 4-column enactment row for RQ1
+// RQ1EnactmentRow represents an enactment row for RQ1 with 5-stage traceability:
+// Analytical Dimension -> Recurring Pattern -> Observed Enactment -> Representative Lesson -> Timestamp/Context
 type RQ1EnactmentRow struct {
-	StrategyName           string                    `json:"strategy_name"`
+	Dimension              string                    `json:"dimension"`
+	DimensionVi            string                    `json:"dimension_vi,omitempty"`
+	RecurringPattern       string                    `json:"recurring_pattern"`
+	RecurringPatternVi     string                    `json:"recurring_pattern_vi,omitempty"`
+	ObservedEnactment      string                    `json:"observed_enactment"`
+	ObservedEnactmentVi    string                    `json:"observed_enactment_vi,omitempty"`
+	StrategyName           string                    `json:"strategy_name,omitempty"`
 	StrategyNameVi         string                    `json:"strategy_name_vi,omitempty"`
-	StrategySubtext        string                    `json:"strategy_subtext"`
+	StrategySubtext        string                    `json:"strategy_subtext,omitempty"`
 	StrategySubtextVi      string                    `json:"strategy_subtext_vi,omitempty"`
-	ObservedEnactments     []string                  `json:"observed_enactments"`
+	ObservedEnactments     []string                  `json:"observed_enactments,omitempty"`
 	ObservedEnactmentsVi   []string                  `json:"observed_enactments_vi,omitempty"`
 	RepresentativeLessons  []string                  `json:"representative_lessons"`
 	RepresentativeTeachers []string                  `json:"representative_teachers"`
+	TimestampContext       string                    `json:"timestamp_context,omitempty"`
 	DirectQuotes           []QualitativeEvidenceItem `json:"direct_quotes"`
 }
 

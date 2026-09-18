@@ -14,11 +14,17 @@ type VideoAnalysisProvider interface {
 	AnalyzeVideoChunk(ctx context.Context, videoFilePath string, prompt string) (string, error)
 }
 
+// AudioTranscriptionProvider handles direct multimodal audio transcription and speech-to-text.
+type AudioTranscriptionProvider interface {
+	TranscribeAudio(ctx context.Context, audioFilePath string, prompt string) (string, error)
+}
+
 // TextCompletionProvider handles text/reasoning completion and mapping.
 type TextCompletionProvider interface {
 	CompleteText(ctx context.Context, model string, systemPrompt, userPrompt string) (string, error)
 	CompleteJSON(ctx context.Context, model string, systemPrompt, userPrompt string, target interface{}) error
 }
+
 
 // AIAdapter aggregates both video and text AI capabilities.
 type AIAdapter struct {

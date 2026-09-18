@@ -6,8 +6,10 @@ import Link from 'next/link';
 import { Report, Video, ReportItem, ReportItemOccurrence, api } from '@/lib/api';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
 import { useTranslation } from '@/lib/i18n';
+import { useToast } from '@/components/ToastProvider';
 import { generateWordReport, downloadBlob, SECTION_NAMES, SECTION_NAMES_VI, DEFAULT_CHECKLIST_STRUCTURE } from '@/lib/wordExport';
-import { ArrowLeft, Download, FileText, CheckCircle2, Play, ExternalLink, Printer, Trash2, AlertCircle, X } from 'lucide-react';
+import { generateObservationPdf } from '@/lib/pdfExport';
+import { ArrowLeft, Download, FileText, CheckCircle2, Play, ExternalLink, Printer, Trash2, AlertCircle, X, Loader2 } from 'lucide-react';
 
 function parseOccurrences(raw: any): ReportItemOccurrence[] {
   if (!raw) return [];
@@ -38,10 +40,12 @@ export default function ReportDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { language, t } = useTranslation();
+  const toast = useToast();
   const [report, setReport] = useState<Report | null>(null);
   const [video, setVideo] = useState<Video | null>(null);
   const [loading, setLoading] = useState(true);
   const [exportingWord, setExportingWord] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [activeTab, setActiveTab] = useState<'checklist' | 'markdown'>('checklist');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -276,11 +280,34 @@ Teacher maintains warm, energetic classroom rapport with strong use of positive 
       });
       const filename = `Classroom_Observation_Checklist_${report.teacher_id}_${report.video_id.slice(0, 8)}.docx`;
       downloadBlob(blob, filename);
+      toast.success(t('reportsExportWord'));
     } catch (err) {
       console.error('Failed to export Word document:', err);
-      alert(language === 'vi' ? 'Không thể xuất tài liệu Word. Vui lòng thử lại.' : 'Could not export Word document. Please try again.');
+      toast.error(language === 'vi' ? 'Không thể xuất tài liệu Word. Vui lòng thử lại.' : 'Could not export Word document. Please try again.');
     } finally {
       setExportingWord(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!report) return;
+    setExportingPdf(true);
+    try {
+      await generateObservationPdf({
+        report,
+        video,
+        observationNo: video ? `#${video.id.slice(0, 8)}` : '#01',
+        className: language === 'vi' ? 'Lớp tiếng Anh trực tuyến' : 'Online English Class',
+        platform: 'Zoom',
+        generalNotes: 'Teacher maintains warm, energetic classroom rapport with strong use of positive reinforcement and multi-modal digital tools. Pacing and wait time effectively support second language acquisition for young learners.',
+        lang: language,
+      });
+      toast.success(t('reportsExportPdfSuccess'));
+    } catch (err) {
+      console.error('Failed to export PDF document:', err);
+      toast.error(language === 'vi' ? 'Không thể xuất tài liệu PDF. Vui lòng thử lại.' : 'Could not export PDF document. Please try again.');
+    } finally {
+      setExportingPdf(false);
     }
   };
 
@@ -357,61 +384,154 @@ Teacher maintains warm, energetic classroom rapport with strong use of positive 
             </button>
           </div>
 
-          {/* Export Word (.docx) button */}
-          <button
-            onClick={handleExportWord}
-            disabled={exportingWord || !report}
-            className="btn"
-            style={{
-              background: '#2D6A4F',
-              color: '#FFFFFF',
-              boxShadow: '0 2px 6px rgba(45, 106, 79, 0.25)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-          >
-            <FileText size={16} />
-            <span>{exportingWord ? t('reportsExportingWord') : t('reportsExportWord')}</span>
-          </button>
-
-          {/* Download Markdown button */}
-          {report && (
-            <a
-              href={api.getReportDownloadUrl(report.video_id)}
-              download={`report_${report.teacher_id}_${report.video_id.slice(0, 8)}.md`}
-              className="btn btn-secondary"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <Download size={15} />
-              <span>{t('reportsDownloadMd')}</span>
-            </a>
-          )}
-
-          {/* Delete Report Button */}
-          {report && (
+          {/* Export Actions (Word, PDF, Markdown, Delete) */}
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+            {/* Word button */}
             <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="btn"
+              onClick={handleExportWord}
+              disabled={exportingWord || exportingPdf || !report}
               style={{
-                background: '#FEF2F2',
-                color: '#DC2626',
-                border: '1px solid #FECACA',
+                height: '28px',
+                padding: '0 9px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: 500,
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
-                cursor: 'pointer',
+                gap: '5px',
+                backgroundColor: '#FFFFFF',
+                color: '#166534',
+                border: '1px solid #D1D5DB',
+                boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+                cursor: exportingWord || exportingPdf || !report ? 'not-allowed' : 'pointer',
+                transition: 'all 0.15s ease',
               }}
-              title={t('deleteReport')}
+              title={language === 'vi' ? 'Xuất báo cáo Word (.docx)' : 'Export report to Word (.docx)'}
+              onMouseEnter={(e) => {
+                if (!exportingWord && !exportingPdf && report) {
+                  e.currentTarget.style.backgroundColor = '#F0FDF4';
+                  e.currentTarget.style.borderColor = '#86EFAC';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#FFFFFF';
+                e.currentTarget.style.borderColor = '#D1D5DB';
+              }}
             >
-              <Trash2 size={15} />
-              <span>{t('deleteReport')}</span>
+              {exportingWord ? <Loader2 size={12.5} className="animate-spin" color="#166534" /> : <FileText size={12.5} color="#166534" />}
+              <span>{exportingWord ? t('reportsExportingWord') : t('reportsExportWord')}</span>
             </button>
-          )}
+
+            {/* PDF button */}
+            <button
+              onClick={handleExportPdf}
+              disabled={exportingWord || exportingPdf || !report}
+              style={{
+                height: '28px',
+                padding: '0 9px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: 500,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                backgroundColor: '#FFFFFF',
+                color: '#991B1B',
+                border: '1px solid #D1D5DB',
+                boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+                cursor: exportingWord || exportingPdf || !report ? 'not-allowed' : 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              title={language === 'vi' ? 'Xuất báo cáo PDF (.pdf)' : 'Export report to PDF (.pdf)'}
+              onMouseEnter={(e) => {
+                if (!exportingWord && !exportingPdf && report) {
+                  e.currentTarget.style.backgroundColor = '#FEF2F2';
+                  e.currentTarget.style.borderColor = '#FECACA';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#FFFFFF';
+                e.currentTarget.style.borderColor = '#D1D5DB';
+              }}
+            >
+              {exportingPdf ? <Loader2 size={12.5} className="animate-spin" color="#991B1B" /> : <Printer size={12.5} color="#DC2626" />}
+              <span>{exportingPdf ? t('reportsExportingPdf') : t('reportsExportPdf')}</span>
+            </button>
+
+            {/* Download Markdown button */}
+            {report && (
+              <a
+                href={api.getReportDownloadUrl(report.video_id)}
+                download={`report_${report.teacher_id}_${report.video_id.slice(0, 8)}.md`}
+                style={{
+                  height: '28px',
+                  padding: '0 9px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  backgroundColor: '#FFFFFF',
+                  color: '#475569',
+                  border: '1px solid #D1D5DB',
+                  boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+                  textDecoration: 'none',
+                  transition: 'all 0.15s ease',
+                }}
+                title={language === 'vi' ? 'Tải tệp Markdown thô (.md)' : 'Download raw Markdown file (.md)'}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#F8FAFC';
+                  e.currentTarget.style.borderColor = '#94A3B8';
+                  e.currentTarget.style.color = '#0F172A';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                  e.currentTarget.style.borderColor = '#D1D5DB';
+                  e.currentTarget.style.color = '#475569';
+                }}
+              >
+                <Download size={12.5} color="#64748B" />
+                <span>Markdown</span>
+              </a>
+            )}
+
+            {/* Delete Report Button */}
+            {report && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                style={{
+                  height: '28px',
+                  padding: '0 8px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  backgroundColor: '#FFFFFF',
+                  color: '#94A3B8',
+                  border: '1px solid transparent',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#DC2626';
+                  e.currentTarget.style.backgroundColor = '#FEF2F2';
+                  e.currentTarget.style.borderColor = '#FECACA';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = '#94A3B8';
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.borderColor = 'transparent';
+                }}
+                title={language === 'vi' ? 'Xóa báo cáo này' : 'Delete this report'}
+              >
+                <Trash2 size={13} />
+                <span>{language === 'vi' ? 'Xóa' : 'Delete'}</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

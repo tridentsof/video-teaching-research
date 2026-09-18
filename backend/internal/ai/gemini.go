@@ -447,8 +447,136 @@ func (g *GeminiDirectProvider) AnalyzeVideoChunk(ctx context.Context, videoFileP
 	return "", fmt.Errorf("exhausted retries for gemini video analysis")
 }
 
+// TranscribeAudio uploads an audio file (mp3/m4a/wav/ogg) to Gemini and executes multimodal audio transcription with retry backoff.
+func (g *GeminiDirectProvider) TranscribeAudio(ctx context.Context, audioFilePath string, prompt string) (string, error) {
+	if g.apiKey == "" {
+		return "", fmt.Errorf("gemini API key is not configured")
+	}
+
+	analysisStart := time.Now()
+
+	// 1. Upload audio to Gemini File API
+	geminiFile, err := g.uploadFileToGemini(ctx, audioFilePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to upload audio to gemini: %w", err)
+	}
+	defer g.deleteGeminiFile(context.Background(), geminiFile.Name)
+
+	// 2. Wait for file to become ACTIVE
+	if err := g.waitForFileActive(ctx, geminiFile.Name); err != nil {
+		return "", fmt.Errorf("error waiting for audio file processing: %w", err)
+	}
+
+	// 3. Generate content with audio parts and exponential backoff retry
+	generateURL := fmt.Sprintf(
+		"https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s",
+		g.model, g.apiKey,
+	)
+
+	mimeType := geminiFile.MimeType
+	if mimeType == "" {
+		mimeType = "audio/mp3"
+	}
+
+	reqBody := geminiGenerateContentRequest{
+		Contents: []geminiContent{
+			{
+				Parts: []geminiPart{
+					{
+						FileData: &geminiFileData{
+							MimeType: mimeType,
+							FileURI:  geminiFile.URI,
+						},
+					},
+					{
+						Text: prompt,
+					},
+				},
+			},
+		},
+		GenerationConfig: &geminiConfig{
+			MaxOutputTokens:  65536,
+			ResponseMimeType: "application/json",
+		},
+	}
+
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", err
+	}
+
+	const maxRetries = 3
+	backoff := 2 * time.Second
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return "", ctx.Err()
+			case <-time.After(backoff):
+				backoff *= 2
+			}
+		}
+
+		req, err := http.NewRequestWithContext(ctx, "POST", generateURL, bytes.NewReader(bodyBytes))
+		if err != nil {
+			return "", err
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := g.httpClient.Do(req)
+		if err != nil {
+			log.Printf("[Gemini TranscribeAudio] attempt %d/%d network error: %v (retrying...)", attempt+1, maxRetries+1, err)
+			if attempt == maxRetries {
+				return "", fmt.Errorf("transcribe request failed after %d retries: %w", maxRetries+1, err)
+			}
+			continue
+		}
+
+		respBody, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if readErr != nil {
+			return "", fmt.Errorf("failed to read response: %w", readErr)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			log.Printf("[Gemini TranscribeAudio] attempt %d/%d HTTP %d: %s", attempt+1, maxRetries+1, resp.StatusCode, string(respBody))
+			if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+				if attempt == maxRetries {
+					return "", fmt.Errorf("gemini API error (%d): %s", resp.StatusCode, string(respBody))
+				}
+				continue
+			}
+			return "", fmt.Errorf("gemini API error (%d): %s", resp.StatusCode, string(respBody))
+		}
+
+		var genResp geminiGenerateContentResponse
+		if err := json.Unmarshal(respBody, &genResp); err != nil {
+			return "", fmt.Errorf("failed to parse response: %w", err)
+		}
+
+		if genResp.Error != nil {
+			return "", fmt.Errorf("gemini API error (%d): %s", genResp.Error.Code, genResp.Error.Message)
+		}
+
+		if len(genResp.Candidates) == 0 || len(genResp.Candidates[0].Content.Parts) == 0 {
+			finishReason := ""
+			if len(genResp.Candidates) > 0 {
+				finishReason = genResp.Candidates[0].FinishReason
+			}
+			return "", fmt.Errorf("gemini returned empty response (finishReason: %s)", finishReason)
+		}
+
+		log.Printf("[Gemini TranscribeAudio] file (%s) transcribed successfully in %v", filepath.Base(audioFilePath), time.Since(analysisStart))
+		return genResp.Candidates[0].Content.Parts[0].Text, nil
+	}
+
+	return "", fmt.Errorf("exhausted retries for gemini audio transcription")
+}
+
 // CompleteText sends a prompt to Gemini for text generation / reasoning.
 func (g *GeminiDirectProvider) CompleteText(ctx context.Context, model string, systemPrompt, userPrompt string) (string, error) {
+
 	if g.apiKey == "" {
 		return "", fmt.Errorf("gemini API key is not configured")
 	}

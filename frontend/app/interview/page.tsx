@@ -41,10 +41,12 @@ import {
   GitBranch,
   Calendar,
   Info,
+  Printer,
 } from 'lucide-react';
 import Link from 'next/link';
 import JSZip from 'jszip';
 import { generateInterviewGuideWord, downloadInterviewWordBlob } from '@/lib/interviewWordExport';
+import { generateInterviewGuidePdf, generateInterviewGuidePdfBlob } from '@/lib/pdfExport';
 
 export default function InterviewStudioPage() {
   const { t, language } = useTranslation();
@@ -66,6 +68,8 @@ export default function InterviewStudioPage() {
   const [isLiveFromBackend, setIsLiveFromBackend] = useState(false);
   const [isExportingWord, setIsExportingWord] = useState(false);
   const [isExportingAll, setIsExportingAll] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isExportingAllPdf, setIsExportingAllPdf] = useState(false);
   const [exportProgress, setExportProgress] = useState({ current: 0, total: 0 });
 
   // Core & Dynamic Questions
@@ -507,6 +511,90 @@ export default function InterviewStudioPage() {
     }
   };
 
+  const handleExportPdf = async () => {
+    setIsExportingPdf(true);
+    try {
+      const activeCore = synthesizedCore.length > 0 ? synthesizedCore : coreQuestions;
+      await generateInterviewGuidePdf({
+        teacherId: selectedTeacher,
+        coreQuestions: activeCore,
+        dynamicQuestions: dynamicQuestions,
+        teacherAnalysis: teacherAnalysis,
+        lang: language as ('en' | 'vi'),
+      });
+      toast.success(t('interviewExportPdfSuccess').replace('{teacher}', selectedTeacher));
+    } catch (err: any) {
+      console.error('Export PDF error:', err);
+      toast.error(t('interviewExportAllError') + (err.message || 'Thử lại sau'));
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  const handleExportAllPdf = async () => {
+    if (!teacherList || teacherList.length === 0) return;
+    setIsExportingAllPdf(true);
+    setExportProgress({ current: 0, total: teacherList.length });
+
+    try {
+      const zip = new JSZip();
+      const activeCore = synthesizedCore.length > 0 ? synthesizedCore : coreQuestions;
+      const dateStr = new Date().toISOString().slice(0, 10);
+
+      for (let i = 0; i < teacherList.length; i++) {
+        const tId = teacherList[i];
+        setExportProgress({ current: i + 1, total: teacherList.length });
+
+        let core = activeCore;
+        let dyn: InterviewQuestion[] = [];
+        let analysis: TeacherAnalysis | null = null;
+
+        if (tId === selectedTeacher && isLiveFromBackend) {
+          dyn = dynamicQuestions;
+          analysis = teacherAnalysis;
+        } else {
+          try {
+            const data = await api.getTeacherAnalysis(latestRunId || 'latest', tId);
+            if (data && data.interview_questions) {
+              if (core.length === 0) {
+                core = data.interview_questions.filter((q) => q.type === 'core');
+              }
+              dyn = data.interview_questions.filter((q) => q.type === 'dynamic');
+              analysis = data.teacher_analysis || null;
+            }
+          } catch (fetchErr) {
+            console.warn(`Could not load full teacher analysis for ${tId}:`, fetchErr);
+          }
+        }
+
+        const pdfBlob = await generateInterviewGuidePdfBlob({
+          teacherId: tId,
+          coreQuestions: core,
+          dynamicQuestions: dyn,
+          teacherAnalysis: analysis,
+          lang: language as ('en' | 'vi'),
+        });
+
+        const pdfFilename = `Teacher_Interview_Guide_${tId}_${dateStr}.pdf`;
+        zip.file(pdfFilename, pdfBlob);
+      }
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const zipFilename = `Teacher_Interview_Guides_All_${dateStr}_PDF.zip`;
+      downloadInterviewWordBlob(zipBlob, zipFilename);
+
+      toast.success(
+        t('interviewExportAllSuccessPdf').replace('{count}', String(teacherList.length))
+      );
+    } catch (err: any) {
+      console.error('Batch export PDF error:', err);
+      toast.error(t('interviewExportAllError') + (err.message || 'Thử lại sau'));
+    } finally {
+      setIsExportingAllPdf(false);
+      setExportProgress({ current: 0, total: 0 });
+    }
+  };
+
   const getRQBadgeStyle = (rq?: string): React.CSSProperties => {
     switch (rq) {
       case 'RQ1':
@@ -909,23 +997,51 @@ export default function InterviewStudioPage() {
             </div>
 
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              {/* Copy Questions */}
               <button
                 onClick={handleCopy}
-                className="btn btn-secondary"
-                style={{ fontSize: '13px', padding: '7px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                style={{
+                  height: '30px',
+                  padding: '0 10px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  backgroundColor: '#FFFFFF',
+                  color: 'var(--text-main)',
+                  border: '1px solid var(--card-border)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
               >
-                {copied ? <Check size={15} color="var(--accent-green)" /> : <Copy size={15} />}
+                {copied ? <Check size={13.5} color="var(--accent-green)" /> : <Copy size={13.5} />}
                 <span>{copied ? t('commonCopied') : t('commonCopyQuestions')}</span>
               </button>
-              {/* 2 Export Buttons Song Song (1 cho từng Teacher, 1 cho Tất Cả) */}
+
+              {/* Single Teacher Word Export */}
               <button
                 onClick={handleExportWord}
-                disabled={isExportingWord || isExportingAll}
-                className="btn btn-secondary"
-                style={{ fontSize: '13px', padding: '7px 15px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
+                disabled={isExportingWord || isExportingAll || isExportingPdf || isExportingAllPdf}
+                style={{
+                  height: '30px',
+                  padding: '0 10px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  backgroundColor: '#F0FDF4',
+                  color: '#166534',
+                  border: '1px solid #BBF7D0',
+                  cursor: isExportingWord || isExportingAll || isExportingPdf || isExportingAllPdf ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
                 title={t('interviewExportWordTooltip').replace('{teacher}', selectedTeacher)}
               >
-                {isExportingWord ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} color="var(--accent)" />}
+                {isExportingWord ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} color="#2D6A4F" />}
                 <span>
                   {isExportingWord
                     ? t('interviewExportingWord')
@@ -933,20 +1049,97 @@ export default function InterviewStudioPage() {
                 </span>
               </button>
 
+              {/* Single Teacher PDF Export */}
+              <button
+                onClick={handleExportPdf}
+                disabled={isExportingWord || isExportingAll || isExportingPdf || isExportingAllPdf}
+                style={{
+                  height: '30px',
+                  padding: '0 10px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  backgroundColor: '#FEF2F2',
+                  color: '#991B1B',
+                  border: '1px solid #FECACA',
+                  cursor: isExportingWord || isExportingAll || isExportingPdf || isExportingAllPdf ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                title={t('interviewExportPdfTooltip').replace('{teacher}', selectedTeacher)}
+              >
+                {isExportingPdf ? <Loader2 size={13} className="animate-spin" /> : <Printer size={13} color="#DC2626" />}
+                <span>
+                  {isExportingPdf
+                    ? t('interviewExportingPdf')
+                    : t('interviewExportSingleTeacherPdf').replace('{teacher}', selectedTeacher)}
+                </span>
+              </button>
+
+              {/* Subtle Divider */}
+              <div style={{ width: '1px', height: '18px', backgroundColor: '#E2E8F0', margin: '0 2px' }} />
+
+              {/* Batch All Teachers Word (ZIP) */}
               <button
                 onClick={handleExportAllWord}
-                disabled={isExportingWord || isExportingAll}
-                className="btn btn-primary"
-                style={{ fontSize: '13px', padding: '7px 16px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
+                disabled={isExportingWord || isExportingAll || isExportingPdf || isExportingAllPdf}
+                style={{
+                  height: '30px',
+                  padding: '0 10px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  backgroundColor: '#EFF6FF',
+                  color: '#1E40AF',
+                  border: '1px solid #BFDBFE',
+                  cursor: isExportingWord || isExportingAll || isExportingPdf || isExportingAllPdf ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
                 title={t('interviewExportAllTooltip').replace('{count}', String(teacherList.length))}
               >
-                {isExportingAll ? <Loader2 size={15} className="animate-spin" /> : <FolderArchive size={15} />}
+                {isExportingAll ? <Loader2 size={13} className="animate-spin" /> : <FolderArchive size={13} />}
                 <span>
                   {isExportingAll
                     ? t('interviewExportingAllWord')
                         .replace('{current}', String(exportProgress.current))
                         .replace('{total}', String(exportProgress.total))
                     : t('interviewExportAllTeachers').replace('{count}', String(teacherList.length))}
+                </span>
+              </button>
+
+              {/* Batch All Teachers PDF (ZIP) */}
+              <button
+                onClick={handleExportAllPdf}
+                disabled={isExportingWord || isExportingAll || isExportingPdf || isExportingAllPdf}
+                style={{
+                  height: '30px',
+                  padding: '0 10px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  backgroundColor: '#FFF1F2',
+                  color: '#9F1239',
+                  border: '1px solid #FECDD3',
+                  cursor: isExportingWord || isExportingAll || isExportingPdf || isExportingAllPdf ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                title={t('interviewExportAllPdfTooltip').replace('{count}', String(teacherList.length))}
+              >
+                {isExportingAllPdf ? <Loader2 size={13} className="animate-spin" /> : <FolderArchive size={13} />}
+                <span>
+                  {isExportingAllPdf
+                    ? t('interviewExportingAllPdf')
+                        .replace('{current}', String(exportProgress.current))
+                        .replace('{total}', String(exportProgress.total))
+                    : t('interviewExportAllTeachersPdf').replace('{count}', String(teacherList.length))}
                 </span>
               </button>
             </div>

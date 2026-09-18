@@ -110,6 +110,30 @@ const FLOW_METAS: Record<string, FlowMeta> = {
     badgeClass: 'pill-amber',
     requireMultimodal: false,
   },
+  interview_transcription: {
+    titleEn: 'Teacher Interview Audio Transcription',
+    titleVi: 'Bóc Băng Ghi Âm Phỏng Vấn Giáo Viên',
+    stepEn: 'Step 06 • Audio Multimodal Transcription',
+    stepVi: 'Bước 06 • Bóc Băng Đa Ngữ (EN/VI)',
+    descEn: 'Transcribes teacher interview audio recordings with speaker separation, timestamps and Q&A mapping.',
+    descVi: 'Bóc băng file ghi âm phỏng vấn giáo viên, tách lượt thoại người hỏi/người trả lời và gán mốc thời gian.',
+    badgeEn: 'Audio Multimodal',
+    badgeVi: 'Âm Thanh Đa Ngữ',
+    badgeClass: 'pill-blue',
+    requireMultimodal: true,
+  },
+  interview_analysis: {
+    titleEn: 'Post-Interview Qualitative Analysis',
+    titleVi: 'Phân Tích Định Tính & Đối Chiếu Tam Giác',
+    stepEn: 'Step 07 • Meaning Units & Triangulation',
+    stepVi: 'Bước 07 • Tách Ý, Gắn Mã & Đối Chiếu',
+    descEn: 'Segments meaning units, assigns qualitative codes, triangulates with observation themes and selects quotes.',
+    descVi: 'Tách meaning units, gợi ý initial codes, đối chiếu tam giác với video quan sát và trích xuất câu trích dẫn.',
+    badgeEn: 'Triangulation & Coding',
+    badgeVi: 'Đối Chiếu & Gắn Mã',
+    badgeClass: 'pill-purple',
+    requireMultimodal: false,
+  },
 };
 
 const FLOW_ORDER = [
@@ -118,7 +142,10 @@ const FLOW_ORDER = [
   'thematic_analysis',
   'interview_generator',
   'codebook_generation',
+  'interview_transcription',
+  'interview_analysis',
 ];
+
 
 export default function SettingsPage() {
   const { t, language } = useTranslation();

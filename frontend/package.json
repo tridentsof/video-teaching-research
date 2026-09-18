@@ -15,6 +15,7 @@
   "dependencies": {
     "@types/jszip": "^3.4.0",
     "docx": "^9.7.1",
+    "html2pdf.js": "^0.14.0",
     "jszip": "^3.10.2",
     "lucide-react": "^1.31.0",
     "next": "^16.3.1",
@@ -24,6 +25,7 @@
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
+    "@types/html2pdf.js": "^0.10.0",
     "@types/node": "^26.2.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",

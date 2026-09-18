@@ -230,8 +230,31 @@ func (s *AIRouterService) GetVideoProviderForFlow(ctx context.Context, flowKey s
 	}
 }
 
+// GetAudioProviderForFlow dynamically resolves and returns the AudioTranscriptionProvider for audio transcription.
+func (s *AIRouterService) GetAudioProviderForFlow(ctx context.Context, flowKey string) (ai.AudioTranscriptionProvider, string, error) {
+	providerType, modelName, apiKeySecret, _, _, err := s.ResolveFlowConfig(ctx, flowKey)
+	if err != nil {
+		// Fallback to default Gemini key if flow config is not set yet
+		if s.defaultGeminiKey != "" {
+			return s.getGeminiProvider(s.defaultGeminiKey, s.defaultGeminiModel), s.defaultGeminiModel, nil
+		}
+		return nil, "", fmt.Errorf("flow '%s' configuration error: %w", flowKey, err)
+	}
+
+	switch providerType {
+	case "gemini":
+		return s.getGeminiProvider(apiKeySecret, modelName), modelName, nil
+	default:
+		if s.defaultGeminiKey != "" {
+			return s.getGeminiProvider(s.defaultGeminiKey, s.defaultGeminiModel), s.defaultGeminiModel, nil
+		}
+		return nil, "", fmt.Errorf("audio transcription flow '%s' requires a multimodal audio provider (gemini), but '%s' was configured", flowKey, providerType)
+	}
+}
+
 // GetCompleteSettings aggregates all flows, active models, and saved API keys for the UI.
 func (s *AIRouterService) GetCompleteSettings(ctx context.Context) (*model.AIFlowsSettingsResponse, error) {
+
 	if s.repo == nil {
 		return nil, fmt.Errorf("settings repository is not configured")
 	}

@@ -14,21 +14,24 @@ import {
   GraduationCap,
   Layers,
   Sparkles,
+  Printer,
 } from 'lucide-react';
 import {
   generateCombinedWordReport,
   downloadBlob,
   ExportReportData,
 } from '@/lib/wordExport';
+import { generateCombinedObservationPdf } from '@/lib/pdfExport';
 
 export default function ReportsIndexPage() {
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
   const toast = useToast();
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Batch export state
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [exportProgress, setExportProgress] = useState<{
     current: number;
     total: number;
@@ -104,10 +107,11 @@ export default function ReportsIndexPage() {
             report,
             video: v,
             observationNo: `#${v.id.slice(0, 8)}`,
-            className: 'Online English Class',
+            className: language === 'vi' ? 'Lớp tiếng Anh trực tuyến' : 'Online English Class',
             platform: 'Zoom',
             generalNotes:
               'Teacher maintains warm, energetic classroom rapport with strong use of positive reinforcement and multi-modal digital tools. Pacing and wait time effectively support second language acquisition for young learners.',
+            lang: language as ('en' | 'vi'),
           });
         } catch (fetchErr) {
           console.warn(`Failed to fetch report for video ${v.id}:`, fetchErr);
@@ -141,6 +145,71 @@ export default function ReportsIndexPage() {
     }
   };
 
+  const handleExportAllPdf = async () => {
+    if (sortedVideos.length === 0) {
+      toast.warning(t('reportsNoReportsToExport'));
+      return;
+    }
+
+    setIsExportingPdf(true);
+    setExportProgress({
+      current: 0,
+      total: sortedVideos.length,
+      stage: 'fetching',
+      currentTitle: '',
+    });
+
+    try {
+      const exportDataList: ExportReportData[] = [];
+
+      for (let i = 0; i < sortedVideos.length; i++) {
+        const v = sortedVideos[i];
+        setExportProgress({
+          current: i + 1,
+          total: sortedVideos.length,
+          stage: 'fetching',
+          currentTitle: `${v.teacher_id} — ${v.title}`,
+        });
+
+        try {
+          const report = await api.getReport(v.id);
+          exportDataList.push({
+            report,
+            video: v,
+            observationNo: `#${v.id.slice(0, 8)}`,
+            className: language === 'vi' ? 'Lớp tiếng Anh trực tuyến' : 'Online English Class',
+            platform: 'Zoom',
+            generalNotes:
+              'Teacher maintains warm, energetic classroom rapport with strong use of positive reinforcement and multi-modal digital tools. Pacing and wait time effectively support second language acquisition for young learners.',
+            lang: language as ('en' | 'vi'),
+          });
+        } catch (fetchErr) {
+          console.warn(`Failed to fetch report for video ${v.id}:`, fetchErr);
+        }
+      }
+
+      if (exportDataList.length === 0) {
+        toast.error('Could not retrieve observation reports for any video.');
+        return;
+      }
+
+      setExportProgress({
+        current: exportDataList.length,
+        total: exportDataList.length,
+        stage: 'packing',
+      });
+
+      await generateCombinedObservationPdf(exportDataList, language as ('en' | 'vi'));
+      toast.success(t('reportsExportAllSuccessPdf'));
+    } catch (err: any) {
+      console.error('Batch PDF export failed:', err);
+      toast.error(`Export failed: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsExportingPdf(false);
+      setExportProgress(null);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
       
@@ -167,45 +236,128 @@ export default function ReportsIndexPage() {
           </p>
         </div>
 
-        {/* Batch Export Action Button */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Batch Export Action Buttons (Word & PDF) */}
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px',
+          backgroundColor: '#FFFFFF',
+          padding: '3px',
+          borderRadius: '8px',
+          border: '1px solid #D1D5DB',
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+        }}>
+          {/* Word Button */}
           <button
             onClick={handleExportAll}
-            disabled={loading || isExporting || sortedVideos.length === 0}
+            disabled={loading || isExporting || isExportingPdf || sortedVideos.length === 0}
             style={{
+              height: '28px',
+              padding: '0 9px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 500,
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '10px',
-              backgroundColor: isExporting || sortedVideos.length === 0 ? 'var(--text-muted)' : 'var(--accent)',
-              color: '#FFFFFF',
-              padding: '11px 22px',
-              borderRadius: 'var(--radius-md)',
-              fontSize: '14px',
-              fontWeight: 600,
-              border: 'none',
-              cursor: isExporting || sortedVideos.length === 0 ? 'not-allowed' : 'pointer',
-              boxShadow: 'var(--shadow-sm)',
-              transition: 'all 0.18s ease',
+              gap: '5px',
+              backgroundColor: '#FFFFFF',
+              color: '#166534',
+              border: '1px solid transparent',
+              cursor: isExporting || isExportingPdf || sortedVideos.length === 0 ? 'not-allowed' : 'pointer',
+              transition: 'all 0.15s ease',
               opacity: sortedVideos.length === 0 && !loading ? 0.6 : 1,
+            }}
+            title={language === 'vi' ? 'Xuất toàn bộ báo cáo Word (.docx)' : 'Export all reports to Word (.docx)'}
+            onMouseEnter={(e) => {
+              if (!isExporting && !isExportingPdf && sortedVideos.length > 0) {
+                e.currentTarget.style.backgroundColor = '#F0FDF4';
+                e.currentTarget.style.borderColor = '#BBF7D0';
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#FFFFFF';
+              e.currentTarget.style.borderColor = 'transparent';
             }}
           >
             {isExporting ? (
               <>
-                <Loader2 size={17} className="animate-spin" />
+                <Loader2 size={12.5} className="animate-spin" color="#166534" />
                 <span>{t('reportsExportingAllWord')}</span>
               </>
             ) : (
               <>
-                <FileDown size={17} />
+                <FileDown size={12.5} color="#166534" />
                 <span>{t('reportsExportAllWord')}</span>
                 {sortedVideos.length > 0 && (
                   <span style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                    padding: '2px 8px',
-                    borderRadius: '999px',
-                    fontSize: '12px',
+                    backgroundColor: '#DCFCE7',
+                    color: '#15803D',
+                    padding: '0 5px',
+                    borderRadius: '10px',
+                    fontSize: '11px',
                     fontFamily: 'var(--font-mono)',
-                    fontWeight: 700,
+                    fontWeight: 600,
+                  }}>
+                    {sortedVideos.length}
+                  </span>
+                )}
+              </>
+            )}
+          </button>
+
+          {/* Divider */}
+          <div style={{ width: '1px', height: '16px', backgroundColor: '#E2E8F0' }} />
+
+          {/* PDF Button */}
+          <button
+            onClick={handleExportAllPdf}
+            disabled={loading || isExporting || isExportingPdf || sortedVideos.length === 0}
+            style={{
+              height: '28px',
+              padding: '0 9px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 500,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              backgroundColor: '#FFFFFF',
+              color: '#991B1B',
+              border: '1px solid transparent',
+              cursor: isExporting || isExportingPdf || sortedVideos.length === 0 ? 'not-allowed' : 'pointer',
+              transition: 'all 0.15s ease',
+              opacity: sortedVideos.length === 0 && !loading ? 0.6 : 1,
+            }}
+            title={language === 'vi' ? 'Xuất toàn bộ báo cáo PDF (.pdf)' : 'Export all reports to PDF (.pdf)'}
+            onMouseEnter={(e) => {
+              if (!isExporting && !isExportingPdf && sortedVideos.length > 0) {
+                e.currentTarget.style.backgroundColor = '#FEF2F2';
+                e.currentTarget.style.borderColor = '#FECACA';
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#FFFFFF';
+              e.currentTarget.style.borderColor = 'transparent';
+            }}
+          >
+            {isExportingPdf ? (
+              <>
+                <Loader2 size={12.5} className="animate-spin" color="#991B1B" />
+                <span>{t('reportsExportingAllPdf')}</span>
+              </>
+            ) : (
+              <>
+                <Printer size={12.5} color="#DC2626" />
+                <span>{t('reportsExportAllPdf')}</span>
+                {sortedVideos.length > 0 && (
+                  <span style={{
+                    backgroundColor: '#FEE2E2',
+                    color: '#991B1B',
+                    padding: '0 5px',
+                    borderRadius: '10px',
+                    fontSize: '11px',
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 600,
                   }}>
                     {sortedVideos.length}
                   </span>
@@ -220,11 +372,11 @@ export default function ReportsIndexPage() {
       <FeatureWorkflowBanner featureKey="reports" />
 
       {/* Export Progress Notification Banner */}
-      {isExporting && exportProgress && (
+      {(isExporting || isExportingPdf) && exportProgress && (
         <div style={{
           backgroundColor: '#FFFFFF',
           border: '1px solid var(--card-border)',
-          borderLeft: '4px solid var(--accent)',
+          borderLeft: `4px solid ${isExportingPdf ? '#DC2626' : 'var(--accent)'}`,
           borderRadius: 'var(--radius-md)',
           padding: '18px 24px',
           boxShadow: 'var(--shadow-sm)',
@@ -235,11 +387,11 @@ export default function ReportsIndexPage() {
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Loader2 size={18} className="animate-spin" style={{ color: 'var(--accent)' }} />
+              <Loader2 size={18} className="animate-spin" style={{ color: isExportingPdf ? '#DC2626' : 'var(--accent)' }} />
               <strong style={{ fontSize: '14.5px', color: 'var(--text-main)' }}>
                 {exportProgress.stage === 'fetching'
                   ? `${t('reportsExportProgressFetching')} (${exportProgress.current}/${exportProgress.total})`
-                  : t('reportsExportProgressCompiling')}
+                  : (isExportingPdf ? t('reportsExportProgressCompilingPdf') : t('reportsExportProgressCompiling'))}
               </strong>
             </div>
             <span style={{

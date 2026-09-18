@@ -273,14 +273,21 @@ export interface ThematicTheme {
 }
 
 export interface RQ1EnactmentRow {
-  strategy_name: string;
+  dimension?: string;
+  dimension_vi?: string;
+  recurring_pattern?: string;
+  recurring_pattern_vi?: string;
+  observed_enactment?: string;
+  observed_enactment_vi?: string;
+  strategy_name?: string;
   strategy_name_vi?: string;
-  strategy_subtext: string;
+  strategy_subtext?: string;
   strategy_subtext_vi?: string;
-  observed_enactments: string[];
+  observed_enactments?: string[];
   observed_enactments_vi?: string[];
   representative_lessons: string[];
   representative_teachers: string[];
+  timestamp_context?: string;
   direct_quotes: QualitativeEvidenceItem[];
 }
 
@@ -380,7 +387,86 @@ export interface TestPingResult {
   message: string;
 }
 
+// Post-Interview Qualitative Analysis Types
+export interface MeaningUnitItem {
+  id: string;
+  response_id: string;
+  teacher_id: string;
+  unit_text: string;
+  unit_index: number;
+  initial_code?: string;
+  category?: string;
+  is_ai_generated: boolean;
+  is_user_edited: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InterviewResponseItem {
+  id: string;
+  analysis_run_id: string;
+  teacher_id: string;
+  question_id?: string;
+  question_text: string;
+  audio_blob_path?: string;
+  audio_filename?: string;
+  audio_duration_sec: number;
+  language: string;
+  raw_transcript?: string;
+  transcript_status: 'draft' | 'uploading' | 'transcribing' | 'transcribed' | 'reviewed' | 'finalized' | 'failed';
+  response_text: string;
+  recorded_at?: string;
+  created_at: string;
+  updated_at: string;
+  meaning_units?: MeaningUnitItem[];
+}
+
+export interface InterviewCodeItem {
+  id: string;
+  analysis_run_id: string;
+  code_name: string;
+  category: string;
+  frequency: number;
+  teacher_ids: string[];
+  created_at: string;
+}
+
+export interface TriangulationEntryItem {
+  id: string;
+  analysis_run_id: string;
+  observation_finding: string;
+  interview_evidence: string;
+  teacher_ref?: string;
+  relationship: 'confirms' | 'explains' | 'contradicts' | 'adds_info';
+  theme_id?: string;
+  is_ai_generated: boolean;
+  is_user_edited: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RepresentativeQuoteItem {
+  id: string;
+  analysis_run_id: string;
+  teacher_id: string;
+  quote_text: string;
+  quote_source?: string;
+  theme_id?: string;
+  rq_category: 'RQ1' | 'RQ2' | 'RQ3';
+  relevance_type: 'explains_observation' | 'representative' | 'notable_difference' | 'answers_rq';
+  is_selected: boolean;
+  created_at: string;
+}
+
+export interface TeacherComparisonData {
+  teacher_id: string;
+  responses: InterviewResponseItem[];
+  meaning_units: MeaningUnitItem[];
+  triangulation: TriangulationEntryItem[];
+}
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
+
 
 function getAuthHeader(): Record<string, string> {
   if (typeof window === 'undefined') return {};
@@ -926,6 +1012,179 @@ export const api = {
   async getQualitativeAnalytics(): Promise<QualitativeAnalyticsData> {
     return request<QualitativeAnalyticsData>('/analytics/qualitative');
   },
+
+  // --- Post-Interview Analysis API ---
+
+  async uploadInterviewAudio(teacherId: string, runId: string, file: File): Promise<InterviewResponseItem> {
+    const formData = new FormData();
+    formData.append('teacher_id', teacherId);
+    formData.append('analysis_run_id', runId);
+    formData.append('audio_file', file);
+
+    const headers = getAuthHeader();
+    const res = await fetch(`${API_BASE}/interview-analysis/upload-audio`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Audio upload failed');
+    }
+    return res.json();
+  },
+
+  async transcribeInterviewAudio(responseId: string): Promise<InterviewResponseItem> {
+    return request<InterviewResponseItem>(`/interview-analysis/responses/${responseId}/transcribe`, {
+      method: 'POST',
+    });
+  },
+
+  async finalizeInterviewResponse(responseId: string, responseText: string): Promise<InterviewResponseItem> {
+    return request<InterviewResponseItem>(`/interview-analysis/responses/${responseId}/finalize`, {
+      method: 'PUT',
+      body: JSON.stringify({ response_text: responseText }),
+    });
+  },
+
+  async createManualInterviewResponse(data: {
+    analysis_run_id: string;
+    teacher_id: string;
+    question_text: string;
+    response_text: string;
+  }): Promise<InterviewResponseItem> {
+    return request<InterviewResponseItem>('/interview-analysis/responses', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getInterviewResponses(teacherId: string, runId?: string): Promise<InterviewResponseItem[]> {
+    const query = runId ? `?run_id=${runId}` : '';
+    const data = await request<{ responses: InterviewResponseItem[] }>(`/interview-analysis/responses/${teacherId}${query}`);
+    return data.responses || [];
+  },
+
+  async deleteInterviewResponse(responseId: string): Promise<void> {
+    return request<void>(`/interview-analysis/responses/${responseId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async segmentMeaningUnits(responseId: string): Promise<MeaningUnitItem[]> {
+    const data = await request<{ meaning_units: MeaningUnitItem[] }>(`/interview-analysis/responses/${responseId}/segment`, {
+      method: 'POST',
+    });
+    return data.meaning_units || [];
+  },
+
+  async getMeaningUnits(teacherId: string): Promise<MeaningUnitItem[]> {
+    const data = await request<{ meaning_units: MeaningUnitItem[] }>(`/interview-analysis/meaning-units/${teacherId}`);
+    return data.meaning_units || [];
+  },
+
+  async createMeaningUnit(data: {
+    response_id: string;
+    teacher_id: string;
+    unit_text: string;
+    unit_index?: number;
+    initial_code?: string;
+    category?: string;
+  }): Promise<MeaningUnitItem> {
+    return request<MeaningUnitItem>('/interview-analysis/meaning-units', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async updateMeaningUnit(id: string, data: {
+    unit_text?: string;
+    initial_code?: string;
+    category?: string;
+  }): Promise<MeaningUnitItem> {
+    return request<MeaningUnitItem>(`/interview-analysis/meaning-units/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteMeaningUnit(id: string): Promise<void> {
+    return request<void>(`/interview-analysis/meaning-units/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async generateInterviewCodes(teacherId: string, runId?: string): Promise<{
+    meaning_units: MeaningUnitItem[];
+    codes: InterviewCodeItem[];
+  }> {
+    return request<{
+      meaning_units: MeaningUnitItem[];
+      codes: InterviewCodeItem[];
+    }>('/interview-analysis/codes/generate', {
+      method: 'POST',
+      body: JSON.stringify({ teacher_id: teacherId, analysis_run_id: runId }),
+    });
+  },
+
+  async getInterviewCodes(runId?: string): Promise<InterviewCodeItem[]> {
+    const query = runId ? `?run_id=${runId}` : '';
+    const data = await request<{ codes: InterviewCodeItem[] }>(`/interview-analysis/codes${query}`);
+    return data.codes || [];
+  },
+
+  async runInterviewTriangulation(runId: string): Promise<TriangulationEntryItem[]> {
+    const data = await request<{ triangulation_entries: TriangulationEntryItem[] }>('/interview-analysis/triangulate', {
+      method: 'POST',
+      body: JSON.stringify({ analysis_run_id: runId }),
+    });
+    return data.triangulation_entries || [];
+  },
+
+  async getInterviewTriangulation(runId?: string): Promise<TriangulationEntryItem[]> {
+    const query = runId ? `?run_id=${runId}` : '';
+    const data = await request<{ triangulation_entries: TriangulationEntryItem[] }>(`/interview-analysis/triangulation${query}`);
+    return data.triangulation_entries || [];
+  },
+
+  async updateInterviewTriangulation(id: string, data: {
+    relationship?: string;
+    observation_finding?: string;
+    interview_evidence?: string;
+  }): Promise<TriangulationEntryItem> {
+    return request<TriangulationEntryItem>(`/interview-analysis/triangulation/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getPerTeacherComparison(teacherId: string, runId?: string): Promise<TeacherComparisonData> {
+    const query = runId ? `?run_id=${runId}` : '';
+    return request<TeacherComparisonData>(`/interview-analysis/teacher-comparison/${teacherId}${query}`);
+  },
+
+  async selectRepresentativeQuotes(runId: string): Promise<RepresentativeQuoteItem[]> {
+    const data = await request<{ quotes: RepresentativeQuoteItem[] }>('/interview-analysis/quotes/select', {
+      method: 'POST',
+      body: JSON.stringify({ analysis_run_id: runId }),
+    });
+    return data.quotes || [];
+  },
+
+  async getRepresentativeQuotes(runId?: string): Promise<RepresentativeQuoteItem[]> {
+    const query = runId ? `?run_id=${runId}` : '';
+    const data = await request<{ quotes: RepresentativeQuoteItem[] }>(`/interview-analysis/quotes${query}`);
+    return data.quotes || [];
+  },
+
+  async toggleQuoteSelection(id: string, isSelected: boolean): Promise<void> {
+    return request<void>(`/interview-analysis/quotes/${id}/toggle`, {
+      method: 'PUT',
+      body: JSON.stringify({ is_selected: isSelected }),
+    });
+  },
+
 
   getToken(): string | null {
     if (typeof window === 'undefined') return null;

@@ -50,7 +50,7 @@ export function downloadSVG(svgContent: string, filename: string) {
 }
 
 /**
- * 1. Code/Pattern × Coverage Matrix SVG Exporter
+ * 1. 5 Thesis Dimensions × Coverage Matrix SVG Exporter (Figure 4.1)
  */
 export function generateCoverageMatrixSVG({
   rows,
@@ -67,19 +67,19 @@ export function generateCoverageMatrixSVG({
 }): string {
   const isVi = language === 'vi';
   const defaultTitle = isVi
-    ? 'Hình 4.1. Ma Trận Độ Phủ Mã & Mẫu Hành Vi Định Tính Qua 24 Bài Học'
-    : 'Figure 4.1. Qualitative Pattern & Code Coverage Matrix Across 24 Lessons';
+    ? 'Hình 4.1. Ma Trận Độ Phủ 5 Kích Thước Quan Sát Luận Văn Qua 24 Bài Học'
+    : 'Figure 4.1. Observation Framework Dimensions Coverage Matrix Across 24 Lessons';
   const finalTitle = title || defaultTitle;
   const colWidth = viewMode === 'lessons' ? 36 : 60;
-  const headerCol1Width = 260;
-  const headerCol2Width = 180;
+  const headerCol1Width = 320;
+  const headerCol2Width = 240;
   const summaryColWidth = 120;
   const gridWidth = headerCol1Width + headerCol2Width + columnsList.length * colWidth + summaryColWidth;
-  const rowHeight = 34;
+  const rowHeight = 36;
   const headerHeight = 120;
   const footerHeight = 70;
   const totalHeight = headerHeight + (rows.length + 1) * rowHeight + footerHeight;
-  const totalWidth = Math.max(1200, gridWidth + 80);
+  const totalWidth = Math.max(1240, gridWidth + 80);
 
   let gridX = 40;
   let gridY = headerHeight;
@@ -91,7 +91,7 @@ export function generateCoverageMatrixSVG({
     const x = startX + idx * colWidth + colWidth / 2;
     colsSvg += `
       <rect x="${startX + idx * colWidth}" y="${gridY}" width="${colWidth}" height="${rowHeight}" fill="#FBF9F5" stroke="#E8E3D9" stroke-width="1" />
-      <text x="${x}" y="${gridY + 22}" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="600" fill="#736B63" text-anchor="middle">${escapeXml(col)}</text>
+      <text x="${x}" y="${gridY + 23}" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="600" fill="#736B63" text-anchor="middle">${escapeXml(col)}</text>
     `;
   });
 
@@ -102,16 +102,16 @@ export function generateCoverageMatrixSVG({
     const isEven = rIdx % 2 === 0;
     const bgRow = isEven ? '#FFFFFF' : '#FAF8F5';
 
-    // Col 1: Code & Name
+    // Col 1: Dimension Name
     rowsSvg += `
       <rect x="${gridX}" y="${y}" width="${headerCol1Width}" height="${rowHeight}" fill="${bgRow}" stroke="#E8E3D9" stroke-width="1" />
-      <text x="${gridX + 12}" y="${y + 21}" font-family="'Plus Jakarta Sans', sans-serif" font-size="12" font-weight="600" fill="#9E4A28">${escapeXml(r.description || r.code)}</text>
+      <text x="${gridX + 14}" y="${y + 23}" font-family="'Plus Jakarta Sans', sans-serif" font-size="12" font-weight="600" fill="#9E4A28">${escapeXml(r.description || r.code)}</text>
     `;
 
-    // Col 2: Category
+    // Col 2: Framework Section
     rowsSvg += `
       <rect x="${gridX + headerCol1Width}" y="${y}" width="${headerCol2Width}" height="${rowHeight}" fill="${bgRow}" stroke="#E8E3D9" stroke-width="1" />
-      <text x="${gridX + headerCol1Width + 12}" y="${y + 21}" font-family="'Plus Jakarta Sans', sans-serif" font-size="11.5" fill="#736B63">${escapeXml(r.category)}</text>
+      <text x="${gridX + headerCol1Width + 14}" y="${y + 23}" font-family="'Plus Jakarta Sans', sans-serif" font-size="11.5" fill="#736B63">${escapeXml(r.category)}</text>
     `;
 
     // Cells
@@ -126,7 +126,7 @@ export function generateCoverageMatrixSVG({
       `;
       if (isPresent) {
         rowsSvg += `
-          <circle cx="${cX + colWidth / 2}" cy="${y + rowHeight / 2}" r="5" fill="#9E4A28" />
+          <circle cx="${cX + colWidth / 2}" cy="${y + rowHeight / 2}" r="5.5" fill="#9E4A28" />
         `;
       }
     });
@@ -138,7 +138,7 @@ export function generateCoverageMatrixSVG({
     const pct = total > 0 ? Math.round((breadth / total) * 100) : 0;
     rowsSvg += `
       <rect x="${sumX}" y="${y}" width="${summaryColWidth}" height="${rowHeight}" fill="${bgRow}" stroke="#E8E3D9" stroke-width="1" />
-      <text x="${sumX + summaryColWidth / 2}" y="${y + 21}" font-family="'JetBrains Mono', monospace" font-size="11.5" font-weight="700" fill="#9E4A28" text-anchor="middle">${breadth} / ${total} (${pct}%)</text>
+      <text x="${sumX + summaryColWidth / 2}" y="${y + 23}" font-family="'JetBrains Mono', monospace" font-size="11.5" font-weight="700" fill="#9E4A28" text-anchor="middle">${breadth} / ${total} (${pct}%)</text>
     `;
   });
 
@@ -149,33 +149,34 @@ export function generateCoverageMatrixSVG({
 
   <!-- Header -->
   <text x="40" y="44" font-family="'Instrument Serif', Georgia, serif" font-size="24" fill="#9E4A28" font-weight="400">${escapeXml(finalTitle)}</text>
-  <text x="40" y="68" font-family="'Plus Jakarta Sans', sans-serif" font-size="13" fill="#736B63">${escapeXml(isVi ? 'Ma trận đa trường hợp chứng minh sự xuất hiện định tính phổ quát của các mẫu hành vi sư phạm qua 24 bài giảng.' : 'Cross-case matrix demonstrating recurring qualitative pedagogical codes across the 24-lesson EFL corpus without quantitative scoring.')}</text>
-  <text x="40" y="88" font-family="'Plus Jakarta Sans', sans-serif" font-size="11.5" fill="#A39B92">${escapeXml(isVi ? 'Chú giải: ● = Có bằng chứng định tính xuất hiện trong video/bản ghi. Tổng mẫu: 12 Giáo viên / 24 Bài học.' : 'Legend: ● = Qualitative evidence present in lesson transcript/video. Total Corpus: 12 Teachers / 24 Lessons.')}</text>
+  <text x="40" y="68" font-family="'Plus Jakarta Sans', sans-serif" font-size="13" fill="#736B63">${escapeXml(isVi ? 'Ma trận thể hiện mức độ xuất hiện thực nghiệm của 5 kích thước quan sát sư phạm qua 24 bài giảng, không đánh giá hiệu quả hay xếp hạng chiến lược.' : 'Cross-case matrix demonstrating empirical occurrence of the 5 observation framework dimensions across 24 lessons without evaluative scoring or ranking.')}</text>
+  <text x="40" y="88" font-family="'Plus Jakarta Sans', sans-serif" font-size="11.5" fill="#A39B92">${escapeXml(isVi ? 'Chú giải: ● = Có bằng chứng định tính xuất hiện trong video/bản ghi. Tổng tập dữ liệu: 12 Giáo viên / 24 Bài học.' : 'Legend: ● = Qualitative evidence present in lesson transcript/video. Total Corpus: 12 Teachers / 24 Lessons.')}</text>
 
   <!-- Grid Header: Col 1 & 2 -->
   <rect x="${gridX}" y="${gridY}" width="${headerCol1Width}" height="${rowHeight}" fill="#FBF9F5" stroke="#E8E3D9" stroke-width="1" />
-  <text x="${gridX + 12}" y="${gridY + 22}" font-family="'Plus Jakarta Sans', sans-serif" font-size="12" font-weight="700" fill="#1A1612">${escapeXml(isVi ? 'Mã Định Tính & Mẫu Hành Vi' : 'Pattern / Qualitative Code')}</text>
+  <text x="${gridX + 14}" y="${gridY + 23}" font-family="'Plus Jakarta Sans', sans-serif" font-size="12" font-weight="700" fill="#1A1612">${escapeXml(isVi ? 'Kích Thước Phân Tích (5 Dimensions)' : 'Analytical Dimension (Thesis Framework)')}</text>
 
   <rect x="${gridX + headerCol1Width}" y="${gridY}" width="${headerCol2Width}" height="${rowHeight}" fill="#FBF9F5" stroke="#E8E3D9" stroke-width="1" />
-  <text x="${gridX + headerCol1Width + 12}" y="${gridY + 22}" font-family="'Plus Jakarta Sans', sans-serif" font-size="12" font-weight="700" fill="#1A1612">${escapeXml(isVi ? 'Cụm Hành Vi' : 'Category')}</text>
+  <text x="${gridX + headerCol1Width + 14}" y="${gridY + 23}" font-family="'Plus Jakarta Sans', sans-serif" font-size="12" font-weight="700" fill="#1A1612">${escapeXml(isVi ? 'Phần Khung Luận Văn' : 'Observation Framework Section')}</text>
 
   <!-- Grid Header Columns -->
   ${colsSvg}
 
   <!-- Grid Header Summary -->
   <rect x="${startX + columnsList.length * colWidth}" y="${gridY}" width="${summaryColWidth}" height="${rowHeight}" fill="#FBF9F5" stroke="#E8E3D9" stroke-width="1" />
-  <text x="${startX + columnsList.length * colWidth + summaryColWidth / 2}" y="${gridY + 22}" font-family="'Plus Jakarta Sans', sans-serif" font-size="12" font-weight="700" fill="#1A1612" text-anchor="middle">${escapeXml(isVi ? 'Độ Phủ' : 'Breadth')}</text>
+  <text x="${startX + columnsList.length * colWidth + summaryColWidth / 2}" y="${gridY + 23}" font-family="'Plus Jakarta Sans', sans-serif" font-size="12" font-weight="700" fill="#1A1612" text-anchor="middle">${escapeXml(isVi ? 'Độ Phủ' : 'Breadth')}</text>
 
   <!-- Grid Body -->
   ${rowsSvg}
 
   <!-- Footer Note -->
-  <text x="40" y="${totalHeight - 25}" font-family="'JetBrains Mono', monospace" font-size="11" fill="#A39B92">Observation Studio Qualitative Analytic Engine • Miles, Huberman &amp; Saldaña Qualitative Data Analysis Standards</text>
+  <text x="40" y="${totalHeight - 25}" font-family="'JetBrains Mono', monospace" font-size="11" fill="#A39B92">Observation Studio Qualitative Analytic Engine • Miles, Huberman &amp; Saldaña Qualitative Framework Standards</text>
 </svg>`;
 }
 
 /**
- * 2. Theme–Category–Code Analytic Hierarchy Map SVG Exporter (Audit Trail)
+ * 2. Theme–Category–Code Analytic Hierarchy Map SVG Exporter (Audit Trail) (Figure 4.2)
+ * Renders pending placeholder when themes are not finalized yet.
  */
 export function generateThematicHierarchySVG({
   themes,
@@ -192,6 +193,44 @@ export function generateThematicHierarchySVG({
     : 'Figure 4.2. Grounded Thematic Coding Tree & Audit Trail';
   const finalTitle = title || defaultTitle;
   const width = 1440;
+
+  // If no finalized themes exist yet (pending interview phase)
+  if (!themes || themes.length === 0) {
+    const height = 460;
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100%" height="100%" fill="#FFFFFF" />
+
+  <!-- Header -->
+  <text x="50" y="44" font-family="'Instrument Serif', Georgia, serif" font-size="24" fill="#9E4A28" font-weight="400">${escapeXml(finalTitle)}</text>
+  <text x="50" y="68" font-family="'Plus Jakarta Sans', sans-serif" font-size="13" fill="#736B63">${escapeXml(isVi ? 'Giai đoạn chờ dữ liệu: Cây chủ đề chính thức sẽ được xác định sau khi hoàn thành phân tích phỏng vấn.' : 'Pending Final Themes: Thematic coding tree will be established following post-interview qualitative synthesis.')}</text>
+
+  <!-- Pending Box -->
+  <rect x="50" y="100" width="1340" height="300" rx="10" fill="#FAF8F5" stroke="#E8E3D9" stroke-width="1.5" stroke-dasharray="6 6" />
+
+  <circle cx="720" cy="200" r="32" fill="#F4EFE6" />
+  <path d="M 720 185 L 720 207 M 720 215 L 720 219" stroke="#9E4A28" stroke-width="3" stroke-linecap="round" />
+
+  <text x="720" y="260" font-family="'Plus Jakarta Sans', sans-serif" font-size="16" font-weight="700" fill="#1A1612" text-anchor="middle">
+    ${escapeXml(isVi ? 'CHƯA CÓ DỮ LIỆU CHỦ ĐỀ CHÍNH THỨC' : 'PENDING FINAL THEMATIC SYNTHESIS')}
+  </text>
+
+  <text x="720" y="286" font-family="'Plus Jakarta Sans', sans-serif" font-size="13" fill="#736B63" text-anchor="middle">
+    ${escapeXml(isVi ? 'Các chủ đề bao quát (Overarching Themes) sẽ được xác định chính thức sau khi hoàn thành thu thập và phân tích dữ liệu phỏng vấn giáo viên (Semi-structured Interviews)' : 'Final overarching themes will be established following the completion of semi-structured teacher interviews (RQ2 & RQ3)')}
+  </text>
+  <text x="720" y="306" font-family="'Plus Jakarta Sans', sans-serif" font-size="13" fill="#736B63" text-anchor="middle">
+    ${escapeXml(isVi ? 'để thực hiện đối chiếu tam giác hóa dữ liệu (Triangulation) với kết quả quan sát bài giảng 24 video.' : 'to perform empirical triangulation with the 24-lesson classroom video observation dataset.')}
+  </text>
+
+  <rect x="620" y="328" width="200" height="28" rx="6" fill="#F0EBE1" />
+  <text x="720" y="346" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700" fill="#9E4A28" text-anchor="middle">
+    ${escapeXml(isVi ? 'GIAI ĐOẠN 2: PHỎNG VẤN' : 'PHASE 2: INTERVIEW DATA')}
+  </text>
+
+  <text x="50" y="${height - 20}" font-family="'JetBrains Mono', monospace" font-size="11" fill="#A39B92">Audit Trail Grounded Model • Lincoln &amp; Guba (1985) Dependability Framework • Video Teaching Research</text>
+</svg>`;
+  }
+
   const themeCardHeight = 170;
   const spacing = 35;
   const totalHeight = 130 + themes.length * (themeCardHeight + spacing) + 80;
@@ -302,7 +341,8 @@ export function generateThematicHierarchySVG({
 }
 
 /**
- * 3. RQ1 Enactment & Traceability Map SVG Exporter
+ * 3. RQ1 Enactment & Traceability Map SVG Exporter (Figure 4.3)
+ * Structure: Analytical Dimension -> Recurring Pattern -> Observed Enactment -> Representative Lesson -> Timestamp/Context
  */
 export function generateRQ1TraceabilitySVG({
   enactments,
@@ -318,56 +358,67 @@ export function generateRQ1TraceabilitySVG({
     ? 'Hình 4.3. Bản Đồ Truy Vết Triển Khai Thực Nghiệm Câu Hỏi Nghiên Cứu 1 (RQ1)'
     : 'Figure 4.3. Research Question 1 (RQ1) Enactment & Evidence Traceability Map';
   const finalTitle = title || defaultTitle;
-  const width = 1440;
-  const rowHeight = 150;
+  const width = 1520;
+  const rowHeight = 155;
   const headerHeight = 110;
-  const totalHeight = headerHeight + enactments.length * (rowHeight + 15) + 60;
+  const totalHeight = headerHeight + enactments.length * (rowHeight + 14) + 60;
+
+  const col1Width = 250; // Dimension
+  const col2Width = 230; // Recurring Pattern
+  const col3Width = 430; // Observed Enactment
+  const col4Width = 180; // Representative Lessons
+  const col5Width = 390; // Timestamp/Context & Quotes
 
   let rowsSvg = '';
   let curY = headerHeight;
 
   enactments.forEach((row, idx) => {
     const y = curY;
-    const stratName = isVi && row.strategy_name_vi ? row.strategy_name_vi : row.strategy_name;
-    const stratSub = isVi && row.strategy_subtext_vi ? row.strategy_subtext_vi : row.strategy_subtext;
-    const enactList = isVi && row.observed_enactments_vi && row.observed_enactments_vi.length > 0
-      ? row.observed_enactments_vi
-      : row.observed_enactments;
+    const dimName = isVi && row.dimension_vi ? row.dimension_vi : (row.dimension || row.strategy_subtext || '');
+    const patternName = isVi && row.recurring_pattern_vi ? row.recurring_pattern_vi : (row.recurring_pattern || row.strategy_name || '');
+    const enactText = isVi && row.observed_enactment_vi ? row.observed_enactment_vi : (row.observed_enactment || (row.observed_enactments && row.observed_enactments[0]) || '');
 
     // Row Container
     rowsSvg += `
       <g id="rq-row-${idx}">
-        <!-- Col 1: Strategy -->
-        <rect x="40" y="${y}" width="280" height="${rowHeight}" fill="#FBF9F5" stroke="#E8E3D9" stroke-width="1" />
-        <text x="56" y="${y + 28}" font-family="'Plus Jakarta Sans', sans-serif" font-size="13.5" font-weight="700" fill="#9E4A28">${escapeXml(stratName)}</text>
-        <foreignObject x="56" y="${y + 36}" width="248" height="100">
-          <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:'Plus Jakarta Sans',sans-serif;font-size:11.5px;color:#736B63;line-height:1.4;">
-            ${escapeXml(stratSub)}
+        <!-- Col 1: Analytical Dimension -->
+        <rect x="40" y="${y}" width="${col1Width}" height="${rowHeight}" fill="#FBF9F5" stroke="#E8E3D9" stroke-width="1" />
+        <foreignObject x="54" y="${y + 14}" width="${col1Width - 28}" height="${rowHeight - 28}">
+          <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:'Plus Jakarta Sans',sans-serif;font-size:12.5px;font-weight:700;color:#9E4A28;line-height:1.4;">
+            ${escapeXml(dimName)}
           </div>
         </foreignObject>
 
-        <!-- Col 2: Observed Enactments -->
-        <rect x="320" y="${y}" width="420" height="${rowHeight}" fill="#FFFFFF" stroke="#E8E3D9" stroke-width="1" />
-        <foreignObject x="336" y="${y + 14}" width="388" height="${rowHeight - 28}">
-          <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:'Plus Jakarta Sans',sans-serif;font-size:11.5px;color:#1A1612;line-height:1.45;">
-            ${enactList.map((en) => `<div style="margin-bottom:6px;">• <strong>${escapeXml(en.split(':')[0])}:</strong> ${escapeXml(en.split(':')[1] || '')}</div>`).join('')}
+        <!-- Col 2: Recurring Pattern -->
+        <rect x="${40 + col1Width}" y="${y}" width="${col2Width}" height="${rowHeight}" fill="#FFFFFF" stroke="#E8E3D9" stroke-width="1" />
+        <foreignObject x="${40 + col1Width + 14}" y="${y + 14}" width="${col2Width - 28}" height="${rowHeight - 28}">
+          <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:600;color:#1A1612;line-height:1.4;">
+            ${escapeXml(patternName)}
           </div>
         </foreignObject>
 
-        <!-- Col 3: Representative Lessons -->
-        <rect x="740" y="${y}" width="200" height="${rowHeight}" fill="#FFFFFF" stroke="#E8E3D9" stroke-width="1" />
-        <foreignObject x="752" y="${y + 14}" width="176" height="${rowHeight - 28}">
+        <!-- Col 3: Observed Enactment -->
+        <rect x="${40 + col1Width + col2Width}" y="${y}" width="${col3Width}" height="${rowHeight}" fill="#FFFFFF" stroke="#E8E3D9" stroke-width="1" />
+        <foreignObject x="${40 + col1Width + col2Width + 14}" y="${y + 14}" width="${col3Width - 28}" height="${rowHeight - 28}">
+          <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:'Plus Jakarta Sans',sans-serif;font-size:11.5px;color:#44403C;line-height:1.45;">
+            ${escapeXml(enactText)}
+          </div>
+        </foreignObject>
+
+        <!-- Col 4: Representative Lessons -->
+        <rect x="${40 + col1Width + col2Width + col3Width}" y="${y}" width="${col4Width}" height="${rowHeight}" fill="#FFFFFF" stroke="#E8E3D9" stroke-width="1" />
+        <foreignObject x="${40 + col1Width + col2Width + col3Width + 12}" y="${y + 14}" width="${col4Width - 24}" height="${rowHeight - 28}">
           <div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-wrap:wrap;gap:4px;">
-            ${row.representative_lessons.map((ls) => `<span style="background:#FBF9F5;border:1px solid #E8E3D9;padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#1A1612;">${escapeXml(ls)}</span>`).join('')}
+            ${row.representative_lessons.map((ls) => `<span style="background:#FBF9F5;border:1px solid #E8E3D9;padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#1A1612;">${escapeXml(ls)}</span>`).join('')}
           </div>
         </foreignObject>
 
-        <!-- Col 4: Verifiable Quotes -->
-        <rect x="940" y="${y}" width="460" height="${rowHeight}" fill="#FFFFFF" stroke="#E8E3D9" stroke-width="1" />
-        <foreignObject x="956" y="${y + 10}" width="428" height="${rowHeight - 20}">
+        <!-- Col 5: Timestamp / Context & Direct Quotes -->
+        <rect x="${40 + col1Width + col2Width + col3Width + col4Width}" y="${y}" width="${col5Width}" height="${rowHeight}" fill="#FFFFFF" stroke="#E8E3D9" stroke-width="1" />
+        <foreignObject x="${40 + col1Width + col2Width + col3Width + col4Width + 12}" y="${y + 10}" width="${col5Width - 24}" height="${rowHeight - 20}">
           <div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;gap:6px;">
             ${row.direct_quotes.slice(0, 2).map((q) => `
-              <div style="background:#FBF9F5;border-radius:6px;padding:6px 10px;border-left:3px solid #9E4A28;font-size:11.5px;">
+              <div style="background:#FBF9F5;border-radius:6px;padding:6px 10px;border-left:3px solid #9E4A28;font-size:11px;">
                 <span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:#1D5C8A;">[${escapeXml(q.timestamp_str)}] ${escapeXml(q.lesson)}: </span>
                 <span style="font-style:italic;color:#44403C;">“${escapeXml(q.quote)}”</span>
               </div>
@@ -386,25 +437,27 @@ export function generateRQ1TraceabilitySVG({
 
   <!-- Title & Description -->
   <text x="40" y="40" font-family="'Instrument Serif', Georgia, serif" font-size="24" fill="#9E4A28" font-weight="400">${escapeXml(finalTitle)}</text>
-  <text x="40" y="64" font-family="'Plus Jakarta Sans', sans-serif" font-size="13" fill="#736B63">${escapeXml(isVi ? 'Chuỗi bằng chứng thực nghiệm kết nối các chiến lược quản lý lớp học với hành vi quan sát được và mốc thời gian video.' : 'Direct empirical audit trail connecting classroom management strategies to observable teacher actions and verifiable video timestamps.')}</text>
+  <text x="40" y="64" font-family="'Plus Jakarta Sans', sans-serif" font-size="13" fill="#736B63">${escapeXml(isVi ? 'Chuỗi bằng chứng thực nghiệm: Kích thước phân tích → Mẫu hành vi lặp lại → Hành vi quan sát được → Bài giảng tiêu biểu → Mốc thời gian/Ngữ cảnh.' : 'Empirical audit trail: Analytical Dimension → Recurring Pattern → Observed Enactment → Representative Lesson → Timestamp/Context.')}</text>
 
   <!-- Table Headers -->
-  <rect x="40" y="80" width="280" height="30" fill="#F4EFE6" stroke="#E8E3D9" stroke-width="1" />
-  <text x="56" y="100" font-family="'Plus Jakarta Sans', sans-serif" font-size="11.5" font-weight="700" fill="#1A1612" letter-spacing="0.5">${escapeXml(isVi ? 'CHIẾN LƯỢC QUẢN LÝ LỚP HỌC' : 'CLASSROOM MANAGEMENT STRATEGY')}</text>
+  <rect x="40" y="80" width="${col1Width}" height="30" fill="#F4EFE6" stroke="#E8E3D9" stroke-width="1" />
+  <text x="54" y="100" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" font-weight="700" fill="#1A1612" letter-spacing="0.5">${escapeXml(isVi ? 'KÍCH THƯỚC PHÂN TÍCH' : 'ANALYTICAL DIMENSION')}</text>
 
-  <rect x="320" y="80" width="420" height="30" fill="#F4EFE6" stroke="#E8E3D9" stroke-width="1" />
-  <text x="336" y="100" font-family="'Plus Jakarta Sans', sans-serif" font-size="11.5" font-weight="700" fill="#1A1612" letter-spacing="0.5">${escapeXml(isVi ? 'HÀNH VI TRIỂN KHAI QUAN SÁT ĐƯỢC' : 'OBSERVED PEDAGOGICAL ENACTMENTS')}</text>
+  <rect x="${40 + col1Width}" y="80" width="${col2Width}" height="30" fill="#F4EFE6" stroke="#E8E3D9" stroke-width="1" />
+  <text x="${40 + col1Width + 14}" y="100" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" font-weight="700" fill="#1A1612" letter-spacing="0.5">${escapeXml(isVi ? 'MẪU HÀNH VI LẶP LẠI' : 'RECURRING PATTERN')}</text>
 
-  <rect x="740" y="80" width="200" height="30" fill="#F4EFE6" stroke="#E8E3D9" stroke-width="1" />
-  <text x="756" y="100" font-family="'Plus Jakarta Sans', sans-serif" font-size="11.5" font-weight="700" fill="#1A1612" letter-spacing="0.5">${escapeXml(isVi ? 'BÀI GIẢNG TIÊU BIỂU' : 'REPRESENTATIVE LESSONS')}</text>
+  <rect x="${40 + col1Width + col2Width}" y="80" width="${col3Width}" height="30" fill="#F4EFE6" stroke="#E8E3D9" stroke-width="1" />
+  <text x="${40 + col1Width + col2Width + 14}" y="100" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" font-weight="700" fill="#1A1612" letter-spacing="0.5">${escapeXml(isVi ? 'HÀNH VI QUAN SÁT ĐƯỢC' : 'OBSERVED ENACTMENT')}</text>
 
-  <rect x="940" y="80" width="460" height="30" fill="#F4EFE6" stroke="#E8E3D9" stroke-width="1" />
-  <text x="956" y="100" font-family="'Plus Jakarta Sans', sans-serif" font-size="11.5" font-weight="700" fill="#1A1612" letter-spacing="0.5">${escapeXml(isVi ? 'TRÍCH DẪN & MỐC THỜI GIAN XÁC THỰC' : 'VERIFIABLE VIDEO QUOTES & TIMESTAMPS')}</text>
+  <rect x="${40 + col1Width + col2Width + col3Width}" y="80" width="${col4Width}" height="30" fill="#F4EFE6" stroke="#E8E3D9" stroke-width="1" />
+  <text x="${40 + col1Width + col2Width + col3Width + 12}" y="100" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" font-weight="700" fill="#1A1612" letter-spacing="0.5">${escapeXml(isVi ? 'BÀI GIẢNG TIÊU BIỂU' : 'REPRESENTATIVE LESSONS')}</text>
+
+  <rect x="${40 + col1Width + col2Width + col3Width + col4Width}" y="80" width="${col5Width}" height="30" fill="#F4EFE6" stroke="#E8E3D9" stroke-width="1" />
+  <text x="${40 + col1Width + col2Width + col3Width + col4Width + 12}" y="100" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" font-weight="700" fill="#1A1612" letter-spacing="0.5">${escapeXml(isVi ? 'MỐC THỜI GIAN & TRÍCH DẪN' : 'TIMESTAMP & DIRECT QUOTES')}</text>
 
   <!-- Content Rows -->
   ${rowsSvg}
 
-  <text x="40" y="${totalHeight - 15}" font-family="'JetBrains Mono', monospace" font-size="11" fill="#A39B92">RQ1 Traceability Matrix • Research Verification Standard • Video Teaching Research</text>
+  <text x="40" y="${totalHeight - 15}" font-family="'JetBrains Mono', monospace" font-size="11" fill="#A39B92">RQ1 Traceability Matrix • Observation Framework Standards • Video Teaching Research</text>
 </svg>`;
 }
-

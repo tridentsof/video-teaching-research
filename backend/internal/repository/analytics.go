@@ -471,7 +471,7 @@ func (r *AnalyticsRepository) GetQualitativeAnalytics(ctx context.Context) (*mod
 		}
 	}
 
-	// 5. Construct Baseline Thematic Tree & Coverage Rows (Ensures academic standard data)
+	// 5. Construct Baseline Coverage Rows based on the 5 Thesis Dimensions
 	type patternSpec struct {
 		Code        string
 		Name        string
@@ -483,43 +483,26 @@ func (r *AnalyticsRepository) GetQualitativeAnalytics(ctx context.Context) (*mod
 
 	specs := []patternSpec{
 		{
-			Code:     "VSC-01",
-			Name:     "Visual Scaffolding & Graphic Anchor",
-			Category: "Instructional Scaffolding",
-			Theme:    "Multimodal Scaffolding Framework",
+			Code:     "DIM-01",
+			Name:     "Establishing Online Rules and Routines",
+			Category: "Section A: Classroom Rules & Routines",
+			Theme:    "Establishing Online Rules and Routines",
 			LessonHits: map[string]bool{
-				"T01-L1": true, "T01-L2": true, "T02-L1": true, "T03-L1": true, "T03-L2": true,
-				"T04-L1": true, "T04-L2": true, "T05-L1": true, "T05-L2": true, "T06-L1": true,
-				"T07-L1": true, "T07-L2": true, "T08-L1": true, "T08-L2": true, "T09-L1": true,
-				"T09-L2": true, "T10-L1": true, "T10-L2": true, "T11-L1": true, "T11-L2": true,
-				"T12-L1": true, "T12-L2": true,
+				"T01-L1": true, "T01-L2": true, "T02-L1": true, "T02-L2": true, "T03-L1": true, "T03-L2": true,
+				"T04-L1": true, "T04-L2": true, "T05-L1": true, "T05-L2": true, "T06-L1": true, "T06-L2": true,
+				"T07-L1": true, "T07-L2": true, "T08-L1": true, "T08-L2": true, "T09-L1": true, "T09-L2": true,
+				"T10-L1": true, "T10-L2": true, "T11-L1": true, "T11-L2": true, "T12-L1": true,
 			},
 			Fallbacks: []model.QualitativeEvidenceItem{
-				{Lesson: "T02-L1", TeacherID: "T02", TimestampStr: "00:14:12", Quote: "Look at the red circle, what animal is here?", Context: "Teacher uses spotlight cursor on shared graphic slide to elicit vocabulary.", Confidence: 0.94},
-				{Lesson: "T07-L2", TeacherID: "T07", TimestampStr: "00:22:45", Quote: "Compare box A and box B before answering.", Context: "Graphic organizer used to reduce cognitive load before speaking.", Confidence: 0.92},
+				{Lesson: "T01-L1", TeacherID: "T01", TimestampStr: "00:02:15", Quote: "Microphone off when friends are speaking, click raise hand when you want to answer.", Context: "Teacher explains camera and microphone rules prior to lesson start.", Confidence: 0.95},
+				{Lesson: "T04-L1", TeacherID: "T04", TimestampStr: "00:05:30", Quote: "Look at the screen: Step 1 listen, Step 2 choose A or B. Ready?", Context: "Teacher establishes procedural instructions before task transition.", Confidence: 0.92},
 			},
 		},
 		{
-			Code:     "PAC-01",
-			Name:     "Extended Wait-Time Buffer (>3s)",
-			Category: "Participation Pacing",
-			Theme:    "Pacing & Safe-Failure Environment",
-			LessonHits: map[string]bool{
-				"T01-L1": true, "T01-L2": true, "T02-L1": true, "T02-L2": true, "T03-L2": true,
-				"T04-L1": true, "T05-L1": true, "T05-L2": true, "T06-L1": true, "T06-L2": true,
-				"T07-L2": true, "T08-L1": true, "T09-L1": true, "T09-L2": true, "T10-L1": true,
-				"T10-L2": true, "T11-L1": true, "T11-L2": true, "T12-L1": true,
-			},
-			Fallbacks: []model.QualitativeEvidenceItem{
-				{Lesson: "T04-L2", TeacherID: "T04", TimestampStr: "00:19:05", Quote: "Take 5 seconds quietly... no rush, Nam.", Context: "Teacher explicitly protects student wait time against peer interruption.", Confidence: 0.95},
-				{Lesson: "T10-L1", TeacherID: "T10", TimestampStr: "00:08:40", Quote: "I will count to 3 in my mind while you look at the prompt.", Context: "Pacing strategy for complex sentence production.", Confidence: 0.91},
-			},
-		},
-		{
-			Code:     "PRA-01",
-			Name:     "Effort-Oriented Praise & Affirmation",
-			Category: "Affective Reinforcement",
-			Theme:    "Pacing & Safe-Failure Environment",
+			Code:     "DIM-02",
+			Name:     "Managing Turn-Taking and Speaking Participation",
+			Category: "Section B: Turn-Taking & Participation",
+			Theme:    "Managing Turn-Taking and Speaking Participation",
 			LessonHits: map[string]bool{
 				"T01-L1": true, "T01-L2": true, "T02-L1": true, "T02-L2": true, "T03-L1": true, "T03-L2": true,
 				"T04-L1": true, "T04-L2": true, "T05-L1": true, "T05-L2": true, "T06-L1": true, "T06-L2": true,
@@ -527,40 +510,56 @@ func (r *AnalyticsRepository) GetQualitativeAnalytics(ctx context.Context) (*mod
 				"T10-L1": true, "T10-L2": true, "T11-L1": true, "T11-L2": true, "T12-L1": true, "T12-L2": true,
 			},
 			Fallbacks: []model.QualitativeEvidenceItem{
-				{Lesson: "T01-L2", TeacherID: "T01", TimestampStr: "00:11:40", Quote: "Great try! I love how you fixed your ending sound /s/.", Context: "Specific praise targeting pronunciation self-repair.", Confidence: 0.96},
-				{Lesson: "T08-L1", TeacherID: "T08", TimestampStr: "00:27:14", Quote: "You tried a full sentence, that is wonderful effort Minh!", Context: "Reinforcing willingness to communicate.", Confidence: 0.93},
+				{Lesson: "T03-L1", TeacherID: "T03", TimestampStr: "00:12:45", Quote: "I spin the wheel, 3, 2, 1... it's Mai! Mai, question number 3 is yours.", Context: "Teacher nominates student to speak using digital spinner.", Confidence: 0.95},
+				{Lesson: "T04-L2", TeacherID: "T04", TimestampStr: "00:19:05", Quote: "Take 5 seconds quietly... think first, Nam. No rush.", Context: "Teacher provides wait time before expecting an oral response.", Confidence: 0.94},
 			},
 		},
 		{
-			Code:     "ROU-01",
-			Name:     "Structured Turn-Taking Protocol",
-			Category: "Classroom Routines",
-			Theme:    "Routine-Governed Learner Agency",
+			Code:     "DIM-03",
+			Name:     "Sustaining Learner Attention and Engagement",
+			Category: "Section C: Attention & Engagement",
+			Theme:    "Sustaining Learner Attention and Engagement",
 			LessonHits: map[string]bool{
-				"T01-L1": true, "T02-L1": true, "T02-L2": true, "T03-L1": true, "T04-L1": true,
-				"T04-L2": true, "T05-L2": true, "T06-L2": true, "T07-L1": true, "T07-L2": true,
-				"T08-L2": true, "T09-L1": true, "T10-L1": true, "T10-L2": true, "T11-L1": true,
-				"T12-L1": true, "T12-L2": true,
+				"T01-L1": true, "T01-L2": true, "T02-L1": true, "T02-L2": true, "T03-L1": true, "T03-L2": true,
+				"T04-L1": true, "T04-L2": true, "T05-L1": true, "T05-L2": true, "T06-L1": true, "T06-L2": true,
+				"T07-L1": true, "T07-L2": true, "T08-L1": true, "T08-L2": true, "T09-L1": true, "T09-L2": true,
+				"T10-L1": true, "T10-L2": true, "T11-L1": true, "T11-L2": true, "T12-L1": true, "T12-L2": true,
 			},
 			Fallbacks: []model.QualitativeEvidenceItem{
-				{Lesson: "T03-L1", TeacherID: "T03", TimestampStr: "00:12:45", Quote: "I spin the wheel, 3, 2, 1... it's Mai! Mai, question number 3 is yours.", Context: "Visual randomized spinner orchestrates fair turns.", Confidence: 0.95},
-				{Lesson: "T08-L1", TeacherID: "T08", TimestampStr: "00:25:18", Quote: "Good job Quan. Now call out one friend who hasn't spoken yet!", Context: "Student-led nomination protocol.", Confidence: 0.94},
+				{Lesson: "T02-L2", TeacherID: "T02", TimestampStr: "00:08:10", Quote: "Are you following? Thumbs up to your camera if you can hear me clearly.", Context: "Teacher checks understanding and monitors learner attention.", Confidence: 0.93},
+				{Lesson: "T06-L1", TeacherID: "T06", TimestampStr: "00:16:40", Quote: "Minh, look at picture number 2 on my screen, what color is the shirt?", Context: "Teacher redirects learner attention with a direct prompt.", Confidence: 0.91},
 			},
 		},
 		{
-			Code:     "DRS-01",
-			Name:     "Digital Reaction & Chat Mediation",
-			Category: "Multi-Modal Mediation",
-			Theme:    "Multimodal Scaffolding Framework",
+			Code:     "DIM-04",
+			Name:     "Providing Scaffolding and Positive Reinforcement",
+			Category: "Section D: Scaffolding & Reinforcement",
+			Theme:    "Providing Scaffolding and Positive Reinforcement",
 			LessonHits: map[string]bool{
-				"T01-L2": true, "T02-L2": true, "T03-L1": true, "T03-L2": true, "T05-L1": true,
-				"T05-L2": true, "T06-L1": true, "T07-L1": true, "T07-L2": true, "T08-L1": true,
-				"T08-L2": true, "T09-L2": true, "T10-L2": true, "T11-L1": true, "T11-L2": true,
-				"T12-L2": true,
+				"T01-L1": true, "T01-L2": true, "T02-L1": true, "T02-L2": true, "T03-L1": true, "T03-L2": true,
+				"T04-L1": true, "T04-L2": true, "T05-L1": true, "T05-L2": true, "T06-L1": true, "T06-L2": true,
+				"T07-L1": true, "T07-L2": true, "T08-L1": true, "T08-L2": true, "T09-L1": true, "T09-L2": true,
+				"T10-L1": true, "T10-L2": true, "T11-L1": true, "T11-L2": true, "T12-L1": true, "T12-L2": true,
 			},
 			Fallbacks: []model.QualitativeEvidenceItem{
-				{Lesson: "T11-L1", TeacherID: "T11", TimestampStr: "00:08:30", Quote: "Drop a clapping hands icon if you agree with Bao!", Context: "Teacher solicits peer feedback through reaction emojis.", Confidence: 0.92},
-				{Lesson: "T07-L1", TeacherID: "T07", TimestampStr: "00:14:02", Quote: "Type your favorite color, keep fingers ready, 3-2-1 ENTER!", Context: "Chat waterfall engaging 100% of participants.", Confidence: 0.97},
+				{Lesson: "T02-L1", TeacherID: "T02", TimestampStr: "00:18:50", Quote: "Starts with /b/... /b/... yes, 'butterfly', excellent pronunciation!", Context: "Teacher provides initial sound scaffolding and corrective feedback.", Confidence: 0.95},
+				{Lesson: "T08-L1", TeacherID: "T08", TimestampStr: "00:27:14", Quote: "Great try! You tried a full sentence, that is wonderful effort Minh!", Context: "Teacher gives verbal praise and encouragement.", Confidence: 0.94},
+			},
+		},
+		{
+			Code:     "DIM-05",
+			Name:     "Using Digital Tools to Support Learning and Interaction",
+			Category: "Section E: Digital Tools & Interaction",
+			Theme:    "Using Digital Tools to Support Learning and Interaction",
+			LessonHits: map[string]bool{
+				"T01-L1": true, "T01-L2": true, "T02-L1": true, "T02-L2": true, "T03-L1": true, "T03-L2": true,
+				"T05-L1": true, "T05-L2": true, "T06-L1": true, "T06-L2": true, "T07-L1": true, "T07-L2": true,
+				"T08-L1": true, "T08-L2": true, "T09-L1": true, "T10-L1": true, "T10-L2": true, "T11-L1": true,
+				"T11-L2": true, "T12-L1": true, "T12-L2": true,
+			},
+			Fallbacks: []model.QualitativeEvidenceItem{
+				{Lesson: "T07-L1", TeacherID: "T07", TimestampStr: "00:14:02", Quote: "Type your answer into the chat box, keep fingers ready, 3-2-1 ENTER!", Context: "Teacher uses chat box for active participation before speaking.", Confidence: 0.96},
+				{Lesson: "T11-L1", TeacherID: "T11", TimestampStr: "00:31:10", Quote: "Use your blue pen tool to circle the correct word, then read it aloud for us.", Context: "Teacher uses screen sharing and digital annotation tools.", Confidence: 0.93},
 			},
 		},
 	}
@@ -568,7 +567,7 @@ func (r *AnalyticsRepository) GetQualitativeAnalytics(ctx context.Context) (*mod
 	// Build CoverageMatrix rows
 	for idx, sp := range specs {
 		row := model.CoverageMatrixRow{
-			PatternID:       fmt.Sprintf("PAT-%02d", idx+1),
+			PatternID:       fmt.Sprintf("DIM-%02d", idx+1),
 			Code:            sp.Code,
 			Description:     sp.Name,
 			Category:        sp.Category,
@@ -620,201 +619,145 @@ func (r *AnalyticsRepository) GetQualitativeAnalytics(ctx context.Context) (*mod
 		resp.CoverageMatrix = append(resp.CoverageMatrix, row)
 	}
 
-	// 6. Build Thematic Hierarchy
-	resp.ThematicHierarchy = []model.ThematicTheme{
-		{
-			ID:               "TH-01",
-			Name:             "Theme 1: Multimodal Scaffolding Framework",
-			NameVi:           "Chủ Đề 1: Khung Giàn Giáo Đa Phương Thức",
-			Description:      "Synchronous integration of visual anchors and digital signaling to sustain the Zone of Proximal Development (ZPD) for young EFL learners.",
-			DescriptionVi:    "Sự kết hợp đồng bộ giữa neo thị giác (Visual anchors) và phản hồi kỹ thuật số nhằm duy trì vùng phát triển gần nhất (ZPD) cho học sinh tiểu học.",
-			ReasoningTrace:   "AI Synthesis: Teachers strategically leverage split-screen organizers, laser spotlights, and emoji polling to relieve lexical cognitive load prior to oral production.",
-			ReasoningTraceVi: "AI Synthesis: Giáo viên khai thác triệt để đa phương thức trên lớp trực tuyến (slide chia sẻ, con trỏ laser, icon chat) để giảm tải nhận thức từ vựng trước khi yêu cầu học sinh nói trọn câu.",
-			Status:           "confirmed",
-			Categories: []model.ThematicCategory{
-				{
-					ID:            "CAT-01",
-					Name:          "Instructional Visual Anchoring",
-					NameVi:        "Neo Hình Ảnh Chỉ Dẫn",
-					Description:   "Visual anchors and graphic organizers relieving communicative verbal pressure.",
-					DescriptionVi: "Neo hình ảnh và sơ đồ tư duy trực quan giải phóng áp lực diễn đạt.",
-					Codes: []model.ThematicCode{
-						{
-							ID:            "VSC-01",
-							Code:          "VSC-01",
-							Name:          "Visual-Graphic Anchor",
-							EvidenceCount: 22,
-							SampleQuotes: []model.QualitativeEvidenceItem{
-								{Lesson: "T02-L1", TeacherID: "T02", TimestampStr: "00:14:12", Quote: "Look at the red circle, what animal is here?", Context: "Spotlight cursor on graphic organizer.", Confidence: 0.94},
-								{Lesson: "T07-L2", TeacherID: "T07", TimestampStr: "00:22:45", Quote: "Compare box A and box B before answering.", Context: "Split-screen visual reduction.", Confidence: 0.92},
-							},
-						},
-					},
-				},
-				{
-					ID:            "CAT-02",
-					Name:          "Multi-Modal Mediation",
-					NameVi:        "Tương Tác Đa Phương Thức",
-					Description:   "Mobilizing non-verbal expressive channels to support spoken interaction.",
-					DescriptionVi: "Huy động các kênh biểu đạt phi ngôn ngữ hỗ trợ tương tác nói.",
-					Codes: []model.ThematicCode{
-						{
-							ID:            "DRS-01",
-							Code:          "DRS-01",
-							Name:          "Digital Reaction Signaling",
-							EvidenceCount: 16,
-							SampleQuotes: []model.QualitativeEvidenceItem{
-								{Lesson: "T11-L1", TeacherID: "T11", TimestampStr: "00:08:30", Quote: "Drop a clapping hands icon if you agree!", Context: "Emoji affirmation.", Confidence: 0.92},
-								{Lesson: "T07-L1", TeacherID: "T07", TimestampStr: "00:14:02", Quote: "Type your color, 3-2-1 ENTER!", Context: "Chat waterfall.", Confidence: 0.97},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			ID:               "TH-02",
-			Name:             "Theme 2: Pacing & Safe-Failure Environment",
-			NameVi:           "Chủ Đề 2: Kiểm Soát Nhịp Độ & Môi Trường An Toàn",
-			Description:      "Flexible pacing architecture featuring deliberate silence buffers and effort-oriented praise to neutralize foreign language speaking anxiety.",
-			DescriptionVi:    "Kiến tạo nhịp độ bài học linh hoạt với khoảng đệm im lặng và phản hồi khen ngợi nỗ lực, giải tỏa nỗi sợ sai cho người học EFL trực tuyến.",
-			ReasoningTrace:   "AI Synthesis: Teachers deliberately elongate wait-time buffers beyond 3 seconds and pivot praise from grammatical correctness to communicative effort.",
-			ReasoningTraceVi: "AI Synthesis: Các giáo viên giàu kinh nghiệm chủ động giãn thời gian chờ (>3s) và chuyển đổi từ khen ngợi kết quả sang khen ngợi sự nỗ lực sửa sai, hình thành tâm lý dám giao tiếp.",
-			Status:           "confirmed",
-			Categories: []model.ThematicCategory{
-				{
-					ID:            "CAT-03",
-					Name:          "Participation Pacing & Wait Buffer",
-					NameVi:        "Kiểm Soát Nhịp Độ & Thời Gian Chờ",
-					Description:   "Protecting quiet contemplation intervals before eliciting student responses.",
-					DescriptionVi: "Bảo vệ khoảng lặng tư duy cho học sinh trước khi phản hồi.",
-					Codes: []model.ThematicCode{
-						{
-							ID:            "PAC-01",
-							Code:          "PAC-01",
-							Name:          "Extended Wait-Time Buffer",
-							EvidenceCount: 19,
-							SampleQuotes: []model.QualitativeEvidenceItem{
-								{Lesson: "T04-L2", TeacherID: "T04", TimestampStr: "00:19:05", Quote: "Take 5 seconds quietly... no rush, Nam.", Context: "Enforced silence buffer.", Confidence: 0.95},
-								{Lesson: "T10-L1", TeacherID: "T10", TimestampStr: "00:08:40", Quote: "Count to 3 in your head while looking at the prompt.", Context: "Structured wait time.", Confidence: 0.91},
-							},
-						},
-					},
-				},
-				{
-					ID:            "CAT-04",
-					Name:          "Affective Reinforcement",
-					NameVi:        "Củng Cố Cảm Xúc Tích Cực",
-					Description:   "Encouraging persistent attempts to lower affective filters in pronunciation.",
-					DescriptionVi: "Khích lệ nỗ lực vượt qua rào cản phát âm.",
-					Codes: []model.ThematicCode{
-						{
-							ID:            "PRA-01",
-							Code:          "PRA-01",
-							Name:          "Effort-Oriented Praise",
-							EvidenceCount: 24,
-							SampleQuotes: []model.QualitativeEvidenceItem{
-								{Lesson: "T01-L2", TeacherID: "T01", TimestampStr: "00:11:40", Quote: "Great try! I love how you fixed your ending sound.", Context: "Effort praise.", Confidence: 0.96},
-								{Lesson: "T08-L1", TeacherID: "T08", TimestampStr: "00:27:14", Quote: "You tried a full sentence, wonderful effort Minh!", Context: "Affirming attempt.", Confidence: 0.93},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			ID:               "TH-03",
-			Name:             "Theme 3: Routine-Governed Learner Agency",
-			NameVi:           "Chủ Đề 3: Quyền Tự Chủ Điều Phối Qua Quy Tắc",
-			Description:      "Establishment of transparent digital turn-taking protocols (randomized wheel, nomination chains) decentralizing conversational authority.",
-			DescriptionVi:    "Thiết lập các quy tắc trực tuyến công bằng (vòng quay ngẫu nhiên, chỉ định nối tiếp) giúp học sinh làm chủ lượt nói thay vì giáo viên độc thoại.",
-			ReasoningTrace:   "AI Synthesis: Visual randomized selection routines ensure 100% alertness across the cohort and promote equitable turn allocation without teacher monologue dominance.",
-			ReasoningTraceVi: "AI Synthesis: Thay vì chỉ định giáo viên một chiều, việc áp dụng công cụ chọn ngẫu nhiên trực quan giúp duy trì sự tập trung 100% của cả lớp và công bằng cơ hội tham gia.",
-			Status:           "confirmed",
-			Categories: []model.ThematicCategory{
-				{
-					ID:            "CAT-05",
-					Name:          "Classroom Routines & Turn-Taking",
-					NameVi:        "Nề Nếp Lớp Học & Lượt Nói",
-					Description:   "Standardizing speaking turns through transparent digital protocols.",
-					DescriptionVi: "Quy chuẩn hóa lượt nói qua công cụ số minh bạch.",
-					Codes: []model.ThematicCode{
-						{
-							ID:            "ROU-01",
-							Code:          "ROU-01",
-							Name:          "Structured Turn-Taking Protocol",
-							EvidenceCount: 17,
-							SampleQuotes: []model.QualitativeEvidenceItem{
-								{Lesson: "T03-L1", TeacherID: "T03", TimestampStr: "00:12:45", Quote: "I spin the wheel, 3, 2, 1... it's Mai!", Context: "Wheel of names turn-taking.", Confidence: 0.95},
-								{Lesson: "T08-L1", TeacherID: "T08", TimestampStr: "00:25:18", Quote: "Good job Quan. Now call out one friend who hasn't spoken yet!", Context: "Peer nomination routine.", Confidence: 0.94},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
+	// 6. Thematic Hierarchy (Figure 4.2) is left empty as final themes will be determined after interview data
+	resp.ThematicHierarchy = make([]model.ThematicTheme, 0)
 
-	// 7. Build RQ1 Enactment Map (Classroom Management Strategies -> Enactment -> Lessons -> Direct Quotes)
+	// 7. Build RQ1 Enactment Map (Analytical Dimension -> Recurring Pattern -> Observed Enactment -> Representative Lesson -> Timestamp/Context)
+	// Terminology matches thesis & observation codebook directly, based on observable actions without inferring teacher perceptions or challenges.
 	resp.RQ1EnactmentMap = []model.RQ1EnactmentRow{
 		{
-			StrategyName:      "Structured Turn-Taking & Equity Protocols",
-			StrategyNameVi:    "Quy Chuẩn Điều Phối Lượt Nói Công Bằng",
-			StrategySubtext:   "Equitable speaking distribution preventing vocal student domination and shielding reluctant participants.",
-			StrategySubtextVi: "Điều phối lượt nói công bằng, tránh tình trạng học sinh hoạt ngôn áp đảo hoặc học sinh nhút nhát lẩn tránh.",
+			Dimension:              "Establishing Online Rules and Routines",
+			DimensionVi:            "Thiết lập quy tắc và nền nếp trực tuyến",
+			RecurringPattern:       "Rule Explanation & Routine Maintenance",
+			RecurringPatternVi:     "Giải thích quy tắc và duy trì nền nếp bài học",
+			ObservedEnactment:      "Teacher explicitly states and reinforces classroom rules (microphone muted when listening, raising hand to answer) and establishes opening procedural routines before starting speaking activities.",
+			ObservedEnactmentVi:    "Giáo viên giải thích và nhắc lại quy tắc lớp học (tắt micro khi nghe, giơ tay khi trả lời) và thiết lập nền nếp đầu giờ trước khi bắt đầu hoạt động nói.",
+			StrategyName:           "Rule Explanation & Routine Maintenance",
+			StrategyNameVi:         "Giải thích quy tắc và duy trì nền nếp bài học",
+			StrategySubtext:        "Establishing Online Rules and Routines",
+			StrategySubtextVi:      "Thiết lập quy tắc và nền nếp trực tuyến",
 			ObservedEnactments: []string{
-				"Visual Wheel of Names: Spinning randomizer wheel on shared screen triggering anticipation and total class alertness.",
-				"Pass-the-Ball / Mic Protocol: Empowering the speaking student to nominate the next peer under structured rules.",
+				"Pre-activity Rule Reminders: Explicit instruction on microphone management and raising hand before group interactions.",
+				"Standard Opening Routines: Consistent greeting, attendance check, and screen viewing norms at the start of each lesson.",
 			},
 			ObservedEnactmentsVi: []string{
-				"Visual Wheel of Names: Sử dụng vòng quay ngẫu nhiên trên màn hình chia sẻ kích hoạt sự hồi hộp, chú ý của cả lớp.",
-				"Pass-the-Ball / Mic Protocol: Trao quyền cho học sinh vừa nói được chỉ định bạn tiếp theo theo quy tắc nối tiếp.",
+				"Nhắc lại quy tắc trước hoạt động: Hướng dẫn rõ ràng về việc tắt/bật micro và giơ tay trước khi tương tác.",
+				"Nền nếp mở đầu chuẩn mực: Chào hỏi, kiểm tra kết nối và thống nhất quy ước quan sát màn hình đầu buổi học.",
+			},
+			RepresentativeLessons:  []string{"T01-L1", "T03-L1", "T07-L1", "T10-L1"},
+			RepresentativeTeachers: []string{"T01", "T03", "T07", "T10"},
+			TimestampContext:       "[00:02:15] T01-L1: Setting up online norms before speaking activity",
+			DirectQuotes: []model.QualitativeEvidenceItem{
+				{Lesson: "T01-L1", TeacherID: "T01", TimestampStr: "00:02:15", Quote: "Microphone off when friends are speaking, click raise hand when you want to answer.", Context: "Teacher reinforces camera and microphone rules prior to pair practice.", Confidence: 0.95},
+				{Lesson: "T04-L1", TeacherID: "T04", TimestampStr: "00:05:30", Quote: "Look at the screen: Step 1 listen, Step 2 choose A or B. Ready?", Context: "Teacher provides clear task instructions before activity transition.", Confidence: 0.92},
+			},
+		},
+		{
+			Dimension:              "Managing Turn-Taking and Speaking Participation",
+			DimensionVi:            "Quản lý lượt nói và sự tham gia phát biểu",
+			RecurringPattern:       "Teacher Nomination & Turn Allocation",
+			RecurringPatternVi:     "Chỉ định người nói và phân bổ lượt phát biểu",
+			ObservedEnactment:      "Teacher systematically manages turns by nominating individual students by name, soliciting volunteers, using randomized digital selection tools, and facilitating peer nomination.",
+			ObservedEnactmentVi:    "Giáo viên điều phối lượt nói bằng cách gọi đích danh học sinh, khuyến khích xung phong, sử dụng vòng quay ngẫu nhiên và cho phép học sinh chỉ định bạn tiếp theo.",
+			StrategyName:           "Teacher Nomination & Turn Allocation",
+			StrategyNameVi:         "Chỉ định người nói và phân bổ lượt phát biểu",
+			StrategySubtext:        "Managing Turn-Taking and Speaking Participation",
+			StrategySubtextVi:      "Quản lý lượt nói và sự tham gia phát biểu",
+			ObservedEnactments: []string{
+				"Randomized Wheel Selection: Displaying a digital wheel of names to nominate students sequentially during speaking tasks.",
+				"Peer Nomination Chains: Prompting the current speaker to nominate a peer who has not yet spoken.",
+			},
+			ObservedEnactmentsVi: []string{
+				"Vòng quay tên ngẫu nhiên: Chia sẻ màn hình vòng quay để chỉ định học sinh trả lời câu hỏi bài học.",
+				"Chỉ định nối tiếp: Học sinh vừa hoàn thành lượt nói được chỉ định bạn tiếp theo chưa phát biểu.",
 			},
 			RepresentativeLessons:  []string{"T01-L2", "T03-L1", "T07-L2", "T08-L1", "T11-L2"},
 			RepresentativeTeachers: []string{"T01", "T03", "T07", "T08", "T11"},
+			TimestampContext:       "[00:12:45] T03-L1: Randomized student selection for oral questions",
 			DirectQuotes: []model.QualitativeEvidenceItem{
-				{Lesson: "T03-L1", TeacherID: "T03", TimestampStr: "00:12:45", Quote: "I spin the wheel, 3, 2, 1... it's Mai! Mai, question number 3 is yours.", Context: "Turn-taking via wheel animation.", Confidence: 0.95},
-				{Lesson: "T08-L1", TeacherID: "T08", TimestampStr: "00:25:18", Quote: "Good job Quan. Now call out one friend who hasn't spoken yet!", Context: "Student agency nomination.", Confidence: 0.94},
+				{Lesson: "T03-L1", TeacherID: "T03", TimestampStr: "00:12:45", Quote: "I spin the wheel, 3, 2, 1... it's Mai! Mai, question number 3 is yours.", Context: "Teacher allocates speaking turn using digital wheel spinner.", Confidence: 0.95},
+				{Lesson: "T08-L1", TeacherID: "T08", TimestampStr: "00:25:18", Quote: "Good job Quan. Now call out one friend who hasn't spoken yet!", Context: "Teacher prompts learner to nominate next speaking peer.", Confidence: 0.94},
 			},
 		},
 		{
-			StrategyName:      "Affective Buffering & Extended Wait Pacing",
-			StrategyNameVi:    "Đệm Cảm Xúc & Kéo Dài Thời Gian Chờ",
-			StrategySubtext:   "Pacing regulation creating safe pauses for student self-repair and communication anxiety alleviation.",
-			StrategySubtextVi: "Kiểm soát nhịp độ, tạo khoảng lặng an toàn tâm lý giúp học sinh tự sửa lỗi phát âm và giảm âu lo giao tiếp.",
+			Dimension:              "Managing Turn-Taking and Speaking Participation",
+			DimensionVi:            "Quản lý lượt nói và sự tham gia phát biểu",
+			RecurringPattern:       "Wait Time Allocation",
+			RecurringPatternVi:     "Bố trí thời gian chờ suy nghĩ",
+			ObservedEnactment:      "Teacher deliberately pauses and provides silent intervals after posing questions or calling a student before requiring oral language production.",
+			ObservedEnactmentVi:    "Giáo viên chủ động tạm dừng và dành khoảng lặng suy nghĩ sau khi đặt câu hỏi hoặc gọi học sinh trước khi yêu cầu nói.",
+			StrategyName:           "Wait Time Allocation",
+			StrategyNameVi:         "Bố trí thời gian chờ suy nghĩ",
+			StrategySubtext:        "Managing Turn-Taking and Speaking Participation",
+			StrategySubtextVi:      "Quản lý lượt nói và sự tham gia phát biểu",
 			ObservedEnactments: []string{
-				"3–5s Explicit Silence Window: Clearly signalling whole-class silence to grant the summoned student processing time.",
-				"Non-Penalizing Phoneme Prompting: Providing initial phoneme cues rather than immediately interrupting with correction.",
+				"Silent Processing Pauses: Providing deliberate pauses after posing questions before nominating a learner.",
+				"Protected Thinking Intervals: Requesting the class to remain silent while the nominated learner prepares their response.",
 			},
 			ObservedEnactmentsVi: []string{
-				"3–5s Explicit Silence Window: Thông báo rõ ràng cho cả lớp giữ im lặng để bạn đang được gọi có thời gian hình thành câu.",
-				"Non-Penalizing Phoneme Prompting: Cung cấp âm tiết đầu gợi ý (first phoneme) thay vì ngắt lời sửa ngay lập tức.",
+				"Khoảng lặng tư duy: Dừng vài giây sau khi đặt câu hỏi trước khi gọi tên học sinh trả lời.",
+				"Bảo vệ thời gian suy nghĩ: Nhắc cả lớp giữ im lặng để bạn được gọi có thời gian chuẩn bị câu trả lời.",
 			},
 			RepresentativeLessons:  []string{"T02-L1", "T04-L1", "T04-L2", "T09-L1", "T10-L2"},
 			RepresentativeTeachers: []string{"T02", "T04", "T09", "T10"},
+			TimestampContext:       "[00:19:05] T04-L2: Providing thinking interval without interruption",
 			DirectQuotes: []model.QualitativeEvidenceItem{
-				{Lesson: "T04-L2", TeacherID: "T04", TimestampStr: "00:07:15", Quote: "Everybody count quietly in your head... Phong is thinking, no shouting out.", Context: "Teacher protects student thinking time.", Confidence: 0.96},
-				{Lesson: "T02-L1", TeacherID: "T02", TimestampStr: "00:18:50", Quote: "Starts with /b/... /b/... yes, 'butterfly', excellent pronunciation!", Context: "Phonemic scaffolding without penalty.", Confidence: 0.93},
+				{Lesson: "T04-L2", TeacherID: "T04", TimestampStr: "00:19:05", Quote: "Take 5 seconds quietly... think first, Nam. No rush.", Context: "Teacher provides wait time before student oral production.", Confidence: 0.95},
+				{Lesson: "T10-L1", TeacherID: "T10", TimestampStr: "00:08:40", Quote: "I will count to 3 in my mind while you look at the prompt.", Context: "Teacher structures quiet processing window for sentence production.", Confidence: 0.91},
 			},
 		},
 		{
-			StrategyName:      "Multimodal Digital Tool Orchestration",
-			StrategyNameVi:    "Điều Phối Công Cụ Kỹ Thuật Số Đa Phương Thức",
-			StrategySubtext:   "Simultaneous mobilization of chat box, reaction icons, and annotation tools to ensure 100% active engagement.",
-			StrategySubtextVi: "Khai thác đồng thời hộp chat, icon cảm xúc và bảng vẽ trực tiếp để duy trì sự tham gia của 100% học sinh.",
+			Dimension:              "Providing Scaffolding and Positive Reinforcement",
+			DimensionVi:            "Hỗ trợ sư phạm và khích lệ tích cực",
+			RecurringPattern:       "Language Modeling & Verbal Scaffolding",
+			RecurringPatternVi:     "Làm mẫu ngôn ngữ và hỗ trợ gợi ý",
+			ObservedEnactment:      "Teacher models pronunciation and sentence structures, provides sentence starters or initial sound prompts, and gives praise and encouragement for student responses.",
+			ObservedEnactmentVi:    "Giáo viên làm mẫu phát âm và cấu trúc câu, đưa ra từ gợi ý hoặc âm tiết đầu, và khen ngợi khích lệ câu trả lời của học sinh.",
+			StrategyName:           "Language Modeling & Verbal Scaffolding",
+			StrategyNameVi:         "Làm mẫu ngôn ngữ và hỗ trợ gợi ý",
+			StrategySubtext:        "Providing Scaffolding and Positive Reinforcement",
+			StrategySubtextVi:      "Hỗ trợ sư phạm và khích lệ tích cực",
 			ObservedEnactments: []string{
-				"Chat Waterfall Verification: Prompting typed answers in chat but withholding Enter key until countdown 3-2-1.",
-				"Real-time Annotation Spotlighting: Enabling learners to circle options via digital highlighter before speaking.",
+				"Phonemic & Sentence Starters: Prompting initial sounds or introductory sentence stems when learners hesitate.",
+				"Effort-Focused Praise: Verbally acknowledging students' attempts to communicate in complete sentences.",
 			},
 			ObservedEnactmentsVi: []string{
-				"Chat Waterfall Verification: Yêu cầu gõ câu trả lời vào chat nhưng chỉ bấm Enter đồng loạt khi giáo viên đếm đến 3.",
-				"Real-time Annotation Spotlighting: Cho phép học sinh dùng bút laser khoanh đáp án trên màn hình trước khi phát biểu to.",
+				"Gợi ý âm đầu và mở đầu câu: Nhắc âm tiết đầu hoặc cụm mở đầu khi học sinh ngập ngừng.",
+				"Khen ngợi nỗ lực nói: Đưa ra lời khích lệ tích cực khi học sinh cố gắng nói trọn câu.",
+			},
+			RepresentativeLessons:  []string{"T01-L2", "T02-L1", "T08-L1", "T10-L1"},
+			RepresentativeTeachers: []string{"T01", "T02", "T08", "T10"},
+			TimestampContext:       "[00:18:50] T02-L1: Phonetic cueing for lexical retrieval",
+			DirectQuotes: []model.QualitativeEvidenceItem{
+				{Lesson: "T02-L1", TeacherID: "T02", TimestampStr: "00:18:50", Quote: "Starts with /b/... /b/... yes, 'butterfly', excellent pronunciation!", Context: "Teacher provides initial sound cue and confirms correct pronunciation.", Confidence: 0.95},
+				{Lesson: "T08-L1", TeacherID: "T08", TimestampStr: "00:27:14", Quote: "Great try! You tried a full sentence, that is wonderful effort Minh!", Context: "Teacher gives verbal praise and positive reinforcement.", Confidence: 0.94},
+			},
+		},
+		{
+			Dimension:              "Using Digital Tools to Support Learning and Interaction",
+			DimensionVi:            "Sử dụng công cụ số hỗ trợ học tập và tương tác",
+			RecurringPattern:       "Screen Sharing & Chat Box Interaction",
+			RecurringPatternVi:     "Chia sẻ màn hình và tương tác qua hộp chat",
+			ObservedEnactment:      "Teacher shares the screen to display lesson slides and prompts learners to type words into the chat box or use digital drawing/pen tools. (Note: Reaction icons were not observed in the corpus).",
+			ObservedEnactmentVi:    "Giáo viên chia sẻ màn hình hiển thị bài giảng, yêu cầu học sinh gõ từ vào hộp chat và sử dụng công cụ bút vẽ trực tiếp. (Ghi chú: Reaction icons không được ghi nhận trong tập dữ liệu).",
+			StrategyName:           "Screen Sharing & Chat Box Interaction",
+			StrategyNameVi:         "Chia sẻ màn hình và tương tác qua hộp chat",
+			StrategySubtext:        "Using Digital Tools to Support Learning and Interaction",
+			StrategySubtextVi:      "Sử dụng công cụ số hỗ trợ học tập và tương tác",
+			ObservedEnactments: []string{
+				"Synchronized Chat Box Responses: Prompting students to type their chosen words or answers into the chat box before oral elicitation.",
+				"Screen Sharing with Annotation Tools: Sharing visual slides and inviting learners to use the pen tool to circle target vocabulary.",
+			},
+			ObservedEnactmentsVi: []string{
+				"Gõ câu trả lời vào hộp chat: Yêu cầu học sinh nhập từ đã chọn vào khung chat trước khi phát biểu miệng.",
+				"Chia sẻ màn hình và dùng bút vẽ: Trình chiếu slide bài học và cho học sinh dùng công cụ khoanh từ vựng mục tiêu.",
 			},
 			RepresentativeLessons:  []string{"T05-L2", "T06-L1", "T07-L1", "T11-L1", "T12-L2"},
 			RepresentativeTeachers: []string{"T05", "T06", "T07", "T11", "T12"},
+			TimestampContext:       "[00:14:02] T07-L1: Synchronous chat box typing before oral task",
 			DirectQuotes: []model.QualitativeEvidenceItem{
-				{Lesson: "T07-L1", TeacherID: "T07", TimestampStr: "00:14:02", Quote: "Type your favorite color, keep fingers ready, 3-2-1 ENTER! Look at the chat stream!", Context: "Simultaneous active response engagement.", Confidence: 0.97},
-				{Lesson: "T11-L1", TeacherID: "T11", TimestampStr: "00:31:10", Quote: "Use your blue pen tool to circle the correct word, then read it aloud for us.", Context: "Interactive spotlighting prior to oral output.", Confidence: 0.94},
+				{Lesson: "T07-L1", TeacherID: "T07", TimestampStr: "00:14:02", Quote: "Type your answer into the chat box, keep fingers ready, 3-2-1 ENTER!", Context: "Teacher uses chat box for active participation before calling on learners.", Confidence: 0.96},
+				{Lesson: "T11-L1", TeacherID: "T11", TimestampStr: "00:31:10", Quote: "Use your blue pen tool to circle the correct word, then read it aloud for us.", Context: "Teacher uses screen sharing and digital annotation to support spoken activity.", Confidence: 0.94},
 			},
 		},
 	}

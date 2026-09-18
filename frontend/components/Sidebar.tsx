@@ -22,6 +22,7 @@ import {
   PanelLeft,
   Sliders,
   LineChart,
+  Sparkles,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -45,6 +46,7 @@ export const Sidebar: React.FC = () => {
     { href: '/codebook', label: t('navCodeBook'), icon: BookMarked },
     { href: '/themes', label: t('navThemes'), icon: Network },
     { href: '/interview', label: t('navInterview'), icon: Mic },
+    { href: '/interview-analysis', label: t('navInterviewAnalysis'), icon: Sparkles },
     { href: '/settings', label: t('navSettings'), icon: Sliders },
     { href: '/docs', label: t('navApiDocs'), icon: Code2, target: '_blank' },
   ];
@@ -160,9 +162,10 @@ export const Sidebar: React.FC = () => {
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href || (item.href !== '/' && pathname?.startsWith(item.href));
+          const isActive = pathname === item.href || (item.href !== '/' && (pathname === item.href || pathname?.startsWith(item.href + '/')));
           return (
             <Link
+
               key={item.href}
               href={item.href}
               target={item.target}

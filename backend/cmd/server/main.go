@@ -53,6 +53,7 @@ func main() {
 	var reportHandler *handler.ReportHandler
 	var analysisHandler *handler.AnalysisHandler
 	var interviewBaseHandler *handler.InterviewBaseHandler
+	var interviewAnalysisHandler *handler.InterviewAnalysisHandler
 	var codebookHandler *handler.CodebookHandler
 	var settingsHandler *handler.SettingsHandler
 	var activityLogHandler *handler.ActivityLogHandler
@@ -131,6 +132,10 @@ func main() {
 		interviewBaseSvc := service.NewInterviewBaseService(interviewBaseRepo)
 		analysisSvc.SetInterviewBaseRepo(interviewBaseRepo)
 		interviewBaseHandler = handler.NewInterviewBaseHandler(interviewBaseSvc)
+
+		interviewAnalysisRepo := repository.NewInterviewAnalysisRepository(db)
+		interviewAnalysisSvc := service.NewInterviewAnalysisService(interviewAnalysisRepo, interviewBaseRepo, analysisRepo, aiRouterSvc, blobStorage)
+		interviewAnalysisHandler = handler.NewInterviewAnalysisHandler(interviewAnalysisSvc)
 
 		codebookRepo := repository.NewCodebookRepository(db)
 		codebookSvc := service.NewCodebookService(codebookRepo, rawEventRepo, videoRepo, geminiProvider, cfg.CodebookModel)
@@ -307,6 +312,38 @@ func main() {
 						baseQuestions.PUT("/:id", interviewBaseHandler.Update)
 						baseQuestions.DELETE("/:id", interviewBaseHandler.Delete)
 						baseQuestions.POST("/reset", interviewBaseHandler.ResetToDefaults)
+					}
+				}
+
+				// Post-Interview Qualitative Analysis routes
+				if interviewAnalysisHandler != nil {
+					ia := protected.Group("/interview-analysis")
+					{
+						ia.POST("/upload-audio", interviewAnalysisHandler.UploadAudio)
+						ia.POST("/responses/:id/transcribe", interviewAnalysisHandler.TranscribeAudio)
+						ia.POST("/responses", interviewAnalysisHandler.CreateManualResponse)
+						ia.GET("/responses/:teacher_id", interviewAnalysisHandler.GetResponsesByTeacher)
+						ia.PUT("/responses/:id/finalize", interviewAnalysisHandler.FinalizeResponse)
+						ia.DELETE("/responses/:id", interviewAnalysisHandler.DeleteResponse)
+
+						ia.POST("/responses/:id/segment", interviewAnalysisHandler.SegmentMeaningUnits)
+						ia.GET("/meaning-units/:teacher_id", interviewAnalysisHandler.GetMeaningUnits)
+						ia.POST("/meaning-units", interviewAnalysisHandler.CreateMeaningUnit)
+						ia.PUT("/meaning-units/:id", interviewAnalysisHandler.UpdateMeaningUnit)
+						ia.DELETE("/meaning-units/:id", interviewAnalysisHandler.DeleteMeaningUnit)
+
+						ia.POST("/codes/generate", interviewAnalysisHandler.GenerateInitialCodes)
+						ia.GET("/codes", interviewAnalysisHandler.GetCodes)
+
+						ia.POST("/triangulate", interviewAnalysisHandler.RunTriangulation)
+						ia.GET("/triangulation", interviewAnalysisHandler.GetTriangulation)
+						ia.PUT("/triangulation/:id", interviewAnalysisHandler.UpdateTriangulationEntry)
+
+						ia.GET("/teacher-comparison/:teacher_id", interviewAnalysisHandler.GetPerTeacherComparison)
+
+						ia.POST("/quotes/select", interviewAnalysisHandler.SelectRepresentativeQuotes)
+						ia.GET("/quotes", interviewAnalysisHandler.GetRepresentativeQuotes)
+						ia.PUT("/quotes/:id/toggle", interviewAnalysisHandler.ToggleQuoteSelection)
 					}
 				}
 
