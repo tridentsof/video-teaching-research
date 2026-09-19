@@ -10,6 +10,11 @@ import {
   RepresentativeQuoteItem,
   AnalysisRunItem,
 } from '@/lib/api';
+import {
+  generateChapter4FindingsWord,
+  generatePerTeacherCaseWord,
+  downloadWordBlob,
+} from '@/lib/qualitativeWordExport';
 import { useTranslation } from '@/lib/i18n';
 import { useToast } from '@/components/ToastProvider';
 import {
@@ -111,6 +116,8 @@ export default function InterviewAnalysisPage() {
   const [isSelectingQuotes, setIsSelectingQuotes] = useState(false);
   const [rqFilter, setRqFilter] = useState<string>('all');
   const [copiedQuoteId, setCopiedQuoteId] = useState<string | null>(null);
+  const [isExportingChapter4Word, setIsExportingChapter4Word] = useState<boolean>(false);
+  const [isExportingTeacherCaseWord, setIsExportingTeacherCaseWord] = useState<boolean>(false);
 
   // Derived state: transcribing in memory OR in database status
   const isCurrentlyTranscribing = isTranscribing || activeResponse?.transcript_status === 'transcribing';
@@ -750,36 +757,65 @@ export default function InterviewAnalysisPage() {
     toast.success(language === 'vi' ? 'Đã sao chép vào bộ nhớ tạm' : 'Copied to clipboard');
   }
 
-  // Export quotes to Markdown file
-  function exportQuotesToMarkdown() {
-    const selected = quotes.filter((q) => q.is_selected);
-    if (selected.length === 0) {
-      toast.error(language === 'vi' ? 'Chưa có trích dẫn nào được chọn' : 'No quotes selected');
+  // Export Chapter 4 Quotes to Word (.docx)
+  async function handleExportChapter4Word() {
+    let targetQuotes = quotes.filter((q) => q.is_selected);
+    if (targetQuotes.length === 0) {
+      targetQuotes = quotes;
+    }
+    if (targetQuotes.length === 0) {
+      toast.error(t('iaNoQuotesToExport'));
       return;
     }
 
-    let md = `# Qualitative Findings: Representative Teacher Interview Quotes\n\n`;
-    md += `*Generated for Primary EFL Classroom Management Research Thesis*\n\n`;
+    try {
+      setIsExportingChapter4Word(true);
+      const toastId = toast.loading(t('iaExportingWord'));
+      const blob = await generateChapter4FindingsWord({
+        quotes: targetQuotes,
+        selectedTeacher: selectedTeacher || undefined,
+        lang: language as 'en' | 'vi',
+      });
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const filename = `Thesis_Chapter4_Quotes_${selectedTeacher || 'All'}_${dateStr}.docx`;
+      downloadWordBlob(blob, filename);
+      toast.dismiss(toastId);
+      toast.success(t('iaExportChapter4WordSuccess'));
+    } catch (err) {
+      console.error('Failed to export Chapter 4 Word:', err);
+      toast.error(language === 'vi' ? 'Lỗi khi xuất file Word. Vui lòng thử lại.' : 'Failed to export Word document. Please try again.');
+    } finally {
+      setIsExportingChapter4Word(false);
+    }
+  }
 
-    ['RQ1', 'RQ2', 'RQ3'].forEach((rq) => {
-      const rqQuotes = selected.filter((q) => q.rq_category === rq);
-      if (rqQuotes.length > 0) {
-        md += `## ${rq} Findings\n\n`;
-        rqQuotes.forEach((q) => {
-          md += `> "${q.quote_text}"\n`;
-          md += `> — **Teacher ${q.teacher_id}** (${q.quote_source || 'Interview'}), Relevance: *${q.relevance_type}*\n\n`;
-        });
-      }
-    });
+  // Export Step 5: Per-Teacher Case Analysis to Word (.docx)
+  async function handleExportTeacherCaseWord() {
+    if (!selectedTeacher) {
+      return;
+    }
 
-    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Thesis_Quotes_${selectedTeacher}_${new Date().toISOString().slice(0, 10)}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(language === 'vi' ? 'Đã xuất file Markdown' : 'Exported Markdown');
+    try {
+      setIsExportingTeacherCaseWord(true);
+      const toastId = toast.loading(t('iaExportingWord'));
+      const blob = await generatePerTeacherCaseWord({
+        teacherId: selectedTeacher,
+        meaningUnits,
+        triangulation: triangulationEntries,
+        responses,
+        lang: language as 'en' | 'vi',
+      });
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const filename = `Teacher_Case_Analysis_${selectedTeacher}_${dateStr}.docx`;
+      downloadWordBlob(blob, filename);
+      toast.dismiss(toastId);
+      toast.success(t('iaExportTeacherCaseWordSuccess'));
+    } catch (err) {
+      console.error('Failed to export Teacher Case Word:', err);
+      toast.error(language === 'vi' ? 'Lỗi khi xuất file Word. Vui lòng thử lại.' : 'Failed to export Word document. Please try again.');
+    } finally {
+      setIsExportingTeacherCaseWord(false);
+    }
   }
 
   // Status badge styling matching Observation Studio aesthetic
@@ -2831,7 +2867,61 @@ export default function InterviewAnalysisPage() {
 
       {/* TAB 5: PER-TEACHER CASE ANALYSIS */}
       {activeTab === 'teacher_case' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Header Action Bar with Word Export */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            backgroundColor: 'var(--card-bg)',
+            border: '1px solid var(--card-border)',
+            borderRadius: 'var(--radius-md)',
+            padding: '16px 20px',
+            boxShadow: 'var(--shadow-sm)',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}>
+            <div>
+              <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', fontWeight: 400, color: 'var(--accent)', margin: 0 }}>
+                {t('iaTabPerTeacher')} — {t('iaTeacherLabel')} {selectedTeacher}
+              </h3>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                {language === 'vi'
+                  ? `Hồ sơ nghiên cứu ca điển hình: Đối chiếu tam giác giữa video lớp học (${selectedTeacher}_L1, ${selectedTeacher}_L2) và phỏng vấn sâu.`
+                  : `Individual teacher case study dossier: Triangulating video classroom practice (${selectedTeacher}_L1, ${selectedTeacher}_L2) and in-depth interview.`}
+              </p>
+            </div>
+
+            <button
+              onClick={handleExportTeacherCaseWord}
+              disabled={isExportingTeacherCaseWord}
+              title={t('iaExportTeacherCaseWordTooltip')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 18px',
+                borderRadius: 'var(--radius-sm)',
+                border: 'none',
+                backgroundColor: 'var(--accent)',
+                color: '#FFFFFF',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: isExportingTeacherCaseWord ? 'not-allowed' : 'pointer',
+                boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {isExportingTeacherCaseWord ? (
+                <RefreshCw size={14} className="animate-spin" />
+              ) : (
+                <Download size={14} />
+              )}
+              <span>{t('iaExportTeacherCaseWord')}</span>
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
           {/* Left: Video Observations */}
           <div style={{
             backgroundColor: 'var(--card-bg)',
@@ -2917,6 +3007,7 @@ export default function InterviewAnalysisPage() {
                 </div>
               )}
             </div>
+          </div>
           </div>
         </div>
       )}
@@ -3006,11 +3097,13 @@ export default function InterviewAnalysisPage() {
               )}
 
               <button
-                onClick={exportQuotesToMarkdown}
+                onClick={handleExportChapter4Word}
+                disabled={isExportingChapter4Word}
+                title={t('iaExportChapter4WordTooltip')}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
+                  gap: '8px',
                   padding: '7px 16px',
                   borderRadius: 'var(--radius-sm)',
                   border: 'none',
@@ -3018,11 +3111,17 @@ export default function InterviewAnalysisPage() {
                   color: '#FFFFFF',
                   fontSize: '13px',
                   fontWeight: 600,
-                  cursor: 'pointer',
+                  cursor: isExportingChapter4Word ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+                  transition: 'all 0.15s ease',
                 }}
               >
-                <Download size={14} />
-                <span>{t('iaExportBtn')}</span>
+                {isExportingChapter4Word ? (
+                  <RefreshCw size={14} className="animate-spin" />
+                ) : (
+                  <Download size={14} />
+                )}
+                <span>{t('iaExportChapter4Word')}</span>
               </button>
             </div>
           </div>
