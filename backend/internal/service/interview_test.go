@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/video-teaching-research/backend/internal/model"
@@ -60,5 +61,42 @@ func TestInterviewBaseService_InputValidation(t *testing.T) {
 	})
 	if err == nil {
 		t.Errorf("expected error for empty question text, got nil")
+	}
+}
+
+func TestPromptAlignAndSplitQA(t *testing.T) {
+	questions := []QuestionForAlignment{
+		{
+			ID:           "b1e95b0b-93fc-4632-9db8-f076c8c4bc62",
+			QuestionText: "How do you manage disruptive classroom behaviors?",
+			Type:         "core",
+			RQCategory:   "RQ1",
+		},
+		{
+			ID:           "e6a6cb9e-5e93-4796-a077-d5d115e21979",
+			QuestionText: "Why do you choose sticker rewards over verbal praise?",
+			Type:         "dynamic",
+			RQCategory:   "RQ2",
+		},
+	}
+	transcript := "Well, whenever students get distracted, I usually call their names gently. For stickers, I found that primary students respond much better to visual rewards than just saying good job."
+
+	sysPrompt, userPrompt := PromptAlignAndSplitQA("T01", questions, transcript)
+	if sysPrompt == "" {
+		t.Errorf("expected non-empty system prompt")
+	}
+	if userPrompt == "" {
+		t.Errorf("expected non-empty user prompt")
+	}
+	if !testing.Verbose() {
+		// Verify key tokens exist in user prompt
+		for _, q := range questions {
+			if !strings.Contains(userPrompt, q.ID) {
+				t.Errorf("expected user prompt to contain question ID %s", q.ID)
+			}
+			if !strings.Contains(userPrompt, q.QuestionText) {
+				t.Errorf("expected user prompt to contain question text %s", q.QuestionText)
+			}
+		}
 	}
 }

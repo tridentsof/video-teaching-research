@@ -152,6 +152,7 @@ func main() {
 		telegramNotifier := service.NewTelegramNotifier(cfg.TelegramWebhookURL, cfg.TelegramBotToken, cfg.TelegramChatID, cfg.AppBaseURL)
 		telegramNotifier.SetSubscriberRepository(telegramSubscriberRepo)
 		orchestrator.SetTelegramNotifier(telegramNotifier)
+		interviewAnalysisSvc.SetTelegramNotifier(telegramNotifier)
 		if telegramNotifier.IsEnabled() {
 			log.Printf("[Telegram] Notification enabled (webhook/bot active)")
 		} else {
@@ -321,7 +322,9 @@ func main() {
 					{
 						ia.POST("/upload-audio", interviewAnalysisHandler.UploadAudio)
 						ia.POST("/responses/:id/transcribe", interviewAnalysisHandler.TranscribeAudio)
+						ia.POST("/responses/:id/cancel-transcribe", interviewAnalysisHandler.CancelTranscription)
 						ia.POST("/responses", interviewAnalysisHandler.CreateManualResponse)
+						ia.POST("/responses/align-qa", interviewAnalysisHandler.AlignAndSplitQA)
 						ia.GET("/responses/:teacher_id", interviewAnalysisHandler.GetResponsesByTeacher)
 						ia.PUT("/responses/:id/finalize", interviewAnalysisHandler.FinalizeResponse)
 						ia.DELETE("/responses/:id", interviewAnalysisHandler.DeleteResponse)

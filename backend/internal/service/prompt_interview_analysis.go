@@ -168,7 +168,8 @@ Interview Corpus:
 %s
 
 Selection Criteria:
-1. Relevance to Research Questions:
+1. Quantity: Select 6 to 9 highly representative quotes in total (2 to 3 quotes per RQ category: RQ1, RQ2, and RQ3).
+2. Relevance to Research Questions:
    - "RQ1": What instructional and classroom management strategies do primary EFL teachers employ?
    - "RQ2": Why do teachers use specific techniques (teacher pedagogical beliefs & rationales)?
    - "RQ3": What challenges do teachers face in student engagement and how do they reflect on them?
@@ -192,3 +193,62 @@ Selection Criteria:
 
 	return systemPrompt, userPrompt
 }
+
+// QuestionForAlignment encapsulates question metadata needed for semantic alignment.
+type QuestionForAlignment struct {
+	ID           string
+	QuestionText string
+	Type         string
+	RQCategory   string
+}
+
+// PromptAlignAndSplitQA creates the prompt to semantically align a teacher's transcript with prepared questions.
+func PromptAlignAndSplitQA(teacherID string, questions []QuestionForAlignment, rawTranscript string) (string, string) {
+	systemPrompt := `You are an expert bilingual qualitative research analyst specializing in Primary EFL (English as a Foreign Language) classroom research and semi-structured teacher interviews.
+Your task is Semantic Alignment: mapping a teacher's continuous interview transcript to a planned set of research interview questions.`
+
+	var qBuilder strings.Builder
+	for i, q := range questions {
+		cat := ""
+		if q.RQCategory != "" {
+			cat = fmt.Sprintf(" [%s]", q.RQCategory)
+		}
+		qType := ""
+		if q.Type != "" {
+			qType = fmt.Sprintf(" (%s)", q.Type)
+		}
+		qBuilder.WriteString(fmt.Sprintf("%d. [ID: %s]%s%s: %s\n", i+1, q.ID, qType, cat, q.QuestionText))
+	}
+
+	userPrompt := fmt.Sprintf(`Teacher ID: %s
+
+Planned Interview Questions for Teacher %s:
+%s
+
+Verbatim Interview Transcript:
+"""
+%s
+"""
+
+Task & Guidelines for Semantic Alignment:
+1. In semi-structured interviews, teachers speak naturally and conversationally without stating question numbers or reading questions aloud.
+2. Read the transcript carefully and determine which question each part of the teacher's response corresponds to.
+3. For EACH planned question where the teacher provided relevant thoughts, techniques, reflections, or rationale:
+   - Extract the teacher's full, coherent answer for that specific question.
+   - Preserve the teacher's authentic voice, language (Vietnamese, English, or mixed), and terminology.
+   - Do NOT invent or fabricate statements not present in the transcript.
+   - If a question was not answered or mentioned at all, do NOT include it, or leave "answer_text" empty.
+4. Output MUST be strictly valid JSON matching this schema without markdown fences:
+{
+  "aligned_qa": [
+    {
+      "question_id": "uuid-of-question-from-above",
+      "question_text": "Exact question text",
+      "answer_text": "Teacher's coherent response to this question"
+    }
+  ]
+}`, teacherID, teacherID, qBuilder.String(), rawTranscript)
+
+	return systemPrompt, userPrompt
+}
+

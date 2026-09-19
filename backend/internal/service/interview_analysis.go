@@ -3,12 +3,15 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/video-teaching-research/backend/internal/ai"
@@ -19,11 +22,13 @@ import (
 // InterviewAnalysisService coordinates audio upload, AI transcription, meaning unit segmentation,
 // coding, triangulation, and quote selection.
 type InterviewAnalysisService struct {
-	repo              *repository.InterviewAnalysisRepository
-	interviewBaseRepo *repository.InterviewBaseRepository
-	analysisRepo      *repository.AnalysisRepository
-	aiRouter          *AIRouterService
-	blob              BlobStorage
+	repo                 *repository.InterviewAnalysisRepository
+	interviewBaseRepo    *repository.InterviewBaseRepository
+	analysisRepo         *repository.AnalysisRepository
+	aiRouter             *AIRouterService
+	blob                 BlobStorage
+	telegramNotifier     TelegramNotifier
+	activeTranscriptions sync.Map // map[uuid.UUID]context.CancelFunc
 }
 
 // NewInterviewAnalysisService creates a new InterviewAnalysisService instance.
@@ -43,6 +48,11 @@ func NewInterviewAnalysisService(
 	}
 }
 
+// SetTelegramNotifier sets the telegram notifier for interview analysis alerts.
+func (s *InterviewAnalysisService) SetTelegramNotifier(notifier TelegramNotifier) {
+	s.telegramNotifier = notifier
+}
+
 // UploadAudio handles storing an audio file and creating an initial interview_response record.
 func (s *InterviewAnalysisService) UploadAudio(
 	ctx context.Context,
@@ -50,6 +60,7 @@ func (s *InterviewAnalysisService) UploadAudio(
 	teacherID string,
 	filename string,
 	reader io.Reader,
+	overwriteMode string,
 ) (*model.InterviewResponse, error) {
 	if teacherID == "" {
 		return nil, fmt.Errorf("teacher_id is required")
@@ -88,6 +99,37 @@ func (s *InterviewAnalysisService) UploadAudio(
 		blobURL = "/storage/" + blobPath
 	}
 
+	existingResponses, err := s.repo.ListResponsesByTeacher(ctx, runID, teacherID)
+
+	// Mode: Replace audio only without touching transcripts, meaning units or quotes
+	if overwriteMode == "replace_audio" && err == nil && len(existingResponses) > 0 {
+		for _, old := range existingResponses {
+			if old.QuestionText == "Full Teacher Interview Recording" || old.AudioBlobPath != nil {
+				if err := s.repo.UpdateResponseAudio(ctx, old.ID, blobURL, filename); err != nil {
+					return nil, fmt.Errorf("failed to update audio file for response: %w", err)
+				}
+				oldCopy := old
+				oldCopy.AudioBlobPath = &blobURL
+				oldCopy.AudioFilename = &filename
+				return &oldCopy, nil
+			}
+		}
+	}
+
+	// Mode: Full reset (default) - clean up old responses & quotes for this teacher
+	if err == nil {
+		for _, old := range existingResponses {
+			if old.TranscriptStatus == "transcribing" {
+				log.Printf("[InterviewAnalysis] Cancelling in-flight transcription for old response %s (teacher %s)", old.ID, teacherID)
+				_ = s.CancelTranscription(ctx, old.ID)
+			}
+			// Delete existing recordings to avoid duplicate or mixed Q&A responses (cascades to meaning_units)
+			_ = s.repo.DeleteResponse(ctx, old.ID)
+		}
+		// Also clean up representative quotes for this teacher in this run
+		_ = s.repo.DeleteRepresentativeQuotesByTeacher(ctx, runID, teacherID)
+	}
+
 	resp := &model.InterviewResponse{
 		ID:               respID,
 		AnalysisRunID:    runID,
@@ -96,7 +138,7 @@ func (s *InterviewAnalysisService) UploadAudio(
 		AudioBlobPath:    &blobURL,
 		AudioFilename:    &filename,
 		TranscriptStatus: "uploaded",
-		Language:         "vi",
+		Language:         "",
 	}
 
 	if err := s.repo.CreateResponse(ctx, resp); err != nil {
@@ -108,6 +150,8 @@ func (s *InterviewAnalysisService) UploadAudio(
 
 // TranscribeAudio invokes multimodal AI to transcribe the uploaded audio recording.
 func (s *InterviewAnalysisService) TranscribeAudio(ctx context.Context, responseID uuid.UUID) (*model.InterviewResponse, error) {
+	transcribeStart := time.Now()
+
 	resp, err := s.repo.GetResponseByID(ctx, responseID)
 	if err != nil || resp == nil {
 		return nil, fmt.Errorf("interview response not found: %w", err)
@@ -117,8 +161,21 @@ func (s *InterviewAnalysisService) TranscribeAudio(ctx context.Context, response
 		return nil, fmt.Errorf("no audio file associated with this response")
 	}
 
+	// Guard against concurrent transcribe calls on the same response
+	if resp.TranscriptStatus == "transcribing" {
+		if _, isRunning := s.activeTranscriptions.Load(responseID); isRunning {
+			return nil, fmt.Errorf("transcription is already in progress for this response")
+		}
+	}
+
+	// Register active cancellation context
+	transcribeCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	s.activeTranscriptions.Store(responseID, cancel)
+	defer s.activeTranscriptions.Delete(responseID)
+
 	// Update status to 'transcribing'
-	_ = s.repo.UpdateResponseTranscript(ctx, responseID, "", "transcribing")
+	_ = s.repo.UpdateResponseTranscript(transcribeCtx, responseID, "", "transcribing")
 
 	// Determine local audio file path
 	localPath := *resp.AudioBlobPath
@@ -129,16 +186,16 @@ func (s *InterviewAnalysisService) TranscribeAudio(ctx context.Context, response
 	// Fetch known interview questions for context
 	var knownQuestions []string
 	if s.interviewBaseRepo != nil {
-		baseQuestions, _ := s.interviewBaseRepo.List(ctx, true)
+		baseQuestions, _ := s.interviewBaseRepo.List(transcribeCtx, true)
 		for _, q := range baseQuestions {
 			knownQuestions = append(knownQuestions, q.QuestionText)
 		}
 	}
 
 	// Resolve Audio Transcription Provider from AI Router
-	audioProvider, _, err := s.aiRouter.GetAudioProviderForFlow(ctx, "interview_transcription")
+	audioProvider, _, err := s.aiRouter.GetAudioProviderForFlow(transcribeCtx, "interview_transcription")
 	if err != nil {
-		_ = s.repo.UpdateResponseTranscript(ctx, responseID, "", "failed")
+		_ = s.repo.UpdateResponseTranscript(context.Background(), responseID, "", "failed")
 		return nil, fmt.Errorf("failed to get audio transcription provider: %w", err)
 	}
 
@@ -149,9 +206,14 @@ func (s *InterviewAnalysisService) TranscribeAudio(ctx context.Context, response
 	log.Printf("[InterviewAnalysis] Starting audio transcription for response %s (teacher %s, file: %s)",
 		responseID, resp.TeacherID, localPath)
 
-	transcriptionResult, err := audioProvider.TranscribeAudio(ctx, localPath, fullPrompt)
+	transcriptionResult, err := audioProvider.TranscribeAudio(transcribeCtx, localPath, fullPrompt)
 	if err != nil {
-		_ = s.repo.UpdateResponseTranscript(ctx, responseID, "", "failed")
+		if errors.Is(err, context.Canceled) || errors.Is(transcribeCtx.Err(), context.Canceled) || strings.Contains(strings.ToLower(err.Error()), "cancel") {
+			log.Printf("[InterviewAnalysis] Transcription cancelled for response %s", responseID)
+			_ = s.repo.ResetTranscriptionStatus(context.Background(), responseID)
+			return nil, fmt.Errorf("transcription cancelled")
+		}
+		_ = s.repo.UpdateResponseTranscript(context.Background(), responseID, "", "failed")
 		return nil, fmt.Errorf("audio transcription failed: %w", err)
 	}
 
@@ -194,36 +256,64 @@ func (s *InterviewAnalysisService) TranscribeAudio(ctx context.Context, response
 	resp.AudioDurationSec = parsed.AudioDurationSec
 	resp.ResponseText = strings.TrimSpace(responseTextBuilder.String())
 
-	// Persist raw transcript and status
-	err = s.repo.UpdateResponseTranscript(ctx, responseID, rawText, "transcribed")
+	// Persist transcription result (language, duration, raw transcript, response text, status)
+	err = s.repo.SaveTranscriptionResult(ctx, responseID, rawText, resp.ResponseText, resp.Language, resp.AudioDurationSec, "transcribed")
 	if err != nil {
 		return nil, fmt.Errorf("failed to save transcribed text: %w", err)
 	}
 
-	// Also update language, duration, response text
-	_ = s.repo.FinalizeResponse(ctx, responseID, resp.ResponseText)
+	// Step 1: Dispatch Telegram notification IMMEDIATELY after audio transcription completes (~10s)
+	if s.telegramNotifier != nil && s.telegramNotifier.IsEnabled() {
+		go func() {
+			notifyCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
 
-	// If multiple QA pairs detected, automatically spawn individual question responses for granular coding
-	if len(parsed.QAPairs) > 1 {
-		for _, qa := range parsed.QAPairs {
-			subResp := &model.InterviewResponse{
-				ID:               uuid.New(),
-				AnalysisRunID:    resp.AnalysisRunID,
+			audioName := "Recording"
+			if resp.AudioFilename != nil && strings.TrimSpace(*resp.AudioFilename) != "" {
+				audioName = *resp.AudioFilename
+			}
+
+			previewSnippet := strings.TrimSpace(rawText)
+			runeSnippet := []rune(previewSnippet)
+			if len(runeSnippet) > 280 {
+				previewSnippet = string(runeSnippet[:280]) + "..."
+			}
+
+			stats := &InterviewTranscribeNotificationStats{
 				TeacherID:        resp.TeacherID,
-				QuestionText:     qa.QuestionText,
-				AudioBlobPath:    resp.AudioBlobPath,
-				AudioFilename:    resp.AudioFilename,
+				AudioFilename:    audioName,
 				AudioDurationSec: resp.AudioDurationSec,
 				Language:         resp.Language,
-				RawTranscript:    &rawText,
-				TranscriptStatus: "transcribed",
-				ResponseText:     qa.AnswerText,
+				TranscriptLength: len([]rune(rawText)),
+				PreviewSnippet:   previewSnippet,
+				Duration:         time.Since(transcribeStart),
 			}
-			_ = s.repo.CreateResponse(ctx, subResp)
-		}
+
+			if notifyErr := s.telegramNotifier.NotifyInterviewTranscribed(notifyCtx, resp, stats); notifyErr != nil {
+				log.Printf("[InterviewAnalysis] Warning: failed to send telegram transcription notification: %v", notifyErr)
+			} else {
+				log.Printf("[InterviewAnalysis] Telegram notification sent for teacher %s interview transcription", resp.TeacherID)
+			}
+		}()
+	}
+
+	// Step 2: Automatically align and split transcript into structured Q&A cards using interview_analysis model
+	if _, alignErr := s.AlignAndSplitQA(ctx, resp.AnalysisRunID, resp.TeacherID, rawText); alignErr != nil {
+		log.Printf("[InterviewAnalysis] Notice: auto Q&A alignment after transcription had notice: %v", alignErr)
 	}
 
 	return s.repo.GetResponseByID(ctx, responseID)
+}
+
+// CancelTranscription cancels an in-flight transcription and resets the response status to 'uploaded'.
+func (s *InterviewAnalysisService) CancelTranscription(ctx context.Context, responseID uuid.UUID) error {
+	if cancelVal, ok := s.activeTranscriptions.Load(responseID); ok {
+		if cancel, ok := cancelVal.(context.CancelFunc); ok {
+			log.Printf("[InterviewAnalysis] Actively cancelling transcription for response %s", responseID)
+			cancel()
+		}
+	}
+	return s.repo.ResetTranscriptionStatus(ctx, responseID)
 }
 
 // FinalizeResponse updates reviewed response text and changes status to 'finalized'.
@@ -257,16 +347,218 @@ func (s *InterviewAnalysisService) CreateManualResponse(ctx context.Context, res
 	return s.repo.GetResponseByID(ctx, resp.ID)
 }
 
-// GetResponsesByTeacher returns all responses for a teacher, including meaning units if populated.
+// AlignAndSplitQA uses the AI model configured at node "interview_analysis" to semantically
+// align a teacher's verbatim transcript with their planned interview questions, producing structured Q&A cards.
+func (s *InterviewAnalysisService) AlignAndSplitQA(ctx context.Context, runID uuid.UUID, teacherID string, rawTranscript string) ([]model.InterviewResponse, error) {
+	alignStart := time.Now()
+	if teacherID == "" {
+		return nil, fmt.Errorf("teacher_id is required")
+	}
+
+	// Resolve runID if not provided
+	if runID == uuid.Nil {
+		existingList, _ := s.repo.ListResponsesByTeacher(ctx, uuid.Nil, teacherID)
+		for i := range existingList {
+			if existingList[i].AnalysisRunID != uuid.Nil {
+				runID = existingList[i].AnalysisRunID
+				break
+			}
+		}
+	}
+	if runID == uuid.Nil && s.analysisRepo != nil {
+		if latest, err := s.analysisRepo.GetLatestRun(ctx); err == nil && latest != nil {
+			runID = latest.ID
+		}
+	}
+
+	// 1. Gather planned questions for this teacher
+	var alignQuestions []QuestionForAlignment
+	if s.analysisRepo != nil {
+		_, questions, err := s.analysisRepo.GetTeacherAnalysis(ctx, runID, teacherID)
+		if err == nil && len(questions) > 0 {
+			for _, q := range questions {
+				rqCat := ""
+				if q.RQCategory != nil {
+					rqCat = *q.RQCategory
+				}
+				alignQuestions = append(alignQuestions, QuestionForAlignment{
+					ID:           q.ID.String(),
+					QuestionText: q.QuestionText,
+					Type:         q.Type,
+					RQCategory:   rqCat,
+				})
+			}
+		}
+	}
+
+	// Fallback to base questions bank if no teacher-specific questions found
+	if len(alignQuestions) == 0 && s.interviewBaseRepo != nil {
+		baseQuestions, err := s.interviewBaseRepo.List(ctx, true)
+		if err == nil && len(baseQuestions) > 0 {
+			for _, bq := range baseQuestions {
+				alignQuestions = append(alignQuestions, QuestionForAlignment{
+					ID:           bq.ID.String(),
+					QuestionText: bq.QuestionText,
+					Type:         "base",
+					RQCategory:   bq.RQCategory,
+				})
+			}
+		}
+	}
+
+	if len(alignQuestions) == 0 {
+		return nil, fmt.Errorf("no interview questions found for teacher %s or in base question bank", teacherID)
+	}
+
+	// 2. Resolve raw transcript if not passed directly
+	transcript := strings.TrimSpace(rawTranscript)
+	existingList, _ := s.repo.ListResponsesByTeacher(ctx, runID, teacherID)
+	var parentResp *model.InterviewResponse
+	for i := range existingList {
+		if existingList[i].QuestionText == "Full Teacher Interview Recording" || (existingList[i].AudioBlobPath != nil && *existingList[i].AudioBlobPath != "") {
+			parentResp = &existingList[i]
+			break
+		}
+	}
+
+	if transcript == "" {
+		if parentResp != nil {
+			if parentResp.RawTranscript != nil && strings.TrimSpace(*parentResp.RawTranscript) != "" {
+				transcript = *parentResp.RawTranscript
+			} else if strings.TrimSpace(parentResp.ResponseText) != "" {
+				transcript = parentResp.ResponseText
+			}
+		}
+	}
+
+	if transcript == "" {
+		return nil, fmt.Errorf("transcript text is empty for teacher %s", teacherID)
+	}
+
+	// 3. Resolve AI provider for "interview_analysis" flow
+	textProvider, modelName, err := s.aiRouter.GetTextProviderForFlow(ctx, "interview_analysis")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get AI text provider for interview_analysis flow: %w", err)
+	}
+
+	sysPrompt, userPrompt := PromptAlignAndSplitQA(teacherID, alignQuestions, transcript)
+
+	log.Printf("[InterviewAnalysis] Aligning Q&A for teacher %s (run %s) using model %s", teacherID, runID, modelName)
+
+	aiResult, err := textProvider.CompleteText(ctx, modelName, sysPrompt, userPrompt)
+	if err != nil {
+		return nil, fmt.Errorf("AI alignment failed: %w", err)
+	}
+
+	cleanedJSON := ai.ExtractJSONFromMarkdown(aiResult)
+	var parsed struct {
+		AlignedQA []struct {
+			QuestionID   string `json:"question_id"`
+			QuestionText string `json:"question_text"`
+			AnswerText   string `json:"answer_text"`
+		} `json:"aligned_qa"`
+	}
+
+	if err := json.Unmarshal([]byte(cleanedJSON), &parsed); err != nil {
+		log.Printf("[InterviewAnalysis] Warning: failed to parse AI alignment JSON: %v (raw: %s)", err, aiResult)
+		return nil, fmt.Errorf("failed to parse AI alignment result: %w", err)
+	}
+
+	// 4. Persist aligned sub-responses into interview_responses
+	_ = s.repo.DeleteSubResponsesByTeacher(ctx, runID, teacherID)
+
+	for _, qa := range parsed.AlignedQA {
+		ans := strings.TrimSpace(qa.AnswerText)
+		if ans == "" {
+			continue
+		}
+
+		var qID *uuid.UUID
+		if parsedUUID, err := uuid.Parse(qa.QuestionID); err == nil && parsedUUID != uuid.Nil {
+			qID = &parsedUUID
+		}
+
+		subResp := &model.InterviewResponse{
+			ID:               uuid.New(),
+			AnalysisRunID:    runID,
+			TeacherID:        teacherID,
+			QuestionID:       qID,
+			QuestionText:     qa.QuestionText,
+			ResponseText:     ans,
+			TranscriptStatus: "transcribed",
+			RawTranscript:    &transcript,
+		}
+		if parentResp != nil {
+			subResp.AudioBlobPath = parentResp.AudioBlobPath
+			subResp.AudioFilename = parentResp.AudioFilename
+			subResp.AudioDurationSec = parentResp.AudioDurationSec
+			subResp.Language = parentResp.Language
+		}
+
+		if err := s.repo.CreateResponse(ctx, subResp); err != nil {
+			log.Printf("[InterviewAnalysis] Error creating aligned response card: %v", err)
+		}
+	}
+
+	// Update parent raw transcript if needed
+	if parentResp != nil && (parentResp.RawTranscript == nil || *parentResp.RawTranscript != transcript) {
+		_ = s.repo.UpdateResponseTranscript(ctx, parentResp.ID, transcript, "transcribed")
+	}
+
+	alignedCards, getErr := s.GetResponsesByTeacher(ctx, runID, teacherID)
+	if getErr != nil {
+		return nil, getErr
+	}
+
+	// Dispatch Step 2 Telegram notification for Q&A alignment completion
+	if s.telegramNotifier != nil && s.telegramNotifier.IsEnabled() && len(alignedCards) > 0 {
+		go func() {
+			notifyCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+
+			var qSummary []string
+			qaCount := 0
+			for _, card := range alignedCards {
+				if card.QuestionText != "Full Teacher Interview Recording" && strings.TrimSpace(card.ResponseText) != "" {
+					qaCount++
+					qSummary = append(qSummary, card.QuestionText)
+				}
+			}
+
+			stats := &InterviewQAAlignedNotificationStats{
+				TeacherID:        teacherID,
+				QACount:          qaCount,
+				Duration:         time.Since(alignStart),
+				QuestionsSummary: qSummary,
+			}
+
+			if notifyErr := s.telegramNotifier.NotifyInterviewQAAligned(notifyCtx, teacherID, stats); notifyErr != nil {
+				log.Printf("[InterviewAnalysis] Warning: failed to send telegram QA alignment notification: %v", notifyErr)
+			} else {
+				log.Printf("[InterviewAnalysis] Telegram notification sent for teacher %s QA alignment (%d cards)", teacherID, qaCount)
+			}
+		}()
+	}
+
+	return alignedCards, nil
+}
+
+// GetResponsesByTeacher returns all responses for a teacher (or all teachers if teacherID == "all"), including meaning units if populated.
 func (s *InterviewAnalysisService) GetResponsesByTeacher(ctx context.Context, runID uuid.UUID, teacherID string) ([]model.InterviewResponse, error) {
-	responses, err := s.repo.ListResponsesByTeacher(ctx, runID, teacherID)
+	var responses []model.InterviewResponse
+	var err error
+	if strings.ToLower(strings.TrimSpace(teacherID)) == "all" {
+		responses, err = s.repo.ListResponsesByRun(ctx, runID)
+	} else {
+		responses, err = s.repo.ListResponsesByTeacher(ctx, runID, teacherID)
+	}
 	if err != nil {
 		return nil, err
 	}
 
 	// Populate meaning units for each response
 	for i := range responses {
-		units, _ := s.repo.ListMeaningUnitsByTeacher(ctx, teacherID)
+		units, _ := s.repo.ListMeaningUnitsByTeacher(ctx, responses[i].TeacherID)
 		var matched []model.MeaningUnit
 		for _, u := range units {
 			if u.ResponseID == responses[i].ID {
@@ -628,10 +920,22 @@ func (s *InterviewAnalysisService) SelectRepresentativeQuotes(ctx context.Contex
 	}
 
 	var corpus strings.Builder
+	hasQuestionCards := false
 	for _, r := range responses {
-		if strings.TrimSpace(r.ResponseText) != "" {
-			corpus.WriteString(fmt.Sprintf("[%s | Question: %s]: \"%s\"\n\n", r.TeacherID, r.QuestionText, r.ResponseText))
+		if r.QuestionID != nil && strings.TrimSpace(r.ResponseText) != "" {
+			hasQuestionCards = true
+			break
 		}
+	}
+
+	for _, r := range responses {
+		if strings.TrimSpace(r.ResponseText) == "" {
+			continue
+		}
+		if hasQuestionCards && r.QuestionID == nil {
+			continue
+		}
+		corpus.WriteString(fmt.Sprintf("[%s | Question: %s]: \"%s\"\n\n", r.TeacherID, r.QuestionText, r.ResponseText))
 	}
 	if corpus.Len() == 0 {
 		return nil, fmt.Errorf("no responses available to select quotes from")
@@ -660,6 +964,7 @@ func (s *InterviewAnalysisService) SelectRepresentativeQuotes(ctx context.Contex
 	}
 
 	if err := json.Unmarshal([]byte(cleanedJSON), &parsed); err != nil {
+		log.Printf("[InterviewAnalysis] Quote selection JSON parse error: %v | Raw: %s", err, aiResponse)
 		return nil, fmt.Errorf("failed to parse AI quote selection output: %w", err)
 	}
 

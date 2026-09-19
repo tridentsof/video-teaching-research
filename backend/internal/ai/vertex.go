@@ -185,8 +185,13 @@ func (v *VertexAIProvider) getAccessToken(ctx context.Context) (string, error) {
 	return tokenResp.AccessToken, nil
 }
 
-// uploadToGCS uploads a local file to Google Cloud Storage and returns the gs:// URI.
+// uploadToGCS uploads a local video file to Google Cloud Storage and returns the gs:// URI.
 func (v *VertexAIProvider) uploadToGCS(ctx context.Context, localPath string) (string, error) {
+	return v.uploadToGCSWithMimeType(ctx, localPath, "video/mp4")
+}
+
+// uploadToGCSWithMimeType uploads any local file (video or audio) to GCS with the appropriate Content-Type.
+func (v *VertexAIProvider) uploadToGCSWithMimeType(ctx context.Context, localPath string, contentType string) (string, error) {
 	if v.gcsBucket == "" {
 		return "", fmt.Errorf("GCS bucket is not configured for Vertex AI provider")
 	}
@@ -201,7 +206,11 @@ func (v *VertexAIProvider) uploadToGCS(ctx context.Context, localPath string) (s
 		return "", fmt.Errorf("failed to read local file %s: %w", localPath, err)
 	}
 
-	objectName := fmt.Sprintf("vertex-chunks/%d_%s", time.Now().UnixMilli(), filepath.Base(localPath))
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+
+	objectName := fmt.Sprintf("vertex-media/%d_%s", time.Now().UnixMilli(), filepath.Base(localPath))
 	uploadURL := fmt.Sprintf("https://storage.googleapis.com/upload/storage/v1/b/%s/o?uploadType=media&name=%s",
 		v.gcsBucket, objectName)
 
@@ -210,7 +219,7 @@ func (v *VertexAIProvider) uploadToGCS(ctx context.Context, localPath string) (s
 		return "", err
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "video/mp4")
+	req.Header.Set("Content-Type", contentType)
 
 	resp, err := v.httpClient.Do(req)
 	if err != nil {
@@ -224,8 +233,32 @@ func (v *VertexAIProvider) uploadToGCS(ctx context.Context, localPath string) (s
 	}
 
 	gcsURI := fmt.Sprintf("gs://%s/%s", v.gcsBucket, objectName)
-	log.Printf("[VertexAI] Uploaded %s to %s (%d bytes)", filepath.Base(localPath), gcsURI, len(fileData))
+	log.Printf("[VertexAI] Uploaded %s to %s (%d bytes, Content-Type: %s)",
+		filepath.Base(localPath), gcsURI, len(fileData), contentType)
 	return gcsURI, nil
+}
+
+// detectAudioMimeType returns the appropriate MIME type based on file extension.
+func detectAudioMimeType(filePath string) string {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	switch ext {
+	case ".m4a":
+		return "audio/mp4"
+	case ".mp3":
+		return "audio/mp3"
+	case ".wav":
+		return "audio/wav"
+	case ".aac":
+		return "audio/aac"
+	case ".ogg", ".opus":
+		return "audio/ogg"
+	case ".flac":
+		return "audio/flac"
+	case ".webm":
+		return "audio/webm"
+	default:
+		return "audio/mp4"
+	}
 }
 
 // deleteFromGCS removes a file from GCS after processing.
@@ -263,15 +296,15 @@ func (v *VertexAIProvider) deleteFromGCS(ctx context.Context, gcsURI string) {
 }
 
 // buildGenerateURL builds the appropriate Vertex AI REST endpoint for the model.
-// Models like gemini-3.8-flash run exclusively on the global endpoint in Vertex AI (Gemini Enterprise Agent Platform).
+// Models like gemini-3.8-flash and gemini-3.5-transcribe-preview run exclusively on the global endpoint in Vertex AI (Gemini Enterprise Agent Platform).
 // When targeting the global location, Google requires the host https://aiplatform.googleapis.com (no regional prefix).
 func (v *VertexAIProvider) buildGenerateURL(model string) string {
 	region := v.region
 	if region == "" {
 		region = "us-central1"
 	}
-	// Models in the gemini-3.8 family run on the global endpoint
-	if strings.HasPrefix(model, "gemini-3.8") {
+	// Models in the gemini-3.8 family and dedicated transcribe models run exclusively on the global endpoint
+	if strings.HasPrefix(model, "gemini-3.8") || strings.Contains(model, "transcribe") {
 		region = "global"
 	}
 
@@ -443,7 +476,8 @@ func (v *VertexAIProvider) CompleteText(ctx context.Context, model string, syste
 			},
 		},
 		GenerationConfig: &geminiConfig{
-			Temperature: 0.1,
+			Temperature:     0.1,
+			MaxOutputTokens: 8192,
 		},
 	}
 
@@ -535,8 +569,151 @@ func (v *VertexAIProvider) CompleteJSON(ctx context.Context, model string, syste
 	return UnmarshalJSONFlexible(rawText, target)
 }
 
-// Ensure VertexAIProvider satisfies both interfaces at compile time.
+// TranscribeAudio uploads an audio file to GCS and transcribes it using Vertex AI (gemini-3.5-transcribe-preview).
+func (v *VertexAIProvider) TranscribeAudio(ctx context.Context, audioFilePath string, prompt string) (string, error) {
+	if v.saKey == nil {
+		return "", fmt.Errorf("vertex AI service account credentials not configured")
+	}
+
+	transcribeStart := time.Now()
+	mimeType := detectAudioMimeType(audioFilePath)
+
+	// 1. Determine model: if configured model is a transcribe model or default, use it
+	model := v.model
+	if model == "" || !strings.Contains(model, "transcribe") {
+		// Prefer dedicated transcribe preview model on Vertex AI
+		model = "gemini-3.5-transcribe-preview"
+	}
+
+	log.Printf("[VertexAI TranscribeAudio] Step 1: Uploading audio (%s, mime: %s) to GCS bucket %s...",
+		filepath.Base(audioFilePath), mimeType, v.gcsBucket)
+
+	gcsURI, err := v.uploadToGCSWithMimeType(ctx, audioFilePath, mimeType)
+	if err != nil {
+		return "", fmt.Errorf("failed to upload audio to GCS: %w", err)
+	}
+	defer v.deleteFromGCS(context.Background(), gcsURI)
+
+	// 2. Obtain OAuth2 access token
+	token, err := v.getAccessToken(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get access token: %w", err)
+	}
+
+	generateURL := v.buildGenerateURL(model)
+	log.Printf("[VertexAI TranscribeAudio] Step 2: Calling %s with model %s on %s...",
+		generateURL, model, gcsURI)
+
+	if prompt == "" {
+		prompt = "Transcribe this audio recording verbatim in Vietnamese. Include all spoken words accurately."
+	}
+
+	reqBody := geminiGenerateContentRequest{
+		Contents: []geminiContent{
+			{
+				Role: "user",
+				Parts: []geminiPart{
+					{
+						FileData: &geminiFileData{
+							MimeType: mimeType,
+							FileURI:  gcsURI,
+						},
+					},
+					{
+						Text: prompt,
+					},
+				},
+			},
+		},
+		GenerationConfig: &geminiConfig{
+			MaxOutputTokens: 8192,
+		},
+	}
+
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", err
+	}
+
+	const maxRetries = 3
+	backoff := 2 * time.Second
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return "", ctx.Err()
+			case <-time.After(backoff):
+				backoff *= 2
+			}
+		}
+
+		req, err := http.NewRequestWithContext(ctx, "POST", generateURL, bytes.NewReader(bodyBytes))
+		if err != nil {
+			return "", err
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := v.httpClient.Do(req)
+		if err != nil {
+			if attempt == maxRetries {
+				return "", fmt.Errorf("vertex AI transcribe request failed after %d retries: %w", maxRetries, err)
+			}
+			log.Printf("[VertexAI TranscribeAudio] attempt %d/%d network error: %v (retrying...)", attempt+1, maxRetries+1, err)
+			continue
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			if attempt == maxRetries {
+				return "", fmt.Errorf("failed to read vertex AI response: %w", err)
+			}
+			continue
+		}
+
+		if resp.StatusCode == http.StatusTooManyRequests || (resp.StatusCode >= 500 && resp.StatusCode <= 599) {
+			if attempt == maxRetries {
+				return "", fmt.Errorf("vertex AI transcribe failed with status %d: %s", resp.StatusCode, string(body))
+			}
+			log.Printf("[VertexAI TranscribeAudio] status %d, retrying in %v...", resp.StatusCode, backoff)
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return "", fmt.Errorf("vertex AI transcribe error (%d): %s", resp.StatusCode, string(body))
+		}
+
+		var genResp geminiGenerateContentResponse
+		if err := json.Unmarshal(body, &genResp); err != nil {
+			return "", fmt.Errorf("failed to decode vertex AI response: %w", err)
+		}
+
+		if genResp.Error != nil {
+			return "", fmt.Errorf("vertex AI API error (%d): %s", genResp.Error.Code, genResp.Error.Message)
+		}
+
+		if len(genResp.Candidates) == 0 || len(genResp.Candidates[0].Content.Parts) == 0 {
+			finishReason := ""
+			if len(genResp.Candidates) > 0 {
+				finishReason = genResp.Candidates[0].FinishReason
+			}
+			return "", fmt.Errorf("vertex AI returned empty response (finishReason: %s)", finishReason)
+		}
+
+		transcript := genResp.Candidates[0].Content.Parts[0].Text
+		log.Printf("[VertexAI TranscribeAudio] audio (%s) transcribed successfully in %v (%d chars)",
+			filepath.Base(audioFilePath), time.Since(transcribeStart), len(transcript))
+		return transcript, nil
+	}
+
+	return "", fmt.Errorf("exhausted retries for vertex AI audio transcription")
+}
+
+// Ensure VertexAIProvider satisfies all interfaces at compile time.
 var _ VideoAnalysisProvider = (*VertexAIProvider)(nil)
+var _ AudioTranscriptionProvider = (*VertexAIProvider)(nil)
 var _ TextCompletionProvider = (*VertexAIProvider)(nil)
 
 // Suppress unused import warnings for crypto packages used in JWT signing.

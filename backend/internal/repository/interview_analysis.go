@@ -75,17 +75,34 @@ func (r *InterviewAnalysisRepository) GetResponseByID(ctx context.Context, id uu
 	return &resp, nil
 }
 
-// ListResponsesByTeacher returns all responses for a given teacher in an analysis run.
+// ListResponsesByTeacher returns all responses for a given teacher in an analysis run (or across runs if runID is nil).
 func (r *InterviewAnalysisRepository) ListResponsesByTeacher(ctx context.Context, runID uuid.UUID, teacherID string) ([]model.InterviewResponse, error) {
-	query := `
-		SELECT id, analysis_run_id, teacher_id, question_id, question_text,
-		       audio_blob_path, audio_filename, audio_duration_sec, language,
-		       raw_transcript, transcript_status, response_text, recorded_at, created_at, updated_at
-		FROM interview_responses
-		WHERE analysis_run_id = $1 AND teacher_id = $2
-		ORDER BY created_at ASC
-	`
-	rows, err := r.db.Pool.Query(ctx, query, runID, teacherID)
+	var query string
+	var rows pgx.Rows
+	var err error
+
+	if runID == uuid.Nil {
+		query = `
+			SELECT id, analysis_run_id, teacher_id, question_id, question_text,
+			       audio_blob_path, audio_filename, audio_duration_sec, language,
+			       raw_transcript, transcript_status, response_text, recorded_at, created_at, updated_at
+			FROM interview_responses
+			WHERE teacher_id = $1
+			ORDER BY created_at ASC
+		`
+		rows, err = r.db.Pool.Query(ctx, query, teacherID)
+	} else {
+		query = `
+			SELECT id, analysis_run_id, teacher_id, question_id, question_text,
+			       audio_blob_path, audio_filename, audio_duration_sec, language,
+			       raw_transcript, transcript_status, response_text, recorded_at, created_at, updated_at
+			FROM interview_responses
+			WHERE analysis_run_id = $1 AND teacher_id = $2
+			ORDER BY created_at ASC
+		`
+		rows, err = r.db.Pool.Query(ctx, query, runID, teacherID)
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to list responses for teacher %s: %w", teacherID, err)
 	}
@@ -148,6 +165,28 @@ func (r *InterviewAnalysisRepository) UpdateResponseTranscript(ctx context.Conte
 	return err
 }
 
+// SaveTranscriptionResult saves all outputs from AI audio transcription including language and duration.
+func (r *InterviewAnalysisRepository) SaveTranscriptionResult(ctx context.Context, id uuid.UUID, rawTranscript string, responseText string, language string, durationSec float64, status string) error {
+	query := `
+		UPDATE interview_responses
+		SET raw_transcript = $1, response_text = $2, language = $3, audio_duration_sec = $4, transcript_status = $5, updated_at = NOW()
+		WHERE id = $6
+	`
+	_, err := r.db.Pool.Exec(ctx, query, rawTranscript, responseText, language, durationSec, status, id)
+	return err
+}
+
+// ResetTranscriptionStatus resets transcript_status back to 'uploaded' (used when transcription is cancelled).
+func (r *InterviewAnalysisRepository) ResetTranscriptionStatus(ctx context.Context, id uuid.UUID) error {
+	query := `
+		UPDATE interview_responses
+		SET transcript_status = 'uploaded', updated_at = NOW()
+		WHERE id = $1 AND transcript_status = 'transcribing'
+	`
+	_, err := r.db.Pool.Exec(ctx, query, id)
+	return err
+}
+
 // FinalizeResponse updates the finalized response text and marks transcript_status as 'finalized'.
 func (r *InterviewAnalysisRepository) FinalizeResponse(ctx context.Context, id uuid.UUID, responseText string) error {
 	query := `
@@ -159,10 +198,58 @@ func (r *InterviewAnalysisRepository) FinalizeResponse(ctx context.Context, id u
 	return err
 }
 
+// UpdateResponseAudio updates the audio blob path and filename of an interview response without touching transcripts.
+func (r *InterviewAnalysisRepository) UpdateResponseAudio(ctx context.Context, id uuid.UUID, blobPath string, filename string) error {
+	query := `
+		UPDATE interview_responses
+		SET audio_blob_path = $1, audio_filename = $2, updated_at = NOW()
+		WHERE id = $3
+	`
+	_, err := r.db.Pool.Exec(ctx, query, blobPath, filename, id)
+	return err
+}
+
 // DeleteResponse deletes an interview response by ID.
 func (r *InterviewAnalysisRepository) DeleteResponse(ctx context.Context, id uuid.UUID) error {
 	query := `DELETE FROM interview_responses WHERE id = $1`
 	_, err := r.db.Pool.Exec(ctx, query, id)
+	return err
+}
+
+// DeleteRepresentativeQuotesByTeacher removes all quotes for a specific teacher in a run.
+func (r *InterviewAnalysisRepository) DeleteRepresentativeQuotesByTeacher(ctx context.Context, runID uuid.UUID, teacherID string) error {
+	var query string
+	var err error
+	if runID == uuid.Nil {
+		query = `DELETE FROM representative_quotes WHERE teacher_id = $1`
+		_, err = r.db.Pool.Exec(ctx, query, teacherID)
+	} else {
+		query = `DELETE FROM representative_quotes WHERE analysis_run_id = $1 AND teacher_id = $2`
+		_, err = r.db.Pool.Exec(ctx, query, runID, teacherID)
+	}
+	return err
+}
+
+// DeleteSubResponsesByTeacher removes all granular question responses for a teacher, keeping the parent recording record.
+func (r *InterviewAnalysisRepository) DeleteSubResponsesByTeacher(ctx context.Context, runID uuid.UUID, teacherID string) error {
+	var query string
+	var err error
+	if runID == uuid.Nil {
+		query = `
+			DELETE FROM interview_responses 
+			WHERE teacher_id = $1 
+			  AND (question_id IS NOT NULL OR question_text != 'Full Teacher Interview Recording')
+		`
+		_, err = r.db.Pool.Exec(ctx, query, teacherID)
+	} else {
+		query = `
+			DELETE FROM interview_responses 
+			WHERE analysis_run_id = $1 
+			  AND teacher_id = $2 
+			  AND (question_id IS NOT NULL OR question_text != 'Full Teacher Interview Recording')
+		`
+		_, err = r.db.Pool.Exec(ctx, query, runID, teacherID)
+	}
 	return err
 }
 

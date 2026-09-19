@@ -232,7 +232,7 @@ func (s *AIRouterService) GetVideoProviderForFlow(ctx context.Context, flowKey s
 
 // GetAudioProviderForFlow dynamically resolves and returns the AudioTranscriptionProvider for audio transcription.
 func (s *AIRouterService) GetAudioProviderForFlow(ctx context.Context, flowKey string) (ai.AudioTranscriptionProvider, string, error) {
-	providerType, modelName, apiKeySecret, _, _, err := s.ResolveFlowConfig(ctx, flowKey)
+	providerType, modelName, apiKeySecret, _, metadata, err := s.ResolveFlowConfig(ctx, flowKey)
 	if err != nil {
 		// Fallback to default Gemini key if flow config is not set yet
 		if s.defaultGeminiKey != "" {
@@ -244,11 +244,25 @@ func (s *AIRouterService) GetAudioProviderForFlow(ctx context.Context, flowKey s
 	switch providerType {
 	case "gemini":
 		return s.getGeminiProvider(apiKeySecret, modelName), modelName, nil
+	case "vertex_ai":
+		projectID, region, gcsBucket := "", "", ""
+		if metadata != nil {
+			projectID = metadata.ProjectID
+			region = metadata.Region
+			gcsBucket = metadata.GCSBucket
+		}
+		if gcsBucket == "" {
+			return nil, "", fmt.Errorf("vertex AI audio transcription requires a GCS Bucket configured in the API key metadata")
+		}
+		if modelName == "" {
+			modelName = "gemini-3.5-transcribe-preview"
+		}
+		return s.getVertexProvider(apiKeySecret, projectID, region, gcsBucket, modelName), modelName, nil
 	default:
 		if s.defaultGeminiKey != "" {
 			return s.getGeminiProvider(s.defaultGeminiKey, s.defaultGeminiModel), s.defaultGeminiModel, nil
 		}
-		return nil, "", fmt.Errorf("audio transcription flow '%s' requires a multimodal audio provider (gemini), but '%s' was configured", flowKey, providerType)
+		return nil, "", fmt.Errorf("audio transcription flow '%s' requires an audio provider (gemini or vertex_ai), but '%s' was configured", flowKey, providerType)
 	}
 }
 

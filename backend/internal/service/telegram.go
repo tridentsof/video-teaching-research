@@ -26,11 +26,32 @@ type PipelineNotificationStats struct {
 	Duration    time.Duration
 }
 
+// InterviewTranscribeNotificationStats holds summary details of a completed interview audio transcription.
+type InterviewTranscribeNotificationStats struct {
+	TeacherID        string
+	AudioFilename    string
+	AudioDurationSec float64
+	Language         string
+	TranscriptLength int
+	PreviewSnippet   string
+	Duration         time.Duration
+}
+
+// InterviewQAAlignedNotificationStats holds summary details of a completed Q&A alignment.
+type InterviewQAAlignedNotificationStats struct {
+	TeacherID        string
+	QACount          int
+	Duration         time.Duration
+	QuestionsSummary []string
+}
+
 // TelegramNotifier defines the interface for delivering pipeline notifications.
 type TelegramNotifier interface {
 	IsEnabled() bool
 	NotifyPipelineCompleted(ctx context.Context, video *model.Video, stats *PipelineNotificationStats) error
 	NotifyPipelineFailed(ctx context.Context, video *model.Video, failedStep string, errMsg string) error
+	NotifyInterviewTranscribed(ctx context.Context, resp *model.InterviewResponse, stats *InterviewTranscribeNotificationStats) error
+	NotifyInterviewQAAligned(ctx context.Context, teacherID string, stats *InterviewQAAlignedNotificationStats) error
 }
 
 // DefaultTelegramNotifier implements TelegramNotifier.
@@ -191,6 +212,116 @@ func (n *DefaultTelegramNotifier) NotifyPipelineFailed(ctx context.Context, vide
 	return n.sendMessage(ctx, msg, "pipeline_failed", video, appURL)
 }
 
+// NotifyInterviewTranscribed sends an alert notification when interview audio transcription completes.
+func (n *DefaultTelegramNotifier) NotifyInterviewTranscribed(ctx context.Context, resp *model.InterviewResponse, stats *InterviewTranscribeNotificationStats) error {
+	if !n.IsEnabled() {
+		return nil
+	}
+
+	teacherID := resp.TeacherID
+	if strings.TrimSpace(teacherID) == "" {
+		teacherID = "N/A"
+	}
+
+	audioName := "Không có tên / Untitled"
+	if resp.AudioFilename != nil && strings.TrimSpace(*resp.AudioFilename) != "" {
+		audioName = *resp.AudioFilename
+	} else if stats != nil && stats.AudioFilename != "" {
+		audioName = stats.AudioFilename
+	}
+
+	durationSec := resp.AudioDurationSec
+	if stats != nil && stats.AudioDurationSec > 0 {
+		durationSec = stats.AudioDurationSec
+	}
+	durationStr := "N/A"
+	if durationSec > 0 {
+		min := int(durationSec) / 60
+		sec := int(durationSec) % 60
+		if min > 0 {
+			durationStr = fmt.Sprintf("%d phút %02d giây (%.1fs)", min, sec, durationSec)
+		} else {
+			durationStr = fmt.Sprintf("%.1f giây / seconds", durationSec)
+		}
+	}
+
+	langStr := strings.ToUpper(resp.Language)
+	if langStr == "" {
+		langStr = "VI"
+	}
+
+	appURL := ""
+	if n.appBaseURL != "" {
+		appURL = fmt.Sprintf("%s/interview-analysis?teacher=%s", n.appBaseURL, url.QueryEscape(teacherID))
+	}
+
+	var sb strings.Builder
+	sb.WriteString("<b>[THÔNG BÁO GỠ BĂNG ÂM THANH PHỎNG VẤN]</b>\n\n")
+	sb.WriteString(fmt.Sprintf("<b>Giáo viên / Teacher ID:</b> <code>%s</code>\n", html.EscapeString(teacherID)))
+	sb.WriteString(fmt.Sprintf("<b>Tệp âm thanh / Audio File:</b> %s\n", html.EscapeString(audioName)))
+	sb.WriteString(fmt.Sprintf("<b>Thời lượng / Duration:</b> %s\n", durationStr))
+	sb.WriteString(fmt.Sprintf("<b>Ngôn ngữ / Language:</b> %s\n", langStr))
+
+	if stats != nil {
+		if stats.Duration > 0 {
+			sb.WriteString(fmt.Sprintf("<b>Thời gian xử lý / Transcribe Time:</b> %s\n", stats.Duration.Round(time.Second)))
+		}
+		if stats.TranscriptLength > 0 {
+			sb.WriteString(fmt.Sprintf("<b>Độ dài văn bản / Transcript Length:</b> %d ký tự / chars\n", stats.TranscriptLength))
+		}
+		if stats.PreviewSnippet != "" {
+			sb.WriteString(fmt.Sprintf("\n<b>Trích đoạn / Preview:</b>\n<i>\"%s\"</i>\n", html.EscapeString(stats.PreviewSnippet)))
+		}
+	}
+
+	if appURL != "" {
+		sb.WriteString(fmt.Sprintf("\n<a href=\"%s\">Mở Interview Studio / Open Studio</a>\n", appURL))
+	}
+
+	msg := sb.String()
+	return n.sendMessage(ctx, msg, "interview_transcribed", nil, appURL)
+}
+
+// NotifyInterviewQAAligned sends a notification when AI alignment into Q&A cards completes.
+func (n *DefaultTelegramNotifier) NotifyInterviewQAAligned(ctx context.Context, teacherID string, stats *InterviewQAAlignedNotificationStats) error {
+	if !n.IsEnabled() {
+		return nil
+	}
+
+	appURL := ""
+	if n.appBaseURL != "" {
+		appURL = fmt.Sprintf("%s/interview-analysis?teacher=%s", n.appBaseURL, url.QueryEscape(teacherID))
+	}
+
+	var sb strings.Builder
+	sb.WriteString("<b>[THÔNG BÁO BÓC TÁCH THẺ Q&A PHỎNG VẤN]</b>\n\n")
+	sb.WriteString(fmt.Sprintf("<b>Giáo viên / Teacher ID:</b> <code>%s</code>\n", html.EscapeString(teacherID)))
+
+	if stats != nil {
+		sb.WriteString(fmt.Sprintf("<b>Số lượng thẻ Q&A đã tạo:</b> %d thẻ câu hỏi - trả lời\n", stats.QACount))
+		if stats.Duration > 0 {
+			sb.WriteString(fmt.Sprintf("<b>Thời gian phân tích AI:</b> %s\n", stats.Duration.Round(time.Second)))
+		}
+		if len(stats.QuestionsSummary) > 0 {
+			sb.WriteString("\n<b>Danh sách câu hỏi đã bóc tách:</b>\n")
+			for i, q := range stats.QuestionsSummary {
+				if i >= 5 {
+					sb.WriteString(fmt.Sprintf("<i>...và %d câu hỏi khác</i>\n", len(stats.QuestionsSummary)-5))
+					break
+				}
+				sb.WriteString(fmt.Sprintf("• %s\n", html.EscapeString(q)))
+			}
+		}
+	}
+
+	if appURL != "" {
+		sb.WriteString(fmt.Sprintf("\n<a href=\"%s\">Xem chi tiết thẻ Q&A trong Interview Studio</a>\n", appURL))
+	}
+
+	msg := sb.String()
+	return n.sendMessage(ctx, msg, "interview_qa_aligned", nil, appURL)
+}
+
 // sendMessage dispatches the message via direct Bot API or Webhook URL.
 func (n *DefaultTelegramNotifier) sendMessage(ctx context.Context, htmlMsg, event string, video *model.Video, appURL string) error {
 	// Case 1: Webhook URL is specified
@@ -302,6 +433,58 @@ func (n *DefaultTelegramNotifier) GetStatus(ctx context.Context) (map[string]any
 		"has_static_chat_id": n.chatID != "",
 		"active_subscribers": subCount,
 		"bot_username":       "tesol_video_teaching_bot",
+		"active_flows": []map[string]any{
+			{
+				"id":          "video_pipeline",
+				"name":        "Video Analysis Pipeline",
+				"name_vi":     "Quy trình phân tích Video giảng dạy",
+				"module":      "Video Pipeline",
+				"icon":        "video",
+				"is_active":   n.IsEnabled(),
+				"trigger":     "Cắt phân đoạn, trích xuất sự kiện AI, đối chiếu checklist rubric và tổng hợp báo cáo",
+				"description": "Quản lý toàn bộ thông báo phát sinh trong chu trình xử lý video, bao gồm thông báo khi phân tích hoàn tất thành công hoặc cảnh báo tức thời khi gặp sự cố gián đoạn.",
+				"target_url":  "/videos/:id",
+				"events": []map[string]any{
+					{
+						"event":       "pipeline_completed",
+						"name":        "Phân tích hoàn tất / Completed",
+						"status":      "success",
+						"description": "Gửi kết quả tổng hợp khi hoàn tất 6 công đoạn phân tích video.",
+					},
+					{
+						"event":       "pipeline_failed",
+						"name":        "Cảnh báo sự cố / Failed",
+						"status":      "failure",
+						"description": "Phát báo động khẩn cấp khi gặp lỗi AI quota, FFmpeg hoặc hệ thống.",
+					},
+				},
+			},
+			{
+				"id":          "interview_studio",
+				"name":        "Interview Studio Workflow",
+				"name_vi":     "Quy trình xử lý Phỏng vấn giáo viên",
+				"module":      "Interview Studio",
+				"icon":        "mic",
+				"is_active":   n.IsEnabled(),
+				"trigger":     "Gỡ băng âm thanh (~10s) & bóc tách thẻ Q&A độc lập",
+				"description": "Tự động gửi thông báo theo từng giai đoạn xử lý: thông báo tức thì khi audio gỡ băng xong và thông báo phân tách cấu trúc thẻ câu hỏi Q&A.",
+				"target_url":  "/interview-analysis",
+				"events": []map[string]any{
+					{
+						"event":       "interview_transcribed",
+						"name":        "Gỡ băng âm thanh / Transcribed",
+						"status":      "success",
+						"description": "Thông báo tức thì khi hoàn tất phiên dịch tệp ghi âm giọng nói (~10s), kèm thời lượng và trích đoạn bản gỡ.",
+					},
+					{
+						"event":       "interview_qa_aligned",
+						"name":        "Bóc tách thẻ Q&A / Q&A Aligned",
+						"status":      "success",
+						"description": "Thông báo khi mô hình AI phân loại và tạo xong danh sách thẻ câu hỏi - trả lời tương ứng.",
+					},
+				},
+			},
+		},
 	}, nil
 }
 
@@ -360,11 +543,18 @@ func (n *DefaultTelegramNotifier) sendViaWebhook(ctx context.Context, htmlMsg, e
 	}
 
 	// Generic webhook payload (Zapier, n8n, Slack relay, custom server, etc.)
+	videoIDStr := ""
+	videoTitleStr := ""
+	if video != nil {
+		videoIDStr = video.ID.String()
+		videoTitleStr = video.Title
+	}
+
 	payload := genericWebhookPayload{
 		Event:      event,
 		Status:     event,
-		VideoID:    video.ID.String(),
-		VideoTitle: video.Title,
+		VideoID:    videoIDStr,
+		VideoTitle: videoTitleStr,
 		Message:    htmlMsg,
 		Text:       htmlMsg,
 		AppURL:     appURL,

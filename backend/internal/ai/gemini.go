@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -116,11 +117,32 @@ func (g *GeminiDirectProvider) uploadFileToGemini(ctx context.Context, filePath 
 		return nil, fmt.Errorf("failed to stat file %s: %w", filePath, err)
 	}
 
-	mimeType := mime.TypeByExtension(filepath.Ext(filePath))
+	ext := strings.ToLower(filepath.Ext(filePath))
+	mimeType := mime.TypeByExtension(ext)
 	if mimeType == "" {
-		mimeType = "video/mp4"
+		switch ext {
+		case ".m4a":
+			mimeType = "audio/m4a"
+		case ".mp3":
+			mimeType = "audio/mp3"
+		case ".wav":
+			mimeType = "audio/wav"
+		case ".ogg":
+			mimeType = "audio/ogg"
+		case ".aac":
+			mimeType = "audio/aac"
+		case ".flac":
+			mimeType = "audio/flac"
+		case ".webm":
+			mimeType = "audio/webm"
+		case ".mp4":
+			mimeType = "video/mp4"
+		default:
+			mimeType = "audio/mp3"
+		}
 	}
 	displayName := filepath.Base(filePath)
+	log.Printf("[Gemini uploadFileToGemini] Uploading %s (size: %d bytes, mime: %s)", displayName, fileInfo.Size(), mimeType)
 
 	const maxRetries = 3
 	initURL := fmt.Sprintf("https://generativelanguage.googleapis.com/upload/v1beta/files?key=%s", g.apiKey)
@@ -248,15 +270,16 @@ func (g *GeminiDirectProvider) uploadFileToGemini(ctx context.Context, filePath 
 	return nil, fmt.Errorf("exhausted retries uploading file to gemini")
 }
 
-// waitForFileActive polls until the uploaded video is processed and ACTIVE.
+// waitForFileActive polls until the uploaded video/audio is processed and ACTIVE.
 func (g *GeminiDirectProvider) waitForFileActive(ctx context.Context, fileName string) error {
 	getURL := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/%s?key=%s", fileName, g.apiKey)
-	maxWaitDuration := 10 * time.Minute
+	maxWaitDuration := 5 * time.Minute
 	deadline := time.Now().Add(maxWaitDuration)
+	pollCount := 0
 
 	for {
 		if time.Now().After(deadline) {
-			return fmt.Errorf("timed out waiting for gemini video file %s to become ACTIVE (exceeded %v)", fileName, maxWaitDuration)
+			return fmt.Errorf("timed out waiting for gemini file %s to become ACTIVE (exceeded %v)", fileName, maxWaitDuration)
 		}
 
 		select {
@@ -286,11 +309,14 @@ func (g *GeminiDirectProvider) waitForFileActive(ctx context.Context, fileName s
 		}
 		resp.Body.Close()
 
+		pollCount++
+		log.Printf("[Gemini File Status] poll #%d: file %s is %s", pollCount, fileName, fileStatus.State)
+
 		switch fileStatus.State {
 		case "ACTIVE":
 			return nil
 		case "FAILED":
-			return fmt.Errorf("gemini video processing failed for file %s", fileName)
+			return fmt.Errorf("gemini processing failed for file %s", fileName)
 		case "PROCESSING":
 			time.Sleep(2 * time.Second)
 		default:
@@ -456,6 +482,7 @@ func (g *GeminiDirectProvider) TranscribeAudio(ctx context.Context, audioFilePat
 	analysisStart := time.Now()
 
 	// 1. Upload audio to Gemini File API
+	log.Printf("[Gemini TranscribeAudio] Step 1: Uploading audio file %s to Google File API...", filepath.Base(audioFilePath))
 	geminiFile, err := g.uploadFileToGemini(ctx, audioFilePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to upload audio to gemini: %w", err)
@@ -463,20 +490,65 @@ func (g *GeminiDirectProvider) TranscribeAudio(ctx context.Context, audioFilePat
 	defer g.deleteGeminiFile(context.Background(), geminiFile.Name)
 
 	// 2. Wait for file to become ACTIVE
+	log.Printf("[Gemini TranscribeAudio] Step 2: Audio uploaded as %s (URI: %s), waiting for ACTIVE status...", geminiFile.Name, geminiFile.URI)
 	if err := g.waitForFileActive(ctx, geminiFile.Name); err != nil {
 		return "", fmt.Errorf("error waiting for audio file processing: %w", err)
 	}
 
-	// 3. Generate content with audio parts and exponential backoff retry
-	generateURL := fmt.Sprintf(
-		"https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s",
-		g.model, g.apiKey,
-	)
+	// 3. Try dedicated speech-to-text model gemini-3.5-transcribe via Interactions API first
+	log.Printf("[Gemini TranscribeAudio] Step 3: Attempting specialized audio transcription using gemini-3.5-transcribe (Interactions API)...")
+	transcriptText, interErr := g.transcribeWithInteractionsAPI(ctx, geminiFile.URI)
+	if interErr == nil && strings.TrimSpace(transcriptText) != "" {
+		log.Printf("[Gemini TranscribeAudio] gemini-3.5-transcribe completed successfully in %v (%d chars)",
+			time.Since(analysisStart), len(transcriptText))
+
+		respJSON := map[string]interface{}{
+			"language":           "vi",
+			"raw_transcript":     transcriptText,
+			"qa_pairs":           []interface{}{},
+		}
+		formattedBytes, _ := json.Marshal(respJSON)
+		return string(formattedBytes), nil
+	}
+
+	if interErr != nil {
+		log.Printf("[Gemini TranscribeAudio] Note: gemini-3.5-transcribe Interactions API skipped/failed (%v). Falling back to multimodal generateContent cascade...", interErr)
+	}
+
+	// Fallback: Generate content with audio parts and candidate model cascading
+	preferredModel := g.model
+	if preferredModel == "" || preferredModel == "gemini-2.5-flash" || preferredModel == "gemini-3.5-transcribe-preview" {
+		preferredModel = "gemini-3.6-flash"
+	}
+	candidateModels := []string{preferredModel}
+	for _, m := range []string{"gemini-3.6-flash", "gemini-flash-latest", "gemini-3.5-flash"} {
+		found := false
+		for _, cm := range candidateModels {
+			if cm == m {
+				found = true
+				break
+			}
+		}
+		if !found {
+			candidateModels = append(candidateModels, m)
+		}
+	}
+	modelIndex := 0
 
 	mimeType := geminiFile.MimeType
 	if mimeType == "" {
-		mimeType = "audio/mp3"
+		ext := strings.ToLower(filepath.Ext(audioFilePath))
+		switch ext {
+		case ".m4a":
+			mimeType = "audio/m4a"
+		case ".wav":
+			mimeType = "audio/wav"
+		default:
+			mimeType = "audio/mp3"
+		}
 	}
+
+	log.Printf("[Gemini TranscribeAudio] Step 3b: Calling multimodal fallback model %s...", candidateModels[modelIndex])
 
 	reqBody := geminiGenerateContentRequest{
 		Contents: []geminiContent{
@@ -495,7 +567,7 @@ func (g *GeminiDirectProvider) TranscribeAudio(ctx context.Context, audioFilePat
 			},
 		},
 		GenerationConfig: &geminiConfig{
-			MaxOutputTokens:  65536,
+			MaxOutputTokens:  8192,
 			ResponseMimeType: "application/json",
 		},
 	}
@@ -518,6 +590,12 @@ func (g *GeminiDirectProvider) TranscribeAudio(ctx context.Context, audioFilePat
 			}
 		}
 
+		currentModel := candidateModels[modelIndex]
+		generateURL := fmt.Sprintf(
+			"https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s",
+			currentModel, g.apiKey,
+		)
+
 		req, err := http.NewRequestWithContext(ctx, "POST", generateURL, bytes.NewReader(bodyBytes))
 		if err != nil {
 			return "", err
@@ -526,7 +604,7 @@ func (g *GeminiDirectProvider) TranscribeAudio(ctx context.Context, audioFilePat
 
 		resp, err := g.httpClient.Do(req)
 		if err != nil {
-			log.Printf("[Gemini TranscribeAudio] attempt %d/%d network error: %v (retrying...)", attempt+1, maxRetries+1, err)
+			log.Printf("[Gemini TranscribeAudio] attempt %d/%d (model %s) network error: %v (retrying...)", attempt+1, maxRetries+1, currentModel, err)
 			if attempt == maxRetries {
 				return "", fmt.Errorf("transcribe request failed after %d retries: %w", maxRetries+1, err)
 			}
@@ -540,7 +618,15 @@ func (g *GeminiDirectProvider) TranscribeAudio(ctx context.Context, audioFilePat
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			log.Printf("[Gemini TranscribeAudio] attempt %d/%d HTTP %d: %s", attempt+1, maxRetries+1, resp.StatusCode, string(respBody))
+			log.Printf("[Gemini TranscribeAudio] attempt %d/%d (model %s) HTTP %d: %s", attempt+1, maxRetries+1, currentModel, resp.StatusCode, string(respBody))
+			// If 503 (model overloaded / high demand), 429 (rate limit), or 404 (model not found / deprecated)
+			// dynamically switch immediately to next candidate model
+			if (resp.StatusCode == 503 || resp.StatusCode == 429 || resp.StatusCode == 404) && modelIndex+1 < len(candidateModels) {
+				modelIndex++
+				log.Printf("[Gemini TranscribeAudio] model %s error (%d), switching immediately to fallback candidate model %s...", currentModel, resp.StatusCode, candidateModels[modelIndex])
+				continue
+			}
+
 			if resp.StatusCode == 429 || resp.StatusCode >= 500 {
 				if attempt == maxRetries {
 					return "", fmt.Errorf("gemini API error (%d): %s", resp.StatusCode, string(respBody))
@@ -572,6 +658,71 @@ func (g *GeminiDirectProvider) TranscribeAudio(ctx context.Context, audioFilePat
 	}
 
 	return "", fmt.Errorf("exhausted retries for gemini audio transcription")
+}
+
+// transcribeWithInteractionsAPI uses Google's dedicated speech-to-text model gemini-3.5-transcribe
+// via the official Interactions API (/v1beta/interactions).
+func (g *GeminiDirectProvider) transcribeWithInteractionsAPI(ctx context.Context, fileURI string) (string, error) {
+	interactionsURL := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/interactions?key=%s", g.apiKey)
+
+	reqPayload := map[string]interface{}{
+		"model": "gemini-3.5-transcribe",
+		"input": []map[string]string{
+			{
+				"type": "audio",
+				"uri":  fileURI,
+			},
+		},
+	}
+
+	bodyBytes, err := json.Marshal(reqPayload)
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", interactionsURL, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := g.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("interactions api request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read interactions response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("interactions api returned HTTP %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result struct {
+		Status string `json:"status"`
+		Steps  []struct {
+			Content []struct {
+				Text string `json:"text"`
+			} `json:"content"`
+		} `json:"steps"`
+	}
+
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return "", fmt.Errorf("failed to parse interactions response: %w", err)
+	}
+
+	for _, step := range result.Steps {
+		for _, c := range step.Content {
+			if strings.TrimSpace(c.Text) != "" {
+				return c.Text, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no transcript text found in interactions response")
 }
 
 // CompleteText sends a prompt to Gemini for text generation / reasoning.

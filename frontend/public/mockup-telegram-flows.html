@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UI/UX Mockup v2 — Telegram Flows (Unified Video Pipeline + Custom SVG Icons, Zero Emoji)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #FBF9F5;
+      --card-bg: #FFFFFF;
+      --card-border: #E8E3D9;
+      --card-border-soft: #F0EAE1;
+      --text-main: #1A1612;
+      --text-muted: #736B63;
+      --text-subtle: #A39B92;
+      
+      --accent: #9E4A28; /* Terracotta */
+      --accent-hover: #843D1F;
+      --accent-soft: #F5EBE6;
+      
+      --accent-green: #2D6A4F;
+      --accent-green-soft: #EAF4EE;
+      
+      --accent-blue: #1D5C8A;
+      --accent-blue-soft: #EBF3F9;
+      
+      --accent-amber: #B26A00;
+      --accent-amber-soft: #FEF7EA;
+
+      --accent-purple: #6B21A8;
+      --accent-purple-soft: #F3E8FF;
+
+      --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --shadow-sm: 0 1px 3px rgba(40, 30, 20, 0.04);
+      --shadow-md: 0 8px 24px -4px rgba(40, 30, 20, 0.08);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      font-size: 14px;
+      line-height: 1.5;
+      padding: 32px 24px 60px;
+    }
+
+    .container { max-width: 1200px; margin: 0 auto; }
+
+    /* Top Switcher Banner */
+    .option-switcher {
+      background: #FFFFFF;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-sm);
+    }
+    .switcher-title {
+      font-weight: 700;
+      font-size: 14.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .switcher-buttons {
+      display: flex;
+      gap: 6px;
+      background: var(--bg);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid var(--card-border-soft);
+    }
+    .switcher-btn {
+      padding: 7px 14px;
+      border-radius: 7px;
+      border: none;
+      background: transparent;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .switcher-btn.active {
+      background: #FFFFFF;
+      color: var(--accent);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+
+    .mockup-view { display: none; }
+    .mockup-view.active { display: block; animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Common Card Styles */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 20px;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--card-border-soft);
+    }
+    .card-title {
+      font-size: 15.5px;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .badge-green { background: var(--accent-green-soft); color: var(--accent-green); border: 1px solid rgba(45,106,79,0.2); }
+    .badge-blue { background: var(--accent-blue-soft); color: var(--accent-blue); border: 1px solid rgba(29,92,138,0.2); }
+    .badge-amber { background: var(--accent-amber-soft); color: var(--accent-amber); border: 1px solid rgba(178,106,0,0.2); }
+    .badge-purple { background: var(--accent-purple-soft); color: var(--accent-purple); border: 1px solid rgba(107,33,168,0.2); }
+    .badge-terracotta { background: var(--accent-soft); color: var(--accent); border: 1px solid rgba(158,74,40,0.2); }
+
+    .tag-mono {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 5px;
+      background: #F3EFE9;
+      color: var(--text-main);
+      border: 1px solid var(--card-border-soft);
+    }
+
+    /* Unified Flow Cards (2 Master Flows) */
+    .unified-flow-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 860px) {
+      .unified-flow-grid { grid-template-columns: 1fr; }
+    }
+
+    .unified-flow-card {
+      background: #FFFFFF;
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 16px;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .unified-flow-card:hover {
+      border-color: var(--accent);
+      box-shadow: var(--shadow-md);
+    }
+    .unified-flow-card.selected-flow {
+      border-color: var(--accent);
+      background: #FFFCFA;
+      box-shadow: 0 4px 16px rgba(158, 74, 40, 0.08);
+    }
+
+    .flow-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .custom-icon-box {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .event-chips-list {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 12px 0 10px;
+    }
+    .event-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 8px;
+      font-size: 11.5px;
+      font-weight: 600;
+      border: 1px solid var(--card-border);
+      background: var(--bg);
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .event-chip:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .event-chip.active-chip {
+      background: #FFFFFF;
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 1px 4px rgba(158, 74, 40, 0.12);
+    }
+
+    .flow-meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 12px 14px;
+      background: var(--bg);
+      border-radius: 10px;
+      font-size: 12px;
+    }
+    .meta-col label {
+      display: block;
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-subtle);
+      margin-bottom: 2px;
+    }
+
+    /* Custom SVG Icons */
+    .svg-icon {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Preview message block */
+    .preview-card {
+      background: #1B2430;
+      color: #E2E8F0;
+      border-radius: 12px;
+      padding: 16px 18px;
+      border: 1px solid #334155;
+      font-size: 12.5px;
+      line-height: 1.6;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .preview-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Top Switcher -->
+  <div class="option-switcher">
+    <div class="switcher-title">
+      <svg class="svg-icon" style="color: var(--accent);" viewBox="0 0 24 24">
+        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+      </svg>
+      <span>Cải Tiến Giao Diện Telegram Config — 2 Luồng Gộp Tinh Gọn & Tự Thiết Kế Icon (100% Zero Emoji)</span>
+    </div>
+    <div class="switcher-buttons">
+      <button class="switcher-btn active" onclick="switchView('view-cards', this)">Giao diện Thẻ Luồng Trực Quan (Khuyên dùng)</button>
+      <button class="switcher-btn" onclick="switchView('view-table', this)">Giao diện Bảng Kỹ Thuật (Registry)</button>
+    </div>
+  </div>
+
+  <!-- VIEW 1: Bento Dual-Flow (2 Master Flows with Sub-events) -->
+  <div id="view-cards" class="mockup-view active">
+    
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">
+            <svg class="svg-icon" style="color: var(--accent);" viewBox="0 0 24 24">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+            <span>Các Luồng Công Việc Tích Hợp Thông Báo Telegram</span>
+          </h2>
+          <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 2px;">
+            Hệ thống hiện tại áp dụng thông báo tự động cho 2 quy trình chính: Phân tích Video Giảng dạy & Phỏng vấn Giáo viên.
+          </p>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <span class="badge badge-green">
+            <svg class="svg-icon" style="width: 12px; height: 12px;" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+            2/2 Luồng Đang Kết Nối
+          </span>
+        </div>
+      </div>
+
+      <!-- 2 Master Flow Cards -->
+      <div class="unified-flow-grid">
+        
+        <!-- FLOW 1: Video Analysis Pipeline (Gộp Completed + Failed) -->
+        <div class="unified-flow-card selected-flow">
+          <div>
+            <div class="flow-head">
+              <div style="display: flex; gap: 12px; align-items: center;">
+                <div class="custom-icon-box" style="background: var(--accent-blue-soft); color: var(--accent-blue);">
+                  <svg class="svg-icon" style="width: 20px; height: 20px;" viewBox="0 0 24 24">
+                    <rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 8 7 4-7 4Z"/>
+                  </svg>
+                </div>
+                <div>
+                  <div style="font-weight: 700; font-size: 15px; color: var(--text-main);">
+                    Quy Trình Phân Tích Video (Video Analysis Pipeline)
+                  </div>
+                  <div style="font-size: 12px; color: var(--text-muted);">
+                    Bóc tách sự kiện, đối chiếu checklist rubric, lập báo cáo & codebook
+                  </div>
+                </div>
+              </div>
+              <span class="tag-mono">video_pipeline</span>
+            </div>
+
+            <p style="font-size: 12.5px; color: var(--text-muted); margin: 14px 0 8px;">
+              Quản lý toàn bộ thông báo phát sinh trong suốt vòng đời xử lý video từ lúc phân đoạn đến lúc ra kết quả hoặc gặp sự cố bất ngờ.
+            </p>
+
+            <!-- 2 Sub-events Chips -->
+            <div style="margin-top: 10px;">
+              <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-subtle); margin-bottom: 6px;">
+                Các sự kiện kích hoạt (Trigger Events):
+              </div>
+              <div class="event-chips-list">
+                <div class="event-chip active-chip" onclick="setPreview('pipeline_completed')">
+                  <svg class="svg-icon" style="width: 13px; height: 13px; color: var(--accent-green);" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+                  <span>Hoàn tất: <code>pipeline_completed</code></span>
+                </div>
+                <div class="event-chip" onclick="setPreview('pipeline_failed')">
+                  <svg class="svg-icon" style="width: 13px; height: 13px; color: var(--accent-amber);" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+                  <span>Cảnh báo lỗi: <code>pipeline_failed</code></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="flow-meta-grid" style="margin-top: 12px;">
+              <div class="meta-col">
+                <label>Phạm Vi / Dịch Vụ</label>
+                <span style="font-weight: 600;">Video Pipeline Orchestrator</span>
+              </div>
+              <div class="meta-col">
+                <label>Kênh Tiếp Nhận</label>
+                <span style="font-weight: 600;">Bot Broadcast + Webhook</span>
+              </div>
+              <div class="meta-col">
+                <label>Dữ Liệu Đính Kèm</label>
+                <span style="color: var(--text-muted);">Events count, Checklist, Report status, Stack error</span>
+              </div>
+              <div class="meta-col">
+                <label>Đường Dẫn Chi Tiết</label>
+                <span style="font-family: var(--font-mono); font-size: 11px; color: var(--accent);">/videos/:id</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--card-border-soft); paddingTop: 12px; margin-top: 6px;">
+            <span style="font-size: 11.5px; color: var(--text-subtle);">Mã nguồn: <code style="font-family: var(--font-mono);">internal/service/pipeline.go</code></span>
+            <button class="event-chip active-chip" style="padding: 4px 10px;" onclick="setPreview('pipeline_completed')">
+              <svg class="svg-icon" style="width: 13px; height: 13px;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m10 15 5-3-5-3v6Z"/></svg>
+              <span>Xem Tin Mẫu</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- FLOW 2: Interview Audio Transcription -->
+        <div class="unified-flow-card">
+          <div>
+            <div class="flow-head">
+              <div style="display: flex; gap: 12px; align-items: center;">
+                <div class="custom-icon-box" style="background: var(--accent-soft); color: var(--accent);">
+                  <svg class="svg-icon" style="width: 20px; height: 20px;" viewBox="0 0 24 24">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/>
+                  </svg>
+                </div>
+                <div>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 700; font-size: 15px; color: var(--text-main);">
+                      Gỡ Băng Phỏng Vấn (Interview Transcription)
+                    </span>
+                    <span class="badge badge-terracotta">Mới Cập Nhật</span>
+                  </div>
+                  <div style="font-size: 12px; color: var(--text-muted);">
+                    Chuyển giọng nói sang văn bản & bóc tách thẻ Q&A tự động
+                  </div>
+                </div>
+              </div>
+              <span class="tag-mono">interview_studio</span>
+            </div>
+
+            <p style="font-size: 12.5px; color: var(--text-muted); margin: 14px 0 8px;">
+              Tách biệt thành 2 thông báo theo 2 giai đoạn độc lập: nhận tin ngay sau khi audio gỡ băng xong (~10s) và thông báo sau khi AI phân tích thẻ Q&amp;A hoàn tất.
+            </p>
+
+            <!-- Sub-events Chips -->
+            <div style="margin-top: 10px;">
+              <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-subtle); margin-bottom: 6px;">
+                Các sự kiện kích hoạt (Trigger Events):
+              </div>
+              <div class="event-chips-list">
+                <div class="event-chip active-chip" onclick="setPreview('interview_transcribed')">
+                  <svg class="svg-icon" style="width: 13px; height: 13px; color: var(--accent);" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+                  <span>Gỡ băng xong (~10s): <code>interview_transcribed</code></span>
+                </div>
+                <div class="event-chip" onclick="setPreview('interview_qa_aligned')">
+                  <svg class="svg-icon" style="width: 13px; height: 13px; color: var(--accent);" viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>
+                  <span>Bóc tách thẻ Q&amp;A: <code>interview_qa_aligned</code></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="flow-meta-grid" style="margin-top: 12px;">
+              <div class="meta-col">
+                <label>Phạm Vi / Dịch Vụ</label>
+                <span style="font-weight: 600;">Interview Analysis Service</span>
+              </div>
+              <div class="meta-col">
+                <label>Kênh Tiếp Nhận</label>
+                <span style="font-weight: 600;">Bot Broadcast + Webhook</span>
+              </div>
+              <div class="meta-col">
+                <label>Dữ Liệu Đính Kèm</label>
+                <span style="color: var(--text-muted);">Teacher ID, Duration, Language, Q&amp;A pairs, Preview text</span>
+              </div>
+              <div class="meta-col">
+                <label>Đường Dẫn Chi Tiết</label>
+                <span style="font-family: var(--font-mono); font-size: 11px; color: var(--accent);">/interview-analysis</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--card-border-soft); padding-top: 12px; margin-top: 6px;">
+            <span style="font-size: 11.5px; color: var(--text-subtle);">Mã nguồn: <code style="font-family: var(--font-mono);">internal/service/interview_analysis.go</code></span>
+            <div style="display: flex; gap: 6px;">
+              <button class="event-chip active-chip" style="padding: 4px 8px;" onclick="setPreview('interview_transcribed')">
+                <svg class="svg-icon" style="width: 12px; height: 12px;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m10 15 5-3-5-3v6Z"/></svg>
+                <span>Mẫu Gỡ Băng</span>
+              </button>
+              <button class="event-chip" style="padding: 4px 8px;" onclick="setPreview('interview_qa_aligned')">
+                <svg class="svg-icon" style="width: 12px; height: 12px;" viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>
+                <span>Mẫu Thẻ Q&amp;A</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Live Preview Box without default emoji -->
+    <div class="card" style="margin-top: 20px;">
+      <div class="card-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <svg class="svg-icon" style="color: var(--accent);" viewBox="0 0 24 24">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span style="font-weight: 700; font-size: 15px;">Mô Phỏng Bản Tin Telegram Thực Tế (Không Dùng Default Emoji)</span>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button id="btn-prev-completed" class="event-chip active-chip" onclick="setPreview('pipeline_completed')">Video Hoàn Tất</button>
+          <button id="btn-prev-failed" class="event-chip" onclick="setPreview('pipeline_failed')">Cảnh Báo Lỗi Video</button>
+          <button id="btn-prev-interview" class="event-chip" onclick="setPreview('interview_transcribed')">Gỡ Băng Âm Thanh</button>
+          <button id="btn-prev-qa" class="event-chip" onclick="setPreview('interview_qa_aligned')">Bóc Tách Thẻ Q&amp;A</button>
+        </div>
+      </div>
+
+      <!-- Simulated Telegram Bubble (Clean typography with subtle indicators) -->
+      <div id="preview-box" class="preview-card">
+        <!-- Content injected by JS -->
+      </div>
+    </div>
+
+  </div>
+
+  <!-- VIEW 2: Data Registry Matrix -->
+  <div id="view-table" class="mockup-view">
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Bảng Tổng Hợp Luồng Sự Kiện (Event Registry Matrix)</h2>
+        <span class="badge badge-blue">Registry</span>
+      </div>
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <thead>
+          <tr style="border-bottom: 2px solid var(--card-border); text-align: left;">
+            <th style="padding: 10px;">Quy Trình (Flow)</th>
+            <th style="padding: 10px;">Mã Sự Kiện (Event Key)</th>
+            <th style="padding: 10px;">Điều Kiện Kích Hoạt</th>
+            <th style="padding: 10px;">Kênh Phân Phối</th>
+            <th style="padding: 10px;">Trạng Thái</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 1px solid var(--card-border-soft);">
+            <td style="padding: 12px 10px; font-weight: 600;">Video Analysis Pipeline</td>
+            <td style="padding: 12px 10px;"><code class="tag-mono">pipeline_completed</code></td>
+            <td style="padding: 12px 10px; color: var(--text-muted);">Hoàn tất 6 công đoạn phân tích video</td>
+            <td style="padding: 12px 10px;">Subscribers + Webhook</td>
+            <td style="padding: 12px 10px;"><span class="badge badge-green">Hoạt động</span></td>
+          </tr>
+          <tr style="border-bottom: 1px solid var(--card-border-soft);">
+            <td style="padding: 12px 10px; font-weight: 600;">Video Analysis Pipeline</td>
+            <td style="padding: 12px 10px;"><code class="tag-mono">pipeline_failed</code></td>
+            <td style="padding: 12px 10px; color: var(--text-muted);">Lỗi xử lý hoặc timeout trong pipeline</td>
+            <td style="padding: 12px 10px;">Subscribers + Webhook</td>
+            <td style="padding: 12px 10px;"><span class="badge badge-green">Hoạt động</span></td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 10px; font-weight: 600;">Interview Transcription</td>
+            <td style="padding: 12px 10px;"><code class="tag-mono">interview_transcribed</code></td>
+            <td style="padding: 12px 10px; color: var(--text-muted);">AI hoàn tất gỡ băng âm thanh giáo viên</td>
+            <td style="padding: 12px 10px;">Subscribers + Webhook</td>
+            <td style="padding: 12px 10px;"><span class="badge badge-green">Hoạt động</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const previews = {
+    pipeline_completed: `
+      <div class="preview-header" style="color: #38BDF8;">
+        [THÔNG BÁO HOÀN TẤT PHÂN TÍCH VIDEO]
+      </div>
+      <div><strong>Video:</strong> Giảng dạy tiếng Anh - Lớp 10A1</div>
+      <div style="font-family: var(--font-mono); font-size: 11px; color: #94A3B8;">Mã định danh: 8833bde7-0760-4398-9326-70af38d5a45e</div>
+      <div><strong>Thời lượng:</strong> 42 phút 15 giây</div>
+      <div><strong>Chế độ xử lý:</strong> Chunking (Phân đoạn song song)</div>
+      <div><strong>Thời gian xử lý:</strong> 3 phút 20 giây</div>
+      <div><strong>Sự kiện trích xuất:</strong> 28 sự kiện</div>
+      <div><strong>Đối chiếu Rubric:</strong> 14 mục</div>
+      <div style="color: #4ADE80;"><strong>Báo cáo quan sát:</strong> Đã tạo thành công</div>
+      <div style="color: #4ADE80;"><strong>Qualitative Codebook:</strong> Đã tổng hợp</div>
+      <div style="border-top: 1px solid #334155; padding-top: 8px; margin-top: 6px;">
+        <span style="color: #38BDF8; font-weight: 600; text-decoration: underline;">Xem chi tiết kết quả trong hệ thống (/videos/8833bde7...)</span>
+      </div>
+      <div style="align-self: flex-end; font-size: 10px; color: #64748B;">16:45 • Đã chuyển phát</div>
+    `,
+    pipeline_failed: `
+      <div class="preview-header" style="color: #F87171;">
+        [CẢNH BÁO SỰ CỐ PHÂN TÍCH VIDEO]
+      </div>
+      <div><strong>Video:</strong> Tiết dạy Toán thực nghiệm</div>
+      <div style="font-family: var(--font-mono); font-size: 11px; color: #94A3B8;">Mã định danh: c182de44-991b-4f76-8501-92be34df90a1</div>
+      <div><strong>Công đoạn lỗi:</strong> event_extraction</div>
+      <div style="color: #FCA5A5; background: rgba(239, 68, 68, 0.1); padding: 6px 8px; border-radius: 6px; font-family: var(--font-mono); font-size: 11px;">
+        Chi tiết lỗi: Google Vertex AI 429 Quota Exceeded (Resource exhausted)
+      </div>
+      <div style="border-top: 1px solid #334155; padding-top: 8px; margin-top: 6px;">
+        <span style="color: #38BDF8; font-weight: 600; text-decoration: underline;">Xem nhật ký sự cố trong hệ thống (/videos/c182de44...)</span>
+      </div>
+      <div style="align-self: flex-end; font-size: 10px; color: #64748B;">17:12 • Đã chuyển phát</div>
+    `,
+    interview_transcribed: `
+      <div class="preview-header" style="color: #FDBA74;">
+        [THÔNG BÁO GỠ BĂNG ÂM THANH PHỎNG VẤN]
+      </div>
+      <div><strong>Giáo viên:</strong> T02</div>
+      <div><strong>Tệp ghi âm:</strong> interview_t02_record.m4a</div>
+      <div><strong>Thời lượng âm thanh:</strong> 18 phút 45 giây (1125.0s)</div>
+      <div><strong>Ngôn ngữ:</strong> Tiếng Việt (VI)</div>
+      <div><strong>Thời gian gỡ băng:</strong> 9.8 giây (Tức thì)</div>
+      <div><strong>Độ dài bản gỡ:</strong> 5,246 ký tự</div>
+      <div style="background: rgba(255, 255, 255, 0.05); border-left: 3px solid #FDBA74; padding: 8px 10px; border-radius: 4px; font-size: 12px; font-style: italic; color: #E2E8F0; margin-top: 4px;">
+        "Chào thầy, hôm nay chúng ta tiếp tục trao đổi về các phương pháp đặt câu hỏi tương tác trong lớp học tiếng Anh..."
+      </div>
+      <div style="border-top: 1px solid #334155; padding-top: 8px; margin-top: 6px;">
+        <span style="color: #38BDF8; font-weight: 600; text-decoration: underline;">Mở Interview Studio để duyệt bản gỡ (/interview-analysis?teacher=T02)</span>
+      </div>
+      <div style="align-self: flex-end; font-size: 10px; color: #64748B;">18:30 • Đã chuyển phát</div>
+    `,
+    interview_qa_aligned: `
+      <div class="preview-header" style="color: #FDBA74;">
+        [THÔNG BÁO BÓC TÁCH THẺ Q&A PHỎNG VẤN]
+      </div>
+      <div><strong>Giáo viên:</strong> T02</div>
+      <div><strong>Số lượng thẻ Q&A đã tạo:</strong> 5 thẻ câu hỏi - trả lời</div>
+      <div><strong>Thời gian phân tích AI:</strong> 45 giây</div>
+      <div style="margin-top: 6px;">
+        <strong>Danh sách câu hỏi đã bóc tách:</strong>
+        <div style="border-left: 2px solid #9E4A28; padding-left: 8px; margin-top: 4px; font-size: 12px; color: #E2E8F0; display: flex; flex-direction: column; gap: 3px;">
+          <div>• Phương pháp đặt câu hỏi tương tác trong tiết dạy</div>
+          <div>• Quản lý thời lượng hoạt động nhóm</div>
+          <div>• Khó khăn khi triển khai hoạt động Speaking</div>
+          <div>• Đánh giá mức độ tiếp thu của học sinh yếu</div>
+          <div style="font-style: italic; color: #94A3B8;">...và 1 câu hỏi khác</div>
+        </div>
+      </div>
+      <div style="border-top: 1px solid #334155; padding-top: 8px; margin-top: 6px;">
+        <span style="color: #38BDF8; font-weight: 600; text-decoration: underline;">Xem chi tiết thẻ Q&A trong Interview Studio (/interview-analysis?teacher=T02)</span>
+      </div>
+      <div style="align-self: flex-end; font-size: 10px; color: #64748B;">18:32 • Đã chuyển phát</div>
+    `
+  };
+
+  function setPreview(flowKey) {
+    document.getElementById('preview-box').innerHTML = previews[flowKey];
+    document.getElementById('btn-prev-completed').classList.toggle('active-chip', flowKey === 'pipeline_completed');
+    document.getElementById('btn-prev-failed').classList.toggle('active-chip', flowKey === 'pipeline_failed');
+    document.getElementById('btn-prev-interview').classList.toggle('active-chip', flowKey === 'interview_transcribed');
+    document.getElementById('btn-prev-qa').classList.toggle('active-chip', flowKey === 'interview_qa_aligned');
+  }
+
+  function switchView(viewId, btn) {
+    document.querySelectorAll('.mockup-view').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.switcher-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(viewId).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  // Init default preview
+  setPreview('pipeline_completed');
+</script>
+
+</body>
+</html>

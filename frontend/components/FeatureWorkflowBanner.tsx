@@ -21,7 +21,8 @@ export type FeatureWorkflowKey =
   | 'reports'
   | 'analytics'
   | 'themes'
-  | 'interview';
+  | 'interview'
+  | 'interview_analysis';
 
 interface FeatureWorkflowBannerProps {
   featureKey: FeatureWorkflowKey;
@@ -92,6 +93,13 @@ const FEATURE_META_MAP: Record<FeatureWorkflowKey, FeatureMeta> = {
     runsAfterKey: 'wfInterviewRunsAfter',
     autoTextKey: 'wfInterviewAutoText',
     descKey: 'wfInterviewDesc',
+  },
+  interview_analysis: {
+    mode: 'semi_auto',
+    stepKey: 'wfInterviewAnalysisStep',
+    runsAfterKey: 'wfInterviewAnalysisRunsAfter',
+    autoTextKey: 'wfInterviewAnalysisAutoText',
+    descKey: 'wfInterviewAnalysisDesc',
   },
 };
 

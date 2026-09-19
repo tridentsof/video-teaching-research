@@ -25,6 +25,19 @@ import {
   Sparkles,
 } from 'lucide-react';
 
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
+  target?: string;
+}
+
+interface NavSection {
+  groupKey: string;
+  title: string;
+  items: NavItem[];
+}
+
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
   const { language, setLanguage, t } = useTranslation();
@@ -37,18 +50,42 @@ export const Sidebar: React.FC = () => {
     setUser(current);
   }, [pathname]);
 
-  const navItems = [
-    { href: '/', label: t('navVideos'), icon: Video },
-    { href: '/upload', label: t('navUpload'), icon: UploadCloud },
-    { href: '/checklists', label: t('navChecklists'), icon: CheckSquare },
-    { href: '/reports', label: t('navReports'), icon: FileText },
-    { href: '/analytics', label: t('navAnalytics'), icon: LineChart },
-    { href: '/codebook', label: t('navCodeBook'), icon: BookMarked },
-    { href: '/themes', label: t('navThemes'), icon: Network },
-    { href: '/interview', label: t('navInterview'), icon: Mic },
-    { href: '/interview-analysis', label: t('navInterviewAnalysis'), icon: Sparkles },
-    { href: '/settings', label: t('navSettings'), icon: Sliders },
-    { href: '/docs', label: t('navApiDocs'), icon: Code2, target: '_blank' },
+  const navSections: NavSection[] = [
+    {
+      groupKey: 'setup',
+      title: t('navGroupSetup'),
+      items: [
+        { href: '/checklists', label: t('navChecklists'), icon: CheckSquare },
+        { href: '/upload', label: t('navUpload'), icon: UploadCloud },
+        { href: '/', label: t('navVideos'), icon: Video },
+      ],
+    },
+    {
+      groupKey: 'observation',
+      title: t('navGroupObservation'),
+      items: [
+        { href: '/codebook', label: t('navCodeBook'), icon: BookMarked },
+        { href: '/reports', label: t('navReports'), icon: FileText },
+        { href: '/analytics', label: t('navAnalytics'), icon: LineChart },
+      ],
+    },
+    {
+      groupKey: 'qualitative',
+      title: t('navGroupQualitative'),
+      items: [
+        { href: '/themes', label: t('navThemes'), icon: Network },
+        { href: '/interview', label: t('navInterview'), icon: Mic },
+        { href: '/interview-analysis', label: t('navInterviewAnalysis'), icon: Sparkles },
+      ],
+    },
+    {
+      groupKey: 'system',
+      title: t('navGroupSystem'),
+      items: [
+        { href: '/settings', label: t('navSettings'), icon: Sliders },
+        { href: '/docs', label: t('navApiDocs'), icon: Code2, target: '_blank' },
+      ],
+    },
   ];
 
   return (
@@ -56,10 +93,10 @@ export const Sidebar: React.FC = () => {
       width: collapsed ? '76px' : '280px',
       backgroundColor: 'var(--sidebar-bg)',
       borderRight: '1px solid var(--card-border)',
-      padding: collapsed ? '24px 10px' : '32px 20px',
+      padding: collapsed ? '20px 8px' : '24px 16px',
       display: 'flex',
       flexDirection: 'column',
-      gap: '28px',
+      gap: '18px',
       position: 'sticky',
       top: 0,
       height: '100vh',
@@ -74,12 +111,14 @@ export const Sidebar: React.FC = () => {
         justifyContent: collapsed ? 'center' : 'space-between',
         position: 'relative',
         minHeight: '44px',
+        paddingBottom: '10px',
+        borderBottom: '1px solid rgba(0, 0, 0, 0.06)',
       }}>
         {!collapsed ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0, overflow: 'hidden' }}>
             <h1 style={{
               fontFamily: 'var(--font-serif)',
-              fontSize: '24px',
+              fontSize: '23px',
               fontWeight: 400,
               color: 'var(--accent)',
               letterSpacing: '-0.5px',
@@ -89,8 +128,8 @@ export const Sidebar: React.FC = () => {
               {t('brandTitle')}
             </h1>
             <span style={{
-              fontSize: '10.5px',
-              fontWeight: 600,
+              fontSize: '10px',
+              fontWeight: 700,
               letterSpacing: '0.8px',
               textTransform: 'uppercase',
               color: 'var(--text-muted)',
@@ -158,44 +197,81 @@ export const Sidebar: React.FC = () => {
         )}
       </div>
 
-      {/* Navigation Links */}
-      <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href || (item.href !== '/' && (pathname === item.href || pathname?.startsWith(item.href + '/')));
-          return (
-            <Link
+      {/* Navigation Links Grouped by Stages */}
+      <nav style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: collapsed ? '12px' : '14px',
+        flex: 1,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        paddingRight: collapsed ? '0' : '2px',
+      }}>
+        {navSections.map((section, sIdx) => (
+          <div
+            key={section.groupKey}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '3px',
+              paddingBottom: collapsed && sIdx < navSections.length - 1 ? '10px' : '0',
+              borderBottom: collapsed && sIdx < navSections.length - 1 ? '1px dashed rgba(0, 0, 0, 0.08)' : 'none',
+            }}
+          >
+            {!collapsed && (
+              <div style={{
+                fontSize: '9.5px',
+                fontWeight: 800,
+                letterSpacing: '0.8px',
+                textTransform: 'uppercase',
+                color: 'var(--text-subtle, #A39B92)',
+                padding: '4px 10px 2px',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}>
+                {section.title}
+              </div>
+            )}
 
-              key={item.href}
-              href={item.href}
-              target={item.target}
-              title={collapsed ? item.label : undefined}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: collapsed ? 'center' : 'flex-start',
-                gap: '12px',
-                padding: collapsed ? '10px 0' : '10px 14px',
-                borderRadius: 'var(--radius-sm)',
-                color: isActive ? 'var(--accent)' : 'var(--text-muted)',
-                backgroundColor: isActive ? 'var(--card-bg)' : 'transparent',
-                borderLeft: !collapsed ? (isActive ? '3px solid var(--accent)' : '3px solid transparent') : 'none',
-                fontWeight: isActive ? 600 : 500,
-                fontSize: '13px',
-                boxShadow: isActive ? 'var(--shadow-sm)' : 'none',
-                transition: 'all 0.15s ease',
-                position: 'relative',
-              }}
-            >
-              <Icon size={18} style={{ flexShrink: 0 }} />
-              {!collapsed && (
-                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {item.label}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+            {section.items.map((item) => {
+              const Icon = item.icon;
+              const isActive = pathname === item.href || (item.href !== '/' && (pathname === item.href || pathname?.startsWith(item.href + '/')));
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  target={item.target}
+                  title={collapsed ? `${section.title} • ${item.label}` : undefined}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: collapsed ? 'center' : 'flex-start',
+                    gap: '10px',
+                    padding: collapsed ? '9px 0' : '8px 12px',
+                    borderRadius: 'var(--radius-sm)',
+                    color: isActive ? 'var(--accent)' : 'var(--text-muted)',
+                    backgroundColor: isActive ? 'var(--card-bg)' : 'transparent',
+                    borderLeft: !collapsed ? (isActive ? '3px solid var(--accent)' : '3px solid transparent') : 'none',
+                    fontWeight: isActive ? 600 : 500,
+                    fontSize: '12.5px',
+                    boxShadow: isActive ? 'var(--shadow-sm)' : 'none',
+                    transition: 'all 0.15s ease',
+                    position: 'relative',
+                    textDecoration: 'none',
+                  }}
+                >
+                  <Icon size={17} style={{ flexShrink: 0 }} />
+                  {!collapsed && (
+                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {item.label}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       {/* User Session & Auth Bottom Section */}

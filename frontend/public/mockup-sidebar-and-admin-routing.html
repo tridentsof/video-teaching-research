@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup: Reorganized Sidebar & Admin AI Routing — Observation Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #FBF9F5;
+      --sidebar-bg: #F4EFE6;
+      --card-bg: #FFFFFF;
+      --card-border: #E8E3D9;
+      --card-border-soft: #F0EAE1;
+      --text-main: #1A1612;
+      --text-muted: #736B63;
+      --text-subtle: #A39B92;
+      
+      --accent: #9E4A28; /* Terracotta */
+      --accent-hover: #843D1F;
+      --accent-soft: #F5EBE6;
+      
+      --accent-green: #2D6A4F;
+      --accent-green-soft: #EAF4EE;
+      
+      --accent-blue: #1D5C8A;
+      --accent-blue-soft: #EBF3F9;
+      
+      --accent-amber: #B26A00;
+      --accent-amber-soft: #FEF7EA;
+
+      --accent-purple: #6D28D9;
+      --accent-purple-soft: #F3E8FF;
+
+      --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-serif: 'Instrument Serif', Georgia, serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --shadow-sm: 0 1px 3px rgba(40, 30, 20, 0.04);
+      --shadow-md: 0 8px 24px -4px rgba(40, 30, 20, 0.08);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      font-size: 14px;
+      line-height: 1.5;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1440px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* Top Bar */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .title-group h1 {
+      font-family: var(--font-serif);
+      font-size: 32px;
+      font-weight: 400;
+      color: var(--accent);
+      letter-spacing: -0.5px;
+    }
+    .title-group p {
+      color: var(--text-muted);
+      font-size: 13.5px;
+      margin-top: 2px;
+    }
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .pill-btn {
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--card-border);
+      background: #FFF;
+      color: var(--text-muted);
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .pill-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .pill-btn.active {
+      background: var(--accent);
+      color: #FFF;
+      border-color: var(--accent);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Layout Frame Preview */
+    .preview-frame {
+      background: #FFF;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      min-height: 840px;
+      transition: grid-template-columns 0.22s ease;
+    }
+    .preview-frame.collapsed {
+      grid-template-columns: 76px 1fr;
+    }
+
+    /* Sidebar Styles */
+    .mock-sidebar {
+      background-color: var(--sidebar-bg);
+      border-right: 1px solid var(--card-border);
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      user-select: none;
+      transition: padding 0.22s ease;
+    }
+    .preview-frame.collapsed .mock-sidebar {
+      padding: 24px 10px;
+    }
+
+    .brand-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    .brand-logo-full h2 {
+      font-family: var(--font-serif);
+      font-size: 22px;
+      font-weight: 400;
+      color: var(--accent);
+      letter-spacing: -0.5px;
+    }
+    .brand-logo-full span {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .brand-logo-collapsed {
+      display: none;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #FFF;
+      font-family: var(--font-serif);
+      font-size: 16px;
+      font-weight: 700;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto;
+    }
+    .preview-frame.collapsed .brand-logo-full { display: none; }
+    .preview-frame.collapsed .brand-logo-collapsed { display: flex; }
+
+    .btn-toggle-sidebar {
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      padding: 6px;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+    .btn-toggle-sidebar:hover {
+      background: var(--card-bg);
+      border-color: var(--card-border);
+      color: var(--accent);
+    }
+    .preview-frame.collapsed .btn-toggle-sidebar { display: none; }
+
+    /* Nav Groups */
+    .nav-groups {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      flex: 1;
+      overflow-y: auto;
+    }
+    .nav-group {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .nav-group-title {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--text-subtle);
+      padding: 4px 10px;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .preview-frame.collapsed .nav-group-title {
+      display: none;
+    }
+    .preview-frame.collapsed .nav-group {
+      border-bottom: 1px dashed rgba(0,0,0,0.08);
+      padding-bottom: 8px;
+      margin-bottom: 8px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      font-size: 12.5px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+    .preview-frame.collapsed .nav-item {
+      justify-content: center;
+      padding: 10px 0;
+    }
+    .nav-item:hover {
+      background: rgba(255, 255, 255, 0.7);
+      color: var(--accent);
+    }
+    .nav-item.active {
+      background: var(--card-bg);
+      color: var(--accent);
+      border-left: 3px solid var(--accent);
+      box-shadow: var(--shadow-sm);
+    }
+    .preview-frame.collapsed .nav-item.active {
+      border-left: none;
+      background: var(--accent-soft);
+      border-radius: var(--radius-sm);
+    }
+    .nav-item svg {
+      flex-shrink: 0;
+    }
+    .preview-frame.collapsed .nav-item span,
+    .preview-frame.collapsed .nav-item .step-badge {
+      display: none;
+    }
+    .step-badge {
+      margin-left: auto;
+      font-size: 9.5px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 10px;
+      background: #EAE4D9;
+      color: #6E665D;
+    }
+    .nav-item.active .step-badge {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    /* Main Workspace Preview (Admin Center) */
+    .mock-main {
+      padding: 32px;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      overflow-y: auto;
+    }
+    .main-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 20px;
+    }
+    .main-header h2 {
+      font-family: var(--font-serif);
+      font-size: 30px;
+      font-weight: 400;
+      color: var(--accent);
+    }
+    .main-header p {
+      color: var(--text-muted);
+      font-size: 13.5px;
+      margin-top: 4px;
+    }
+
+    /* Tab Switcher */
+    .admin-tabs {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 1px;
+    }
+    .admin-tab {
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.15s ease;
+    }
+    .admin-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    /* Vault Strip */
+    .vault-strip {
+      background: #FFF;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 14px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      box-shadow: var(--shadow-sm);
+    }
+    .vault-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* 3 Grouped Pipeline Sections */
+    .pipeline-grid {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 24px;
+    }
+
+    .pipeline-flow-container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .pipeline-module-card {
+      background: #FFF;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      box-shadow: var(--shadow-sm);
+      position: relative;
+    }
+    .module-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--card-border-soft);
+    }
+    .module-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .module-icon-box {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #FFF;
+    }
+    .module-icon-box.blue { background: #1D5C8A; }
+    .module-icon-box.purple { background: #6D28D9; }
+    .module-icon-box.green { background: #2D6A4F; }
+
+    .module-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .module-ui-tag {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: #F4EFE6;
+      color: var(--accent);
+      border: 1px solid rgba(158, 74, 40, 0.2);
+    }
+
+    .node-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .node-item {
+      background: var(--bg);
+      border: 1.5px solid var(--card-border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .node-item:hover {
+      border-color: var(--accent);
+    }
+    .node-item.selected {
+      background: #FFF;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(158, 74, 40, 0.12);
+    }
+    .node-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .node-icon-inner {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: #FFF;
+      border: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-main);
+    }
+    .node-step-pill {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+    .node-name {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .node-model-info {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 2px;
+    }
+    .node-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
+    .badge-pill {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+    .badge-amber { background: var(--accent-amber-soft); color: var(--accent-amber); }
+    .badge-blue { background: var(--accent-blue-soft); color: var(--accent-blue); }
+    .badge-purple { background: var(--accent-purple-soft); color: var(--accent-purple); }
+    .badge-green { background: var(--accent-green-soft); color: var(--accent-green); }
+
+    /* Inspector Panel */
+    .inspector-panel {
+      background: #FFF;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: var(--shadow-sm);
+      height: fit-content;
+      position: sticky;
+      top: 20px;
+    }
+    .inspector-header {
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--card-border-soft);
+    }
+    .inspector-ui-context {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      display: inline-block;
+      margin-bottom: 4px;
+    }
+    .inspector-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .inspector-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+    }
+    .form-control {
+      padding: 9px 12px;
+      border-radius: 6px;
+      border: 1.5px solid var(--card-border);
+      background: var(--bg);
+      font-size: 13px;
+      font-family: inherit;
+    }
+    .btn-save-primary {
+      background: var(--accent);
+      color: #FFF;
+      border: none;
+      padding: 10px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background 0.15s ease;
+    }
+    .btn-save-primary:hover {
+      background: var(--accent-hover);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Top Control Bar -->
+    <div class="top-bar">
+      <div class="title-group">
+        <h1>Mockup: Kiến Trúc Left Sidebar & Admin Center Pipeline</h1>
+        <p id="sub-desc">Xem trước thiết kế phân nhóm Sidebar và cơ chế mapping 3 Pipeline AI chuyên biệt với từng UI màn hình</p>
+      </div>
+      <div class="controls">
+        <button class="pill-btn" onclick="toggleSidebarMock()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+          <span id="btn-toggle-label">Thu Gọn Sidebar (Collapse)</span>
+        </button>
+        <button class="pill-btn active" id="btn-vi" onclick="setLang('vi')">Tiếng Việt</button>
+        <button class="pill-btn" id="btn-en" onclick="setLang('en')">English</button>
+      </div>
+    </div>
+
+    <!-- Main Mockup Container -->
+    <div class="preview-frame" id="preview-frame">
+      
+      <!-- LEFT SIDEBAR -->
+      <aside class="mock-sidebar">
+        <!-- Header -->
+        <div class="brand-header">
+          <div class="brand-logo-full">
+            <h2>Observation Studio</h2>
+            <span id="brand-sub">Nghiên Cứu Giảng Dạy</span>
+          </div>
+          <div class="brand-logo-collapsed">OS</div>
+          <button class="btn-toggle-sidebar" onclick="toggleSidebarMock()" title="Toggle Sidebar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><polyline points="14 9 11 12 14 15"/></svg>
+          </button>
+        </div>
+
+        <!-- Groups -->
+        <nav class="nav-groups">
+          
+          <!-- GROUP 1: Foundation & Data Ingestion -->
+          <div class="nav-group">
+            <div class="nav-group-title" id="grp1-title">Nền Tảng & Nạp Dữ Liệu</div>
+            <a class="nav-item" title="Khung Tiêu Chí Sư Phạm">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              <span id="menu-checklists">Khung Tiêu Chí (Checklists)</span>
+            </a>
+            <a class="nav-item" title="Tải Lên Video Mới">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+              <span id="menu-upload">Tải Lên Video (Upload)</span>
+            </a>
+            <a class="nav-item" title="Kho Video Bài Giảng">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>
+              <span id="menu-videos">Kho Video (Videos)</span>
+            </a>
+          </div>
+
+          <!-- GROUP 2: Observation Analysis -->
+          <div class="nav-group">
+            <div class="nav-group-title" id="grp2-title">Quan Sát & Báo Cáo</div>
+            <a class="nav-item" title="Sổ Mã Quan Sát Định Tính">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+              <span id="menu-codebook">Sổ Mã Quan Sát (Code Book)</span>
+            </a>
+            <a class="nav-item" title="Biên Bản Báo Cáo Tiết Dạy">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              <span id="menu-reports">Báo Cáo Tiết Dạy (Reports)</span>
+            </a>
+            <a class="nav-item" title="Phân Tích Xu Hướng Sư Phạm">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              <span id="menu-analytics">Phân Tích & Xu Hướng (Analytics)</span>
+            </a>
+          </div>
+
+          <!-- GROUP 3: Thematic Synthesis & Interview -->
+          <div class="nav-group">
+            <div class="nav-group-title" id="grp3-title">Quy Nạp & Phỏng Vấn Sâu</div>
+            <a class="nav-item" title="Chủ Đề Sư Phạm & Lý Thuyết Nền">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><circle cx="6" cy="19" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+              <span id="menu-themes">Chủ Đề Sư Phạm (Themes)</span>
+            </a>
+            <a class="nav-item" title="Bộ Câu Hỏi Phỏng Vấn Giáo Viên">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+              <span id="menu-interview">Bộ Phỏng Vấn (Interview Guide)</span>
+            </a>
+            <a class="nav-item" title="Phân Tích Định Tính Phỏng Vấn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+              <span id="menu-ia">Phân Tích Phỏng Vấn (Analysis)</span>
+            </a>
+          </div>
+
+          <!-- GROUP 4: System Administration -->
+          <div class="nav-group">
+            <div class="nav-group-title" id="grp4-title">Hệ Thống & Quản Trị</div>
+            <a class="nav-item active" title="Cấu Hình AI & Định Tuyến">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+              <span id="menu-settings">Admin Center (Cấu Hình)</span>
+            </a>
+            <a class="nav-item" title="Tài Liệu API Backend">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              <span id="menu-docs">Tài Liệu API (API Docs)</span>
+            </a>
+          </div>
+
+        </nav>
+      </aside>
+
+      <!-- MAIN WORKSPACE: ADMIN CENTER -->
+      <main class="mock-main">
+        <div class="main-header">
+          <div>
+            <h2 id="admin-title">Admin Center: AI Routing & Orchestration</h2>
+            <p id="admin-desc">Quản lý kho khóa API, đăng ký catalog mô hình và định tuyến luồng suy luận cho 3 module chức năng</p>
+          </div>
+          <button class="pill-btn active">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            <span id="btn-save-all">Lưu Định Tuyến Hệ Thống</span>
+          </button>
+        </div>
+
+        <!-- Sub Tabs -->
+        <div class="admin-tabs">
+          <div class="admin-tab active">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+            <span id="tab-api-routing">Cấu Hình AI & Định Tuyến (API Routing)</span>
+          </div>
+          <div class="admin-tab">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            <span>Telegram Bot Notifications</span>
+          </div>
+          <div class="admin-tab">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <span>Activity Log & Audit</span>
+          </div>
+        </div>
+
+        <!-- Key Vault Strip -->
+        <div class="vault-strip">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D6A4F" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+            <div>
+              <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);" id="lbl-vault">Kho Khóa Hoạt Động (Key Vault)</div>
+              <div style="font-size: 13.5px; font-weight: 700;">2 Khóa Đăng Ký Đã Kích Hoạt</div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <div class="vault-badge">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: #2D6A4F;"></span>
+              <span>Gemini Production Key (Default)</span>
+            </div>
+            <div class="vault-badge">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: #1D5C8A;"></span>
+              <span>GCP Vertex AI Service Key</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- PIPELINE 3-MODULE GRID -->
+        <div class="pipeline-grid">
+          
+          <!-- LEFT: 3 Grouped Pipeline Modules -->
+          <div class="pipeline-flow-container">
+
+            <!-- MODULE 1: Video Observation Pipeline -->
+            <div class="pipeline-module-card">
+              <div class="module-header">
+                <div class="module-title-wrap">
+                  <div class="module-icon-box blue">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                  </div>
+                  <div>
+                    <div class="module-title" id="mod1-title">Module 1 • Pipeline Phân Tích Video Quan Sát</div>
+                    <div style="font-size: 11.5px; color: var(--text-muted);" id="mod1-sub">Chạy tự động khi nạp video tại trang Upload hoặc bấm Re-run</div>
+                  </div>
+                </div>
+                <span class="module-ui-tag" id="tag-ui-video">UI: Chi Tiết Video (/videos/:id)</span>
+              </div>
+
+              <div class="node-list">
+                <!-- Node 1: Video Extraction -->
+                <div class="node-item selected" onclick="selectNode('video_extraction')">
+                  <div class="node-left">
+                    <div class="node-icon-inner">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                    </div>
+                    <div>
+                      <span class="node-step-pill" id="n1-step">Bước 1 trên UI • Bóc Tách Sự Kiện (Video Extraction)</span>
+                      <div class="node-name" id="n1-name">Bóc Tách Hành Vi & Câu Thoại Lớp Học</div>
+                      <div class="node-model-info">
+                        <span>Gemini 3.7 Flash</span>
+                        <span>•</span>
+                        <span style="color: var(--accent-green);">Default Key (Gemini)</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="node-right">
+                    <span class="badge-pill badge-amber">Multimodal Video</span>
+                    <span style="font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted);">Temp: 0.20</span>
+                  </div>
+                </div>
+
+                <!-- Node 2: Checklist Mapping -->
+                <div class="node-item" onclick="selectNode('checklist_mapping')">
+                  <div class="node-left">
+                    <div class="node-icon-inner">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    </div>
+                    <div>
+                      <span class="node-step-pill" id="n2-step">Bước 2 trên UI • Khớp Tiêu Chí (Rubric Mapping)</span>
+                      <div class="node-name" id="n2-name">Khớp Tiêu Chí Khung Quan Sát Sư Phạm A–E</div>
+                      <div class="node-model-info">
+                        <span>Gemini 3.7 Flash</span>
+                        <span>•</span>
+                        <span style="color: var(--accent-green);">Default Key (Gemini)</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="node-right">
+                    <span class="badge-pill badge-blue">Text / Rubrics</span>
+                    <span style="font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted);">Temp: 0.10</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- MODULE 2: Corpus Qualitative Synthesis -->
+            <div class="pipeline-module-card">
+              <div class="module-header">
+                <div class="module-title-wrap">
+                  <div class="module-icon-box purple">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><circle cx="6" cy="19" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                  </div>
+                  <div>
+                    <div class="module-title" id="mod2-title">Module 2 • Quy Nạp & Tổng Hợp Định Tính Tập Mẫu</div>
+                    <div style="font-size: 11.5px; color: var(--text-muted);" id="mod2-sub">Chạy theo yêu cầu tại các màn hình Sổ Mã, Chủ Đề và Bộ Phỏng Vấn</div>
+                  </div>
+                </div>
+                <span class="module-ui-tag" id="tag-ui-themes">UI: /codebook • /themes • /interview</span>
+              </div>
+
+              <div class="node-list">
+                <!-- Node 3: Codebook Synthesis -->
+                <div class="node-item" onclick="selectNode('codebook_generation')">
+                  <div class="node-left">
+                    <div class="node-icon-inner">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                    </div>
+                    <div>
+                      <span class="node-step-pill" id="n3-step">Quy trình Sổ Mã • Chuẩn Hóa Mã Quan Sát</span>
+                      <div class="node-name" id="n3-name">Tổng Hợp Sổ Mã Định Tính (Code Book)</div>
+                      <div class="node-model-info">
+                        <span>Gemini 3.7 Flash</span>
+                        <span>•</span>
+                        <span style="color: var(--accent-green);">Default Key</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="node-right">
+                    <span class="badge-pill badge-amber">Grounded Events</span>
+                    <span style="font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted);">Temp: 0.30</span>
+                  </div>
+                </div>
+
+                <!-- Node 4: Thematic Analysis -->
+                <div class="node-item" onclick="selectNode('thematic_analysis')">
+                  <div class="node-left">
+                    <div class="node-icon-inner">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><circle cx="6" cy="19" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                    </div>
+                    <div>
+                      <span class="node-step-pill" id="n4-step">Quy trình Chủ Đề • Grounded Theory 5 Giai Đoạn</span>
+                      <div class="node-name" id="n4-name">Quy Nạp Chủ Đề Sư Phạm & Lý Thuyết Nền</div>
+                      <div class="node-model-info">
+                        <span>Gemini 3.7 Flash</span>
+                        <span>•</span>
+                        <span style="color: var(--accent-green);">Default Key</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="node-right">
+                    <span class="badge-pill badge-purple">Reasoning Trace</span>
+                    <span style="font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted);">Temp: 0.40</span>
+                  </div>
+                </div>
+
+                <!-- Node 5: Interview Generator -->
+                <div class="node-item" onclick="selectNode('interview_generator')">
+                  <div class="node-left">
+                    <div class="node-icon-inner">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                    </div>
+                    <div>
+                      <span class="node-step-pill" id="n5-step">Quy trình Hướng Dẫn Phỏng Vấn • Câu Hỏi Cá Nhân Hóa</span>
+                      <div class="node-name" id="n5-name">Sinh Bộ Câu Hỏi Phỏng Vấn Sâu Giáo Viên</div>
+                      <div class="node-model-info">
+                        <span>Gemini 3.7 Flash</span>
+                        <span>•</span>
+                        <span style="color: var(--accent-green);">Default Key</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="node-right">
+                    <span class="badge-pill badge-green">Evidence Citations</span>
+                    <span style="font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted);">Temp: 0.50</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- MODULE 3: Interview Qualitative Pipeline -->
+            <div class="pipeline-module-card">
+              <div class="module-header">
+                <div class="module-title-wrap">
+                  <div class="module-icon-box green">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                  </div>
+                  <div>
+                    <div class="module-title" id="mod3-title">Module 3 • Pipeline Phân Tích Định Tính Phỏng Vấn</div>
+                    <div style="font-size: 11.5px; color: var(--text-muted);" id="mod3-sub">Bóc băng ghi âm đa ngữ và chạy phân tích ý nghĩa, mã quy nạp & đối chiếu tam giác</div>
+                  </div>
+                </div>
+                <span class="module-ui-tag" id="tag-ui-ia">UI: Phân Tích Phỏng Vấn (/interview-analysis)</span>
+              </div>
+
+              <div class="node-list">
+                <!-- Node 6: Audio Transcription -->
+                <div class="node-item" onclick="selectNode('interview_transcription')">
+                  <div class="node-left">
+                    <div class="node-icon-inner">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                    </div>
+                    <div>
+                      <span class="node-step-pill" id="n6-step">Step 1 trên UI • Audio Transcript & Q&A Gate</span>
+                      <div class="node-name" id="n6-name">Bóc Băng Ghi Âm Phỏng Vấn Đa Ngữ (EN/VI)</div>
+                      <div class="node-model-info">
+                        <span>Gemini 3.7 Flash</span>
+                        <span>•</span>
+                        <span style="color: var(--accent-green);">Default Key</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="node-right">
+                    <span class="badge-pill badge-blue">Audio Multimodal</span>
+                    <span style="font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted);">Temp: 0.20</span>
+                  </div>
+                </div>
+
+                <!-- Node 7: Interview Qualitative Analysis -->
+                <div class="node-item" onclick="selectNode('interview_analysis')">
+                  <div class="node-left">
+                    <div class="node-icon-inner">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                    </div>
+                    <div>
+                      <span class="node-step-pill" id="n7-step">Step 2–4 trên UI • Meaning Units, Coding & Triangulation</span>
+                      <div class="node-name" id="n7-name">Phân Tích Định Tính & Đối Chiếu Tam Giác Quan Sát</div>
+                      <div class="node-model-info">
+                        <span>Gemini 3.7 Flash</span>
+                        <span>•</span>
+                        <span style="color: var(--accent-green);">Default Key</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="node-right">
+                    <span class="badge-pill badge-purple">Triangulation & Coding</span>
+                    <span style="font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted);">Temp: 0.30</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- RIGHT: Node Inspector -->
+          <div class="inspector-panel">
+            <div class="inspector-header">
+              <span class="inspector-ui-context" id="ins-ui-tag">UI: /videos/:id (Step 1)</span>
+              <div class="inspector-title" id="ins-title">Bóc Tách Sự Kiện Video</div>
+              <div class="inspector-desc" id="ins-desc">Phân tích video/audio đa phương thức theo từng chunk hoặc toàn video để trích xuất sự kiện hành vi và lời thoại.</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" id="lbl-target-model">Model Định Tuyến (Target Model)</label>
+              <select class="form-control">
+                <option selected>Gemini 3.7 Flash (gemini-3.7-flash)</option>
+                <option>Gemini 2.5 Pro (gemini-2.5-pro)</option>
+                <option>Claude 3.7 Sonnet (via OpenRouter)</option>
+                <option>Vertex AI Gemini 1.5 Pro</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" id="lbl-assigned-key">Khóa API Được Gán (Assigned Key)</label>
+              <select class="form-control">
+                <option selected>Gemini Production Key (AI Studio)</option>
+                <option>GCP Vertex AI Service Key</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Temperature: <span id="temp-val" style="font-family: var(--font-mono); font-weight: 700;">0.20</span></label>
+              <input type="range" min="0" max="1" step="0.05" value="0.20" style="width: 100%;">
+            </div>
+
+            <button class="btn-save-primary">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              <span id="btn-save-node">Cập Nhật Node Này</span>
+            </button>
+          </div>
+
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script>
+    let isCollapsed = false;
+    let currentLang = 'vi';
+
+    const NODES = {
+      video_extraction: {
+        titleVi: 'Bóc Tách Sự Kiện Video (Video Extraction)',
+        titleEn: 'Video Extraction & Chunking',
+        uiVi: 'UI: Chi Tiết Video (/videos/:id) • Step 1',
+        uiEn: 'UI: Video Detail (/videos/:id) • Step 1',
+        descVi: 'Phân tích video/audio đa phương thức theo từng chunk hoặc toàn video để trích xuất sự kiện hành vi và lời thoại.',
+        descEn: 'Multimodal video/audio understanding to extract pedagogical events and timestamped utterances.'
+      },
+      checklist_mapping: {
+        titleVi: 'Khớp Tiêu Chí Bảng Kiểm (Rubric Mapping)',
+        titleEn: 'Checklist Mapping & Rubric Scoring',
+        uiVi: 'UI: Chi Tiết Video (/videos/:id) • Step 2',
+        uiEn: 'UI: Video Detail (/videos/:id) • Step 2',
+        descVi: 'Khớp chuỗi sự kiện thô vào 5 chỉ báo khung quan sát A–E và tính điểm sư phạm.',
+        descEn: 'Maps extracted raw events to observation checklist rubrics A-E with score calculations.'
+      },
+      codebook_generation: {
+        titleVi: 'Tổng Hợp Sổ Mã Quan Sát (Codebook Synthesis)',
+        titleEn: 'Qualitative Codebook Synthesis',
+        uiVi: 'UI: Sổ Mã Quan Sát (/codebook)',
+        uiEn: 'UI: Qualitative Code Book (/codebook)',
+        descVi: 'Tổng hợp danh mục mã định tính, định nghĩa, tiêu chí bao hàm/loại trừ từ kho sự kiện thô.',
+        descEn: 'Synthesizes standardized observation codes, operational definitions, and inclusion/exclusion criteria.'
+      },
+      thematic_analysis: {
+        titleVi: 'Quy Nạp Chủ Đề Sư Phạm (Thematic Analysis)',
+        titleEn: 'Grounded Theory Thematic Analysis',
+        uiVi: 'UI: Chủ Đề Sư Phạm (/themes)',
+        uiEn: 'UI: Teaching Themes (/themes)',
+        descVi: 'Quy nạp Grounded Theory 5 giai đoạn từ toàn bộ tập video mẫu để hình thành Category và Theme.',
+        descEn: 'Synthesizes Grounded Theory categories and core themes across the analyzed video corpus.'
+      },
+      interview_generator: {
+        titleVi: 'Sinh Bộ Câu Hỏi Phỏng Vấn (Interview Generator)',
+        titleEn: 'Teacher Inquiry Question Generator',
+        uiVi: 'UI: Bộ Phỏng Vấn (/interview)',
+        uiEn: 'UI: Interview Guide (/interview)',
+        descVi: 'Sinh bộ câu hỏi phỏng vấn sâu cá nhân hóa cho từng giáo viên dựa trên bằng chứng quan sát.',
+        descEn: 'Generates evidence-grounded interview inquiry questionnaires citing actual video timestamps.'
+      },
+      interview_transcription: {
+        titleVi: 'Bóc Băng Âm Thanh Phỏng Vấn (Interview Transcription)',
+        titleEn: 'Audio Multimodal Transcription',
+        uiVi: 'UI: Phân Tích Phỏng Vấn (/interview-analysis) • Step 1',
+        uiEn: 'UI: Interview Analysis (/interview-analysis) • Step 1',
+        descVi: 'Bóc băng file ghi âm phỏng vấn giáo viên, tách lượt thoại người hỏi/người trả lời và gán timestamp.',
+        descEn: 'Transcribes audio recordings with speaker separation and question-answer mapping.'
+      },
+      interview_analysis: {
+        titleVi: 'Phân Tích Định Tính Phỏng Vấn (Interview Analysis)',
+        titleEn: 'Qualitative Units & Triangulation',
+        uiVi: 'UI: Phân Tích Phỏng Vấn (/interview-analysis) • Step 2–4',
+        uiEn: 'UI: Interview Analysis (/interview-analysis) • Step 2–4',
+        descVi: 'Tách meaning units, gắn mã quy nạp và xây dựng ma trận đối chiếu tam giác quan sát - phỏng vấn.',
+        descEn: 'Segments meaning units, assigns inductive codes, and constructs triangulation matrix.'
+      }
+    };
+
+    function toggleSidebarMock() {
+      isCollapsed = !isCollapsed;
+      const frame = document.getElementById('preview-frame');
+      const btnLabel = document.getElementById('btn-toggle-label');
+      if (isCollapsed) {
+        frame.classList.add('collapsed');
+        btnLabel.innerText = currentLang === 'vi' ? 'Mở Rộng Sidebar (Expand)' : 'Expand Sidebar';
+      } else {
+        frame.classList.remove('collapsed');
+        btnLabel.innerText = currentLang === 'vi' ? 'Thu Gọn Sidebar (Collapse)' : 'Collapse Sidebar';
+      }
+    }
+
+    function selectNode(key) {
+      document.querySelectorAll('.node-item').forEach(el => el.classList.remove('selected'));
+      event.currentTarget.classList.add('selected');
+
+      const data = NODES[key];
+      if (data) {
+        document.getElementById('ins-title').innerText = currentLang === 'vi' ? data.titleVi : data.titleEn;
+        document.getElementById('ins-ui-tag').innerText = currentLang === 'vi' ? data.uiVi : data.uiEn;
+        document.getElementById('ins-desc').innerText = currentLang === 'vi' ? data.descVi : data.descEn;
+      }
+    }
+
+    function setLang(lang) {
+      currentLang = lang;
+      document.getElementById('btn-vi').className = lang === 'vi' ? 'pill-btn active' : 'pill-btn';
+      document.getElementById('btn-en').className = lang === 'en' ? 'pill-btn active' : 'pill-btn';
+
+      if (lang === 'vi') {
+        document.getElementById('brand-sub').innerText = 'Nghiên Cứu Giảng Dạy';
+        document.getElementById('grp1-title').innerText = 'Nền Tảng & Nạp Dữ Liệu';
+        document.getElementById('grp2-title').innerText = 'Quan Sát & Báo Cáo';
+        document.getElementById('grp3-title').innerText = 'Quy Nạp & Phỏng Vấn Sâu';
+        document.getElementById('grp4-title').innerText = 'Hệ Thống & Quản Trị';
+        
+        document.getElementById('menu-checklists').innerText = 'Khung Tiêu Chí (Checklists)';
+        document.getElementById('menu-upload').innerText = 'Tải Lên Video (Upload)';
+        document.getElementById('menu-videos').innerText = 'Kho Video (Videos)';
+        document.getElementById('menu-codebook').innerText = 'Sổ Mã Quan Sát (Code Book)';
+        document.getElementById('menu-reports').innerText = 'Báo Cáo Tiết Dạy (Reports)';
+        document.getElementById('menu-analytics').innerText = 'Phân Tích & Xu Hướng (Analytics)';
+        document.getElementById('menu-themes').innerText = 'Chủ Đề Sư Phạm (Themes)';
+        document.getElementById('menu-interview').innerText = 'Bộ Phỏng Vấn (Interview Guide)';
+        document.getElementById('menu-ia').innerText = 'Phân Tích Phỏng Vấn (Analysis)';
+        document.getElementById('menu-settings').innerText = 'Admin Center (Cấu Hình)';
+        document.getElementById('menu-docs').innerText = 'Tài Liệu API (API Docs)';
+
+        document.getElementById('mod1-title').innerText = 'Module 1 • Pipeline Phân Tích Video Quan Sát';
+        document.getElementById('mod1-sub').innerText = 'Chạy tự động khi nạp video tại trang Upload hoặc bấm Re-run';
+        document.getElementById('tag-ui-video').innerText = 'UI: Chi Tiết Video (/videos/:id)';
+
+        document.getElementById('mod2-title').innerText = 'Module 2 • Quy Nạp & Tổng Hợp Định Tính Tập Mẫu';
+        document.getElementById('mod2-sub').innerText = 'Chạy theo yêu cầu tại các màn hình Sổ Mã, Chủ Đề và Bộ Phỏng Vấn';
+        document.getElementById('tag-ui-themes').innerText = 'UI: /codebook • /themes • /interview';
+
+        document.getElementById('mod3-title').innerText = 'Module 3 • Pipeline Phân Tích Định Tính Phỏng Vấn';
+        document.getElementById('mod3-sub').innerText = 'Bóc băng ghi âm đa ngữ và chạy phân tích ý nghĩa, mã quy nạp & đối chiếu tam giác';
+        document.getElementById('tag-ui-ia').innerText = 'UI: Phân Tích Phỏng Vấn (/interview-analysis)';
+      } else {
+        document.getElementById('brand-sub').innerText = 'Teaching Research';
+        document.getElementById('grp1-title').innerText = 'Foundation & Ingestion';
+        document.getElementById('grp2-title').innerText = 'Observation & Reports';
+        document.getElementById('grp3-title').innerText = 'Qualitative & Interview';
+        document.getElementById('grp4-title').innerText = 'System Administration';
+        
+        document.getElementById('menu-checklists').innerText = 'Observation Checklists';
+        document.getElementById('menu-upload').innerText = 'Upload Video';
+        document.getElementById('menu-videos').innerText = 'Video Repository';
+        document.getElementById('menu-codebook').innerText = 'Observation Code Book';
+        document.getElementById('menu-reports').innerText = 'Lesson Reports';
+        document.getElementById('menu-analytics').innerText = 'Analytics & Trends';
+        document.getElementById('menu-themes').innerText = 'Teaching Themes';
+        document.getElementById('menu-interview').innerText = 'Interview Guide Studio';
+        document.getElementById('menu-ia').innerText = 'Interview Analysis';
+        document.getElementById('menu-settings').innerText = 'Admin Center (Settings)';
+        document.getElementById('menu-docs').innerText = 'API Documentation';
+
+        document.getElementById('mod1-title').innerText = 'Module 1 • Video Observation Pipeline';
+        document.getElementById('mod1-sub').innerText = 'Auto-triggers on video ingestion or manual re-run';
+        document.getElementById('tag-ui-video').innerText = 'UI: Video Detail (/videos/:id)';
+
+        document.getElementById('mod2-title').innerText = 'Module 2 • Qualitative Corpus Synthesis';
+        document.getElementById('mod2-sub').innerText = 'On-demand inductive synthesis across Code Book, Themes, and Interview Guide';
+        document.getElementById('tag-ui-themes').innerText = 'UI: /codebook • /themes • /interview';
+
+        document.getElementById('mod3-title').innerText = 'Module 3 • Interview Qualitative Pipeline';
+        document.getElementById('mod3-sub').innerText = 'Multimodal audio transcription, meaning units, inductive coding & triangulation';
+        document.getElementById('tag-ui-ia').innerText = 'UI: Interview Analysis (/interview-analysis)';
+      }
+    }
+  </script>
+</body>
+</html>

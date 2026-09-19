@@ -283,8 +283,8 @@ Type /subscribe to activate or /unsubscribe to pause.</i>`, statusStr, totalActi
 func (s *TelegramBotService) handleHelp(ctx context.Context, chatID int64) {
 	reply := `🤖 <b>Trợ lý Thông báo Video Teaching Research / Video Teaching Research Bot</b>
 
-Bot này sẽ tự động gửi kết quả phân tích video (Events, Checklist mapping, Báo cáo & Codebook) đến bạn ngay khi hoàn tất.
-This bot automatically delivers video analysis results (Extracted Events, Checklist mappings, Reports & Codebooks) once ready.
+Bot này sẽ tự động gửi kết quả phân tích video và gỡ băng âm thanh phỏng vấn (Events, Checklist mapping, Báo cáo, Codebook & Interview Audio Transcription) đến bạn ngay khi hoàn tất.
+This bot automatically delivers video analysis and interview audio transcription results (Extracted Events, Checklist mappings, Reports, Codebooks & Transcripts) once ready.
 
 📌 <b>Danh sách lệnh / Commands:</b>
 • <code>/subscribe</code> - Đăng ký nhận thông báo / Subscribe

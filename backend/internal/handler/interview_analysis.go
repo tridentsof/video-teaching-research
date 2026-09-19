@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -53,7 +56,9 @@ func (h *InterviewAnalysisHandler) UploadAudio(c *gin.Context) {
 	}
 	defer file.Close()
 
-	resp, err := h.svc.UploadAudio(c.Request.Context(), runID, teacherID, fileHeader.Filename, file)
+	overwriteMode := strings.TrimSpace(c.PostForm("overwrite_mode"))
+
+	resp, err := h.svc.UploadAudio(c.Request.Context(), runID, teacherID, fileHeader.Filename, file, overwriteMode)
 	if err != nil {
 		RespondError(c, http.StatusInternalServerError, "failed to upload audio: "+err.Error())
 		return
@@ -73,11 +78,32 @@ func (h *InterviewAnalysisHandler) TranscribeAudio(c *gin.Context) {
 
 	resp, err := h.svc.TranscribeAudio(c.Request.Context(), id)
 	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(c.Request.Context().Err(), context.Canceled) || strings.Contains(strings.ToLower(err.Error()), "cancel") {
+			RespondSuccess(c, gin.H{"message": "transcription cancelled", "transcript_status": "uploaded"})
+			return
+		}
 		RespondError(c, http.StatusInternalServerError, "transcription failed: "+err.Error())
 		return
 	}
 
 	RespondSuccess(c, resp)
+}
+
+// CancelTranscription cancels an in-flight audio transcription.
+// POST /api/interview-analysis/responses/:id/cancel-transcribe
+func (h *InterviewAnalysisHandler) CancelTranscription(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		RespondError(c, http.StatusBadRequest, "invalid response ID")
+		return
+	}
+
+	if err := h.svc.CancelTranscription(c.Request.Context(), id); err != nil {
+		RespondError(c, http.StatusInternalServerError, "failed to cancel transcription: "+err.Error())
+		return
+	}
+
+	RespondSuccess(c, gin.H{"message": "transcription cancelled", "id": id})
 }
 
 // FinalizeResponse updates the reviewed response text and marks it finalized.
@@ -120,6 +146,43 @@ func (h *InterviewAnalysisHandler) CreateManualResponse(c *gin.Context) {
 	}
 
 	RespondCreated(c, resp)
+}
+
+// AlignAndSplitQA triggers semantic alignment between planned interview questions and teacher transcript.
+// POST /api/interview-analysis/responses/align-qa
+func (h *InterviewAnalysisHandler) AlignAndSplitQA(c *gin.Context) {
+	var input struct {
+		AnalysisRunID string `json:"analysis_run_id"`
+		TeacherID     string `json:"teacher_id" binding:"required"`
+		RawTranscript string `json:"raw_transcript"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		RespondError(c, http.StatusBadRequest, "invalid request body: "+err.Error())
+		return
+	}
+
+	var runID uuid.UUID
+	if strings.TrimSpace(input.AnalysisRunID) != "" {
+		var err error
+		runID, err = uuid.Parse(input.AnalysisRunID)
+		if err != nil {
+			RespondError(c, http.StatusBadRequest, "invalid analysis_run_id")
+			return
+		}
+	}
+
+	// Use 5-minute timeout with detached background context so client-side / proxy timeout doesn't abort ongoing AI alignment
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	responses, err := h.svc.AlignAndSplitQA(ctx, runID, input.TeacherID, input.RawTranscript)
+	if err != nil {
+		RespondError(c, http.StatusInternalServerError, "failed to align and split Q&A: "+err.Error())
+		return
+	}
+
+	RespondSuccess(c, gin.H{"responses": responses})
 }
 
 // GetResponsesByTeacher returns all interview responses for a teacher.

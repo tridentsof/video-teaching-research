@@ -197,3 +197,12 @@ button, input, select, textarea {
   background-size: 200% 100%;
   animation: shimmer 1.8s infinite;
 }
+
+@keyframes pulseSoft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.animate-pulse-soft {
+  animation: pulseSoft 1.5s ease-in-out infinite;
+}

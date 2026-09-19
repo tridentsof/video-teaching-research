@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import { useToast } from '@/components/ToastProvider';
-import { api, AIFlowsSettingsData, AIModelItem, APIKeyItem, FlowConfigItem, TestPingResult } from '@/lib/api';
+import { api, AIFlowsSettingsData, AIModelItem, APIKeyItem, FlowConfigItem, TestPingResult, TelegramFlowItem } from '@/lib/api';
 import {
   Key,
   Plus,
@@ -27,11 +27,13 @@ import {
   ArrowLeft,
   History,
   AlertCircle,
+  AlertTriangle,
   ExternalLink,
   Sliders,
   Send,
   Bell,
   Globe,
+  Mic,
 } from 'lucide-react';
 import { ActivityLogView } from '@/components/ActivityLogView';
 import { activityLogService } from '@/lib/activityLog';
@@ -47,101 +49,125 @@ interface FlowMeta {
   badgeVi: string;
   badgeClass: string;
   requireMultimodal: boolean;
+  moduleKey: 'video' | 'synthesis' | 'interview';
+  uiScreenEn: string;
+  uiScreenVi: string;
 }
 
 const FLOW_METAS: Record<string, FlowMeta> = {
   video_extraction: {
-    titleEn: 'Video Extraction & Chunking',
-    titleVi: 'Bóc Tách & Nhận Diện Video',
-    stepEn: 'Step 01 • Multimodal Understanding',
-    stepVi: 'Bước 01 • Đa Phương Thức (Video/Audio)',
-    descEn: 'Multimodal video understanding, chunk processing & timestamp extraction.',
-    descVi: 'Xem và phân tích video/audio theo từng chunk để bóc tách hành vi và câu thoại.',
-    badgeEn: 'Direct File API',
-    badgeVi: 'Google Video API',
+    titleEn: 'Video Event & Utterance Extraction',
+    titleVi: 'Bóc Tách Hành Vi & Câu Thoại Lớp Học',
+    stepEn: 'Step 1 on UI • Event Extraction',
+    stepVi: 'Bước 1 trên UI • Bóc Tách Sự Kiện',
+    descEn: 'Multimodal video/audio chunk processing, pedagogical event segmentation & timestamp extraction.',
+    descVi: 'Xử lý video/audio đa phương thức theo chunk hoặc toàn video, bóc tách chuỗi hành vi và câu thoại kèm mốc thời gian.',
+    badgeEn: 'Multimodal Video',
+    badgeVi: 'Video Đa Phương Thức',
     badgeClass: 'pill-amber',
     requireMultimodal: true,
+    moduleKey: 'video',
+    uiScreenEn: 'UI: Video Detail (/videos/:id) • Step 1',
+    uiScreenVi: 'UI: Chi Tiết Video (/videos/:id) • Bước 1',
   },
   checklist_mapping: {
-    titleEn: 'Checklist Mapping & Scoring',
-    titleVi: 'Khớp Tiêu Chí Khung Quan Sát',
-    stepEn: 'Step 02 • Pedagogical Alignment',
-    stepVi: 'Bước 02 • Đối Chiếu Khung Sư Phạm',
+    titleEn: 'Checklist Mapping & Rubric Scoring',
+    titleVi: 'Khớp Tiêu Chí Bảng Kiểm Sư Phạm A–E',
+    stepEn: 'Step 2 on UI • Rubric Mapping',
+    stepVi: 'Bước 2 trên UI • Khớp Tiêu Chí Khung Quan Sát',
     descEn: 'Maps and scores extracted classroom events against observation checklist rubrics.',
-    descVi: 'Khớp các hành vi thô đã bóc tách vào từng chỉ báo trong bảng kiểm sư phạm.',
-    badgeEn: 'Pedagogical Mapping',
+    descVi: 'Khớp các hành vi thô đã bóc tách vào từng chỉ báo trong 5 nhóm tiêu chí A–E và tính điểm sư phạm.',
+    badgeEn: 'Pedagogical Rubrics',
     badgeVi: 'Khớp Tiêu Chí',
     badgeClass: 'pill-blue',
     requireMultimodal: false,
+    moduleKey: 'video',
+    uiScreenEn: 'UI: Video Detail (/videos/:id) • Step 2',
+    uiScreenVi: 'UI: Chi Tiết Video (/videos/:id) • Bước 2',
+  },
+  codebook_generation: {
+    titleEn: 'Observation Code Book Synthesis',
+    titleVi: 'Tổng Hợp Sổ Mã Quan Sát Định Tính',
+    stepEn: 'Code Book Flow • Qualitative Codebook',
+    stepVi: 'Quy trình Sổ Mã • Chuẩn Hóa Mã Quan Sát',
+    descEn: 'Synthesizes standardized qualitative observation codes, operational definitions, and inclusion/exclusion criteria.',
+    descVi: 'Đọc toàn bộ sự kiện thô đã phân tích để sinh định nghĩa, tiêu chí bao hàm/loại trừ và ví dụ thực tế.',
+    badgeEn: 'Grounded Events',
+    badgeVi: 'Tổng Hợp Sự Kiện Thô',
+    badgeClass: 'pill-amber',
+    requireMultimodal: false,
+    moduleKey: 'synthesis',
+    uiScreenEn: 'UI: Observation Code Book (/codebook)',
+    uiScreenVi: 'UI: Sổ Mã Quan Sát (/codebook)',
   },
   thematic_analysis: {
-    titleEn: 'Teaching Themes & Categories',
-    titleVi: 'Chủ Đề Sư Phạm & Lý Thuyết Nền',
-    stepEn: 'Step 03 • Grounded Theory Themes',
-    stepVi: 'Bước 03 • Phân Tích Định Tính (Grounded Theory)',
-    descEn: 'Synthesizes Grounded Theory categories & themes with empirical reasoning traces.',
-    descVi: 'Gom cụm các chiến thuật lặp lại thành Category và Theme kèm lập luận định tính.',
+    titleEn: 'Teaching Themes & Grounded Theory',
+    titleVi: 'Quy Nạp Chủ Đề Sư Phạm & Lý Thuyết Nền',
+    stepEn: 'Themes Flow • 5-Stage Grounded Theory',
+    stepVi: 'Quy trình Chủ Đề • Grounded Theory 5 Giai Đoạn',
+    descEn: 'Synthesizes Grounded Theory categories & core themes with empirical reasoning traces across the corpus.',
+    descVi: 'Gom cụm các chiến thuật lặp lại thành Category và Theme kèm lập luận định tính từ toàn bộ video mẫu.',
     badgeEn: 'Reasoning Trace',
     badgeVi: 'Lập Luận Định Tính',
     badgeClass: 'pill-purple',
     requireMultimodal: false,
+    moduleKey: 'synthesis',
+    uiScreenEn: 'UI: Teaching Themes (/themes)',
+    uiScreenVi: 'UI: Chủ Đề Sư Phạm (/themes)',
   },
   interview_generator: {
-    titleEn: 'Dynamic Interview Questions',
-    titleVi: 'Sinh Bộ Câu Hỏi Phỏng Vấn',
-    stepEn: 'Step 04 • Teacher Inquiry',
-    stepVi: 'Bước 04 • Phỏng Vấn Sâu Giáo Viên',
+    titleEn: 'Dynamic Interview Question Generator',
+    titleVi: 'Sinh Bộ Câu Hỏi Phỏng Vấn Sâu Giáo Viên',
+    stepEn: 'Interview Flow • Evidence-Grounded Questions',
+    stepVi: 'Quy trình Phỏng Vấn • Câu Hỏi Theo Bằng Chứng',
     descEn: 'Generates evidence-grounded interview inquiry questionnaires citing actual video timestamps.',
-    descVi: 'Tạo bộ câu hỏi phỏng vấn sâu cá nhân hóa trích dẫn mốc thời gian thực tế trong video.',
+    descVi: 'Tạo bộ câu hỏi phỏng vấn sâu cá nhân hóa cho từng giáo viên, trích dẫn mốc thời gian thực tế trong video.',
     badgeEn: 'Evidence Citations',
     badgeVi: 'Trích Dẫn Bằng Chứng',
     badgeClass: 'pill-green',
     requireMultimodal: false,
-  },
-  codebook_generation: {
-    titleEn: 'Observation Code Book Synthesis',
-    titleVi: 'Tổng Hợp Sổ Mã Quan Sát',
-    stepEn: 'Step 05 • Standardized Codebook',
-    stepVi: 'Bước 05 • Chuẩn Hóa Sổ Mã (Code Book)',
-    descEn: 'Synthesizes standardized qualitative observation codes directly from raw events.',
-    descVi: 'Đọc toàn bộ sự kiện thô để sinh định nghĩa, tiêu chí bao gồm/loại trừ và ví dụ.',
-    badgeEn: 'Raw Event Grounded',
-    badgeVi: 'Tổng Hợp Sự Kiện Thô',
-    badgeClass: 'pill-amber',
-    requireMultimodal: false,
+    moduleKey: 'synthesis',
+    uiScreenEn: 'UI: Interview Guide (/interview)',
+    uiScreenVi: 'UI: Bộ Phỏng Vấn (/interview)',
   },
   interview_transcription: {
     titleEn: 'Teacher Interview Audio Transcription',
-    titleVi: 'Bóc Băng Ghi Âm Phỏng Vấn Giáo Viên',
-    stepEn: 'Step 06 • Audio Multimodal Transcription',
-    stepVi: 'Bước 06 • Bóc Băng Đa Ngữ (EN/VI)',
+    titleVi: 'Bóc Băng Ghi Âm Phỏng Vấn Đa Ngữ (EN/VI)',
+    stepEn: 'Step 1 on UI • Audio Transcript & Q&A Gate',
+    stepVi: 'Step 1 trên UI • Audio Transcript & Q&A Gate',
     descEn: 'Transcribes teacher interview audio recordings with speaker separation, timestamps and Q&A mapping.',
     descVi: 'Bóc băng file ghi âm phỏng vấn giáo viên, tách lượt thoại người hỏi/người trả lời và gán mốc thời gian.',
     badgeEn: 'Audio Multimodal',
     badgeVi: 'Âm Thanh Đa Ngữ',
     badgeClass: 'pill-blue',
     requireMultimodal: true,
+    moduleKey: 'interview',
+    uiScreenEn: 'UI: Interview Analysis (/interview-analysis) • Step 1',
+    uiScreenVi: 'UI: Phân Tích Phỏng Vấn (/interview-analysis) • Step 1',
   },
   interview_analysis: {
-    titleEn: 'Post-Interview Qualitative Analysis',
-    titleVi: 'Phân Tích Định Tính & Đối Chiếu Tam Giác',
-    stepEn: 'Step 07 • Meaning Units & Triangulation',
-    stepVi: 'Bước 07 • Tách Ý, Gắn Mã & Đối Chiếu',
+    titleEn: 'Interview Qualitative Analysis & Triangulation',
+    titleVi: 'Phân Tích Định Tính & Đối Chiếu Tam Giác Quan Sát',
+    stepEn: 'Step 2–4 on UI • Meaning Units & Triangulation',
+    stepVi: 'Step 2–4 trên UI • Tách Ý, Gắn Mã & Đối Chiếu Tam Giác',
     descEn: 'Segments meaning units, assigns qualitative codes, triangulates with observation themes and selects quotes.',
     descVi: 'Tách meaning units, gợi ý initial codes, đối chiếu tam giác với video quan sát và trích xuất câu trích dẫn.',
     badgeEn: 'Triangulation & Coding',
     badgeVi: 'Đối Chiếu & Gắn Mã',
     badgeClass: 'pill-purple',
     requireMultimodal: false,
+    moduleKey: 'interview',
+    uiScreenEn: 'UI: Interview Analysis (/interview-analysis) • Step 2–4',
+    uiScreenVi: 'UI: Phân Tích Phỏng Vấn (/interview-analysis) • Step 2–4',
   },
 };
 
 const FLOW_ORDER = [
   'video_extraction',
   'checklist_mapping',
+  'codebook_generation',
   'thematic_analysis',
   'interview_generator',
-  'codebook_generation',
   'interview_transcription',
   'interview_analysis',
 ];
@@ -194,7 +220,9 @@ export default function SettingsPage() {
     has_static_chat_id: boolean;
     active_subscribers: number;
     bot_username: string;
+    active_flows?: TelegramFlowItem[];
   } | null>(null);
+  const [selectedPreviewFlow, setSelectedPreviewFlow] = useState<'pipeline_completed' | 'pipeline_failed' | 'interview_transcribed' | 'interview_qa_aligned'>('pipeline_completed');
   const [sendingTelegramTest, setSendingTelegramTest] = useState(false);
 
   // Load Settings
@@ -797,12 +825,16 @@ export default function SettingsPage() {
         return <Video size={20} />;
       case 'checklist_mapping':
         return <CheckSquare size={20} />;
+      case 'codebook_generation':
+        return <BookMarked size={20} />;
       case 'thematic_analysis':
         return <Network size={20} />;
       case 'interview_generator':
         return <MessageSquare size={20} />;
-      case 'codebook_generation':
-        return <BookMarked size={20} />;
+      case 'interview_transcription':
+        return <Mic size={20} />;
+      case 'interview_analysis':
+        return <Sparkles size={20} />;
       default:
         return <Cpu size={20} />;
     }
@@ -814,12 +846,16 @@ export default function SettingsPage() {
         return 'icon-video';
       case 'checklist_mapping':
         return 'icon-mapping';
+      case 'codebook_generation':
+        return 'icon-codebook';
       case 'thematic_analysis':
         return 'icon-themes';
       case 'interview_generator':
         return 'icon-questions';
-      case 'codebook_generation':
-        return 'icon-codebook';
+      case 'interview_transcription':
+        return 'icon-questions';
+      case 'interview_analysis':
+        return 'icon-themes';
       default:
         return 'icon-video';
     }
@@ -1156,95 +1192,193 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Flow Nodes in Sequence */}
-          {FLOW_ORDER.map((flowKey, idx) => {
-            const meta = FLOW_METAS[flowKey];
-            const cfg = flowState[flowKey] || { model_catalog_id: '', temperature: 0.2 };
-            const assignedM = (settingsData?.models || []).find((m) => m.id === cfg.model_catalog_id);
-            const isSelected = selectedFlowKey === flowKey;
+          {/* 3 Dedicated Pipeline Module Cards */}
+          {(() => {
+            const PIPELINE_MODULES = [
+              {
+                id: 'video',
+                title: t('aiStudioModuleVideo'),
+                sub: t('aiStudioModuleVideoSub'),
+                uiTag: t('aiStudioTagUIVideo'),
+                icon: Video,
+                color: '#1D5C8A',
+                flowKeys: ['video_extraction', 'checklist_mapping'],
+                hasSequentialArrows: true,
+              },
+              {
+                id: 'synthesis',
+                title: t('aiStudioModuleSynthesis'),
+                sub: t('aiStudioModuleSynthesisSub'),
+                uiTag: t('aiStudioTagUIThemes'),
+                icon: Network,
+                color: '#6D28D9',
+                flowKeys: ['codebook_generation', 'thematic_analysis', 'interview_generator'],
+                hasSequentialArrows: false,
+              },
+              {
+                id: 'interview',
+                title: t('aiStudioModuleInterview'),
+                sub: t('aiStudioModuleInterviewSub'),
+                uiTag: t('aiStudioTagUIInterview'),
+                icon: Sparkles,
+                color: '#2D6A4F',
+                flowKeys: ['interview_transcription', 'interview_analysis'],
+                hasSequentialArrows: true,
+              },
+            ];
 
             return (
-              <React.Fragment key={flowKey}>
-                <div
-                  onClick={() => setSelectedFlowKey(flowKey)}
-                  style={{
-                    backgroundColor: isSelected ? 'var(--card-bg)' : 'var(--bg)',
-                    border: isSelected ? '2px solid var(--accent)' : '1.5px solid var(--card-border)',
-                    borderRadius: '10px',
-                    padding: '16px 20px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    cursor: 'pointer',
-                    boxShadow: isSelected ? '0 0 0 3px rgba(146, 64, 14, 0.12)' : 'none',
-                    transition: 'all 0.18s ease',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div
-                      className={`node-icon-box ${getNodeIconBoxClass(flowKey)}`}
-                      style={{
-                        width: '42px',
-                        height: '42px',
-                        borderRadius: '10px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      {getNodeIcon(flowKey)}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                        {language === 'vi' ? meta.stepVi : meta.stepEn}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                {PIPELINE_MODULES.map((mod) => (
+                  <div
+                    key={mod.id}
+                    style={{
+                      backgroundColor: 'var(--bg)',
+                      border: '1px solid var(--card-border)',
+                      borderRadius: '12px',
+                      padding: '16px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                    }}
+                  >
+                    {/* Module Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '10px', borderBottom: '1px solid var(--card-border)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '8px',
+                          backgroundColor: mod.color,
+                          color: '#FFFFFF',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}>
+                          <mod.icon size={17} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)' }}>
+                            {mod.title}
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>
+                            {mod.sub}
+                          </div>
+                        </div>
+                      </div>
+                      <span style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '10.5px',
+                        fontWeight: 700,
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        backgroundColor: 'var(--card-bg)',
+                        color: 'var(--accent)',
+                        border: '1px solid var(--card-border)',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {mod.uiTag}
                       </span>
-                      <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)' }}>
-                        {language === 'vi' ? meta.titleVi : meta.titleEn}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
-                          {assignedM?.display_name || assignedM?.model_id || cfg.model_catalog_id || (language === 'vi' ? 'Chưa chọn model' : 'No model selected')}
-                        </span>
-                        <span>•</span>
-                        {(() => {
-                          const kObj = (settingsData?.api_keys || []).find((k) => k.id === cfg.api_key_id);
-                          if (kObj) {
-                            return (
-                              <span style={{ color: 'var(--accent-green, #16a34a)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                <Key size={11} />
-                                <span>{kObj.label}</span>
-                              </span>
-                            );
-                          }
-                          return (
-                            <span style={{ color: 'var(--accent-red, #dc2626)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                              <AlertCircle size={11} />
-                              <span>{language === 'vi' ? 'Chưa gán Key' : 'No Key Assigned'}</span>
-                            </span>
-                          );
-                        })()}
-                      </div>
+                    </div>
+
+                    {/* Module Flow Nodes */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {mod.flowKeys.map((flowKey, mIdx) => {
+                        const meta = FLOW_METAS[flowKey];
+                        const cfg = flowState[flowKey] || { model_catalog_id: '', temperature: 0.2 };
+                        const assignedM = (settingsData?.models || []).find((m) => m.id === cfg.model_catalog_id);
+                        const isSelected = selectedFlowKey === flowKey;
+
+                        return (
+                          <React.Fragment key={flowKey}>
+                            <div
+                              onClick={() => setSelectedFlowKey(flowKey)}
+                              style={{
+                                backgroundColor: isSelected ? 'var(--card-bg)' : '#FFFFFF',
+                                border: isSelected ? '2px solid var(--accent)' : '1px solid var(--card-border)',
+                                borderRadius: '10px',
+                                padding: '12px 16px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                cursor: 'pointer',
+                                boxShadow: isSelected ? '0 0 0 3px rgba(146, 64, 14, 0.12)' : 'var(--shadow-sm)',
+                                transition: 'all 0.18s ease',
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                <div
+                                  className={`node-icon-box ${getNodeIconBoxClass(flowKey)}`}
+                                  style={{
+                                    width: '38px',
+                                    height: '38px',
+                                    borderRadius: '8px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {getNodeIcon(flowKey)}
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase' }}>
+                                    {language === 'vi' ? meta.stepVi : meta.stepEn}
+                                  </span>
+                                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>
+                                    {language === 'vi' ? meta.titleVi : meta.titleEn}
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-mono)', fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                    <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
+                                      {assignedM?.display_name || assignedM?.model_id || cfg.model_catalog_id || (language === 'vi' ? 'Chưa chọn model' : 'No model selected')}
+                                    </span>
+                                    <span>•</span>
+                                    {(() => {
+                                      const kObj = (settingsData?.api_keys || []).find((k) => k.id === cfg.api_key_id);
+                                      if (kObj) {
+                                        return (
+                                          <span style={{ color: 'var(--accent-green, #16a34a)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                            <Key size={11} />
+                                            <span>{kObj.label}</span>
+                                          </span>
+                                        );
+                                      }
+                                      return (
+                                        <span style={{ color: 'var(--accent-red, #dc2626)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                          <AlertCircle size={11} />
+                                          <span>{language === 'vi' ? 'Chưa gán Key' : 'No Key Assigned'}</span>
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                <span className={`pill ${meta.badgeClass}`} style={{ fontSize: '10.5px', fontWeight: 600, padding: '2px 8px', borderRadius: '10px' }}>
+                                  {language === 'vi' ? meta.badgeVi : meta.badgeEn}
+                                </span>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                                  Temp: {cfg.temperature.toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+
+                            {mod.hasSequentialArrows && mIdx < mod.flowKeys.length - 1 && (
+                              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '10px', color: '#B5AFA6' }}>
+                                <ArrowDown size={13} />
+                              </div>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
                     </div>
                   </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
-                    <span className={`pill ${meta.badgeClass}`} style={{ fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '12px' }}>
-                      {language === 'vi' ? meta.badgeVi : meta.badgeEn}
-                    </span>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)' }}>
-                      Temp: {cfg.temperature.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-
-                {idx < FLOW_ORDER.length - 1 && (
-                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '14px', color: '#B5AFA6' }}>
-                    <ArrowDown size={15} />
-                  </div>
-                )}
-              </React.Fragment>
+                ))}
+              </div>
             );
-          })}
+          })()}
         </div>
 
         {/* Right: Dynamic Node Inspector Panel */}
@@ -1257,12 +1391,28 @@ export default function SettingsPage() {
           display: 'flex',
           flexDirection: 'column',
           gap: '18px',
+          height: 'fit-content',
+          position: 'sticky',
+          top: '20px',
         }}>
           <div style={{ paddingBottom: '14px', borderBottom: '1px solid var(--card-border)' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase' }}>
-              {t('aiStudioNodeInspector')}
-            </span>
-            <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', marginTop: '2px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase' }}>
+                {t('aiStudioNodeInspector')}
+              </span>
+              <span style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '10px',
+                fontWeight: 700,
+                padding: '2px 6px',
+                borderRadius: '4px',
+                backgroundColor: 'var(--accent-soft)',
+                color: 'var(--accent)',
+              }}>
+                {language === 'vi' ? currentMeta.uiScreenVi : currentMeta.uiScreenEn}
+              </span>
+            </div>
+            <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-main)', marginTop: '2px' }}>
               {language === 'vi' ? currentMeta.titleVi : currentMeta.titleEn}
             </h3>
             <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '3px' }}>
@@ -1599,6 +1749,445 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          {/* Active Notification Flows Section (Unified Master Flows - Zero Emoji) */}
+          <div style={{
+            backgroundColor: 'var(--card-bg)',
+            border: '1px solid var(--card-border)',
+            borderRadius: '14px',
+            padding: '22px',
+            boxShadow: 'var(--shadow-sm)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '18px',
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingBottom: '14px',
+              borderBottom: '1px solid var(--card-border)',
+              flexWrap: 'wrap',
+              gap: '12px',
+            }}>
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Zap size={18} color="var(--accent)" />
+                  <span>{language === 'vi' ? 'Các Luồng Công Việc Tích Hợp Thông Báo Telegram' : 'Active Telegram Notification Flows'}</span>
+                </h3>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  {language === 'vi'
+                    ? 'Hệ thống tự động hóa thông báo cho 2 quy trình trọng tâm: Phân tích Video Giảng dạy & Phỏng vấn Giáo viên.'
+                    : 'Automated real-time notifications integrated across 2 core workflows: Video Analysis Pipeline & Teacher Interview Studio.'}
+                </p>
+              </div>
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 12px',
+                borderRadius: '999px',
+                fontSize: '12px',
+                fontWeight: 600,
+                backgroundColor: telegramStatus?.is_enabled ? 'rgba(34, 197, 94, 0.1)' : 'rgba(156, 163, 175, 0.1)',
+                color: telegramStatus?.is_enabled ? '#16A34A' : 'var(--text-muted)',
+                border: telegramStatus?.is_enabled ? '1px solid rgba(34, 197, 94, 0.25)' : '1px solid var(--card-border)',
+              }}>
+                <span style={{
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  backgroundColor: telegramStatus?.is_enabled ? '#16A34A' : '#9CA3AF',
+                  boxShadow: telegramStatus?.is_enabled ? '0 0 6px #16A34A' : 'none',
+                }} />
+                <span>{telegramStatus?.is_enabled ? (language === 'vi' ? '2/2 Luồng đang kết nối' : '2/2 Flows Connected') : (language === 'vi' ? 'Tạm dừng / Disabled' : 'Disabled')}</span>
+              </div>
+            </div>
+
+            {/* 2 Master Flow Cards Grid */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+              gap: '18px',
+            }}>
+              
+              {/* FLOW 1: Video Analysis Pipeline (Unified Completed + Failed) */}
+              <div style={{
+                backgroundColor: (selectedPreviewFlow === 'pipeline_completed' || selectedPreviewFlow === 'pipeline_failed') ? 'rgba(29, 92, 138, 0.03)' : 'var(--card-bg)',
+                border: (selectedPreviewFlow === 'pipeline_completed' || selectedPreviewFlow === 'pipeline_failed') ? '1.5px solid var(--accent-blue, #1D5C8A)' : '1px solid var(--card-border)',
+                borderRadius: '14px',
+                padding: '20px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                gap: '16px',
+                transition: 'all 0.2s ease',
+                boxShadow: (selectedPreviewFlow === 'pipeline_completed' || selectedPreviewFlow === 'pipeline_failed') ? '0 4px 14px rgba(29, 92, 138, 0.08)' : 'none',
+              }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                      <div style={{
+                        width: '42px',
+                        height: '42px',
+                        borderRadius: '10px',
+                        backgroundColor: 'rgba(29, 92, 138, 0.1)',
+                        color: '#1D5C8A',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}>
+                        <Video size={22} />
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-main)' }}>
+                            {language === 'vi' ? 'Quy Trình Phân Tích Video' : 'Video Analysis Pipeline'}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                          {language === 'vi' ? 'Bóc tách sự kiện, rubric checklist & codebook' : 'Event extraction, rubric mapping & codebook'}
+                        </span>
+                      </div>
+                    </div>
+                    <span style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '11px',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      backgroundColor: 'var(--bg)',
+                      color: 'var(--text-muted)',
+                      border: '1px solid var(--card-border)',
+                    }}>
+                      video_pipeline
+                    </span>
+                  </div>
+
+                  <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '14px 0 10px', lineHeight: 1.5 }}>
+                    {language === 'vi'
+                      ? 'Quản lý toàn bộ thông báo phát sinh trong chu trình xử lý video: từ thông báo tổng hợp khi phân tích hoàn tất thành công đến cảnh báo tức thời khi gặp lỗi.'
+                      : 'Manages notifications across the video pipeline lifecycle: sends completion summaries when analysis finishes or immediate alerts if any stage fails.'}
+                  </p>
+
+                  {/* Trigger Events Sub-list */}
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.04em', marginBottom: '6px' }}>
+                      {language === 'vi' ? 'Các sự kiện kích hoạt (Trigger Events):' : 'Trigger Events:'}
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPreviewFlow('pipeline_completed')}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '5px 10px',
+                          borderRadius: '8px',
+                          fontSize: '11.5px',
+                          fontWeight: 600,
+                          border: '1px solid',
+                          borderColor: selectedPreviewFlow === 'pipeline_completed' ? '#1D5C8A' : 'var(--card-border)',
+                          backgroundColor: selectedPreviewFlow === 'pipeline_completed' ? 'rgba(29, 92, 138, 0.1)' : 'var(--bg)',
+                          color: selectedPreviewFlow === 'pipeline_completed' ? '#1D5C8A' : 'var(--text-main)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <CheckCircle2 size={13} color="#16A34A" />
+                        <span>{language === 'vi' ? 'Hoàn tất: ' : 'Completed: '}<code>pipeline_completed</code></span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPreviewFlow('pipeline_failed')}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '5px 10px',
+                          borderRadius: '8px',
+                          fontSize: '11.5px',
+                          fontWeight: 600,
+                          border: '1px solid',
+                          borderColor: selectedPreviewFlow === 'pipeline_failed' ? '#B26A00' : 'var(--card-border)',
+                          backgroundColor: selectedPreviewFlow === 'pipeline_failed' ? 'rgba(178, 106, 0, 0.1)' : 'var(--bg)',
+                          color: selectedPreviewFlow === 'pipeline_failed' ? '#B26A00' : 'var(--text-main)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <AlertTriangle size={13} color="#B26A00" />
+                        <span>{language === 'vi' ? 'Cảnh báo lỗi: ' : 'Failed: '}<code>pipeline_failed</code></span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '8px',
+                    padding: '10px 12px',
+                    backgroundColor: 'var(--bg)',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                  }}>
+                    <div>
+                      <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                        {language === 'vi' ? 'Phạm vi' : 'Module'}
+                      </div>
+                      <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>Video Pipeline</span>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                        {language === 'vi' ? 'Kênh gửi' : 'Target'}
+                      </div>
+                      <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>Broadcast + Webhook</span>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                        {language === 'vi' ? 'Thông tin đính kèm' : 'Payload'}
+                      </div>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}>Events, Rubric, Report, Stack</span>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                        {language === 'vi' ? 'Đích đến' : 'Target URL'}
+                      </div>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--accent)' }}>/videos/:id</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--card-border)', paddingTop: '10px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    Trigger: <code style={{ fontFamily: 'var(--font-mono)' }}>pipeline.go</code>
+                  </span>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPreviewFlow('pipeline_completed')}
+                      style={{
+                        fontSize: '11px',
+                        color: selectedPreviewFlow === 'pipeline_completed' ? '#FFFFFF' : '#1D5C8A',
+                        backgroundColor: selectedPreviewFlow === 'pipeline_completed' ? '#1D5C8A' : 'rgba(29, 92, 138, 0.1)',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {language === 'vi' ? 'Xem mẫu hoàn tất' : 'View Complete'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPreviewFlow('pipeline_failed')}
+                      style={{
+                        fontSize: '11px',
+                        color: selectedPreviewFlow === 'pipeline_failed' ? '#FFFFFF' : '#B26A00',
+                        backgroundColor: selectedPreviewFlow === 'pipeline_failed' ? '#B26A00' : 'rgba(178, 106, 0, 0.1)',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {language === 'vi' ? 'Xem mẫu báo lỗi' : 'View Error'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* FLOW 2: Interview Studio Workflow (Transcribed + QA Aligned) */}
+              <div style={{
+                backgroundColor: (selectedPreviewFlow === 'interview_transcribed' || selectedPreviewFlow === 'interview_qa_aligned') ? 'rgba(158, 74, 40, 0.04)' : 'var(--card-bg)',
+                border: (selectedPreviewFlow === 'interview_transcribed' || selectedPreviewFlow === 'interview_qa_aligned') ? '1.5px solid var(--accent)' : '1px solid var(--card-border)',
+                borderRadius: '14px',
+                padding: '20px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                gap: '16px',
+                transition: 'all 0.2s ease',
+                boxShadow: (selectedPreviewFlow === 'interview_transcribed' || selectedPreviewFlow === 'interview_qa_aligned') ? '0 4px 14px rgba(158, 74, 40, 0.08)' : 'none',
+              }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                      <div style={{
+                        width: '42px',
+                        height: '42px',
+                        borderRadius: '10px',
+                        backgroundColor: 'var(--accent-soft)',
+                        color: 'var(--accent)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}>
+                        <Mic size={22} />
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-main)' }}>
+                            {language === 'vi' ? 'Quy Trình Phỏng Vấn Giáo Viên' : 'Interview Studio Workflow'}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                          {language === 'vi' ? 'Gỡ băng tức thì & bóc tách thẻ Q&A độc lập' : 'Instant transcription & independent Q&A alignment'}
+                        </span>
+                      </div>
+                    </div>
+                    <span style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '11px',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      backgroundColor: 'var(--bg)',
+                      color: 'var(--text-muted)',
+                      border: '1px solid var(--card-border)',
+                    }}>
+                      interview_studio
+                    </span>
+                  </div>
+
+                  <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '14px 0 10px', lineHeight: 1.5 }}>
+                    {language === 'vi'
+                      ? 'Tách biệt thành 2 thông báo theo 2 giai đoạn độc lập: thông báo tức thì khi audio được gỡ băng xong (~10s) và thông báo sau khi mô hình AI phân loại thành các thẻ Q&A hoàn tất.'
+                      : 'Separated into 2 independent notification stages: instant alert right after audio transcription (~10s) and structured alert when AI completes Q&A card alignment.'}
+                  </p>
+
+                  {/* Trigger Events Sub-list */}
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.04em', marginBottom: '6px' }}>
+                      {language === 'vi' ? 'Các sự kiện kích hoạt (Trigger Events):' : 'Trigger Events:'}
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPreviewFlow('interview_transcribed')}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '5px 10px',
+                          borderRadius: '8px',
+                          fontSize: '11.5px',
+                          fontWeight: 600,
+                          border: '1px solid',
+                          borderColor: selectedPreviewFlow === 'interview_transcribed' ? 'var(--accent)' : 'var(--card-border)',
+                          backgroundColor: selectedPreviewFlow === 'interview_transcribed' ? 'var(--accent-soft)' : 'var(--bg)',
+                          color: selectedPreviewFlow === 'interview_transcribed' ? 'var(--accent)' : 'var(--text-main)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <CheckCircle2 size={13} color="var(--accent)" />
+                        <span>{language === 'vi' ? 'Gỡ băng xong (~10s): ' : 'Transcribed: '}<code>interview_transcribed</code></span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPreviewFlow('interview_qa_aligned')}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '5px 10px',
+                          borderRadius: '8px',
+                          fontSize: '11.5px',
+                          fontWeight: 600,
+                          border: '1px solid',
+                          borderColor: selectedPreviewFlow === 'interview_qa_aligned' ? '#9E4A28' : 'var(--card-border)',
+                          backgroundColor: selectedPreviewFlow === 'interview_qa_aligned' ? 'rgba(158, 74, 40, 0.12)' : 'var(--bg)',
+                          color: selectedPreviewFlow === 'interview_qa_aligned' ? '#9E4A28' : 'var(--text-main)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <Layers size={13} color="#9E4A28" />
+                        <span>{language === 'vi' ? 'Bóc tách thẻ Q&A: ' : 'Q&A Aligned: '}<code>interview_qa_aligned</code></span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '8px',
+                    padding: '10px 12px',
+                    backgroundColor: 'var(--bg)',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                  }}>
+                    <div>
+                      <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                        {language === 'vi' ? 'Phạm vi' : 'Module'}
+                      </div>
+                      <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>Interview Studio</span>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                        {language === 'vi' ? 'Kênh gửi' : 'Target'}
+                      </div>
+                      <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>Broadcast + Webhook</span>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                        {language === 'vi' ? 'Thông tin đính kèm' : 'Payload'}
+                      </div>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}>Teacher ID, Snippet, Q&A List</span>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                        {language === 'vi' ? 'Đích đến' : 'Target URL'}
+                      </div>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--accent)' }}>/interview-analysis</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--card-border)', paddingTop: '10px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    Trigger: <code style={{ fontFamily: 'var(--font-mono)' }}>interview_analysis.go</code>
+                  </span>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPreviewFlow('interview_transcribed')}
+                      style={{
+                        fontSize: '11px',
+                        color: selectedPreviewFlow === 'interview_transcribed' ? '#FFFFFF' : 'var(--accent)',
+                        backgroundColor: selectedPreviewFlow === 'interview_transcribed' ? 'var(--accent)' : 'var(--accent-soft)',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {language === 'vi' ? 'Mẫu gỡ băng' : 'Sample Audio'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPreviewFlow('interview_qa_aligned')}
+                      style={{
+                        fontSize: '11px',
+                        color: selectedPreviewFlow === 'interview_qa_aligned' ? '#FFFFFF' : '#9E4A28',
+                        backgroundColor: selectedPreviewFlow === 'interview_qa_aligned' ? '#9E4A28' : 'rgba(158, 74, 40, 0.1)',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {language === 'vi' ? 'Mẫu thẻ Q&A' : 'Sample Q&A'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
           {/* 2-Column Section: Instructions & Live Preview */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '20px' }}>
             
@@ -1682,8 +2271,8 @@ export default function SettingsPage() {
                     </div>
                     <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
                       {language === 'vi'
-                        ? 'Bot sẽ tự động xác nhận và lưu Chat ID vào cơ sở dữ liệu chung để phát thông báo khi video xong.'
-                        : 'Bot will instantly confirm and record your chat ID into the shared database for pipeline notifications.'}
+                        ? 'Bot sẽ tự động xác nhận và lưu Chat ID vào cơ sở dữ liệu chung để phát thông báo khi video hoặc bản gỡ xong.'
+                        : 'Bot will instantly confirm and record your chat ID into shared database for pipeline and transcript alerts.'}
                     </div>
                   </div>
                 </div>
@@ -1710,7 +2299,7 @@ export default function SettingsPage() {
                     <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
                       {language === 'vi'
                         ? 'Thêm bot vào nhóm làm việc chung và gõ /subscribe. Toàn bộ thành viên nhóm sẽ cùng nhận kết quả.'
-                        : 'Invite the bot to your group chat and type /subscribe. All team members will receive pipeline updates simultaneously.'}
+                        : 'Invite the bot to your group chat and type /subscribe. All team members will receive updates simultaneously.'}
                     </div>
                   </div>
                 </div>
@@ -1748,7 +2337,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Right: Realistic Telegram Message Bubble Mockup */}
+            {/* Right: Realistic Telegram Message Bubble Mockup (Zero Emoji, Clean Typography) */}
             <div style={{
               backgroundColor: 'var(--card-bg)',
               border: '1px solid var(--card-border)',
@@ -1766,59 +2355,287 @@ export default function SettingsPage() {
                     <span>{language === 'vi' ? 'Xem Trước Tin Nhắn Mẫu' : 'Alert Message Preview'}</span>
                   </h3>
                   <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    {language === 'vi' ? 'Mẫu nội dung được tự động định dạng gửi về Telegram' : 'Format of automated notifications dispatched on pipeline completion'}
+                    {language === 'vi' ? 'Nội dung định dạng theo chuẩn giao tiếp Telegram Bot' : 'Format of automated notifications dispatched via Telegram Bot'}
                   </p>
                 </div>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent)', backgroundColor: 'rgba(37,99,235,0.08)', padding: '2px 8px', borderRadius: '5px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent)', backgroundColor: 'var(--accent-soft)', padding: '2px 8px', borderRadius: '5px' }}>
                   HTML Mode
                 </span>
               </div>
 
-              {/* Simulated Telegram Chat Bubble */}
-              <div style={{
-                backgroundColor: '#1E293B',
-                color: '#F8FAFC',
-                borderRadius: '12px',
-                padding: '16px 18px',
-                fontSize: '13px',
-                lineHeight: '1.6',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                border: '1px solid #334155',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px',
-              }}>
-                <div style={{ fontSize: '15px', fontWeight: 700, color: '#38BDF8', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>{language === 'vi' ? '🎉 Phân tích Video hoàn tất!' : '🎉 Video Analysis Complete!'}</span>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px', fontSize: '12.5px' }}>
-                  <div><b>Video:</b> {language === 'vi' ? 'Giảng dạy tiếng Anh - Lớp 10A1' : 'English Teaching - Grade 10A1'}</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#94A3B8' }}>ID: 8833bde7-0760-4398-9326-70af38d5a45e</div>
-                  <div><b>{language === 'vi' ? 'Thời lượng video:' : 'Video duration:'}</b> {language === 'vi' ? '42 phút 15 giây' : '42m 15s'}</div>
-                  <div><b>{language === 'vi' ? 'Chế độ:' : 'Mode:'}</b> {language === 'vi' ? 'Chunking (Phân đoạn song song)' : 'Chunking (Parallel segments)'}</div>
-                  <div><b>{language === 'vi' ? 'Thời gian xử lý:' : 'Processing time:'}</b> {language === 'vi' ? '3 phút 20 giây' : '3m 20s'}</div>
-                  <div><b>{language === 'vi' ? 'Events trích xuất:' : 'Extracted events:'}</b> {language === 'vi' ? '28 sự kiện' : '28 events'}</div>
-                  <div><b>Checklist mappings:</b> {language === 'vi' ? '14 mục' : '14 items'}</div>
-                  <div style={{ color: '#4ADE80' }}><b>{language === 'vi' ? 'Báo cáo quan sát:' : 'Observation report:'}</b> {language === 'vi' ? 'Đã tạo thành công' : 'Generated successfully'}</div>
-                  <div style={{ color: '#4ADE80' }}><b>Qualitative Codebook:</b> {language === 'vi' ? 'Đã tổng hợp' : 'Synthesized'}</div>
-                </div>
-
-                <div style={{ borderTop: '1px solid #334155', paddingTop: '8px', marginTop: '6px' }}>
-                  <span style={{ color: '#38BDF8', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}>
-                    {language === 'vi' ? '🔗 Xem chi tiết kết quả phân tích trong hệ thống' : '🔗 View complete analysis details in system'}
-                  </span>
-                </div>
-
-                <div style={{ alignSelf: 'flex-end', fontSize: '10px', color: '#64748B', marginTop: '-4px' }}>
-                  16:45 • {language === 'vi' ? 'Đã gửi' : 'Delivered'}
-                </div>
+              {/* Flow Selector Pills */}
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPreviewFlow('pipeline_completed')}
+                  style={{
+                    padding: '5px 10px',
+                    borderRadius: '6px',
+                    border: '1px solid',
+                    borderColor: selectedPreviewFlow === 'pipeline_completed' ? '#1D5C8A' : 'var(--card-border)',
+                    backgroundColor: selectedPreviewFlow === 'pipeline_completed' ? 'rgba(29, 92, 138, 0.1)' : 'var(--bg)',
+                    color: selectedPreviewFlow === 'pipeline_completed' ? '#1D5C8A' : 'var(--text-muted)',
+                    fontSize: '11.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}
+                >
+                  <Video size={13} />
+                  <span>{language === 'vi' ? 'Video Hoàn Tất' : 'Video Completed'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPreviewFlow('pipeline_failed')}
+                  style={{
+                    padding: '5px 10px',
+                    borderRadius: '6px',
+                    border: '1px solid',
+                    borderColor: selectedPreviewFlow === 'pipeline_failed' ? '#B26A00' : 'var(--card-border)',
+                    backgroundColor: selectedPreviewFlow === 'pipeline_failed' ? 'rgba(178, 106, 0, 0.1)' : 'var(--bg)',
+                    color: selectedPreviewFlow === 'pipeline_failed' ? '#B26A00' : 'var(--text-muted)',
+                    fontSize: '11.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}
+                >
+                  <AlertTriangle size={13} />
+                  <span>{language === 'vi' ? 'Cảnh Báo Lỗi Video' : 'Video Failed'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPreviewFlow('interview_transcribed')}
+                  style={{
+                    padding: '5px 10px',
+                    borderRadius: '6px',
+                    border: '1px solid',
+                    borderColor: selectedPreviewFlow === 'interview_transcribed' ? 'var(--accent)' : 'var(--card-border)',
+                    backgroundColor: selectedPreviewFlow === 'interview_transcribed' ? 'var(--accent-soft)' : 'var(--bg)',
+                    color: selectedPreviewFlow === 'interview_transcribed' ? 'var(--accent)' : 'var(--text-muted)',
+                    fontSize: '11.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}
+                >
+                  <Mic size={13} />
+                  <span>{language === 'vi' ? 'Gỡ Băng Âm Thanh' : 'Audio Transcribed'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPreviewFlow('interview_qa_aligned')}
+                  style={{
+                    padding: '5px 10px',
+                    borderRadius: '6px',
+                    border: '1px solid',
+                    borderColor: selectedPreviewFlow === 'interview_qa_aligned' ? '#9E4A28' : 'var(--card-border)',
+                    backgroundColor: selectedPreviewFlow === 'interview_qa_aligned' ? 'rgba(158, 74, 40, 0.12)' : 'var(--bg)',
+                    color: selectedPreviewFlow === 'interview_qa_aligned' ? '#9E4A28' : 'var(--text-muted)',
+                    fontSize: '11.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}
+                >
+                  <Layers size={13} />
+                  <span>{language === 'vi' ? 'Bóc Tách Thẻ Q&A' : 'Q&A Aligned'}</span>
+                </button>
               </div>
+
+              {/* Simulated Telegram Chat Bubble (Zero Emoji, Clean Typography) */}
+              {selectedPreviewFlow === 'pipeline_completed' && (
+                <div style={{
+                  backgroundColor: '#1E293B',
+                  color: '#F8FAFC',
+                  borderRadius: '12px',
+                  padding: '16px 18px',
+                  fontSize: '13px',
+                  lineHeight: '1.6',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  border: '1px solid #334155',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }}>
+                  <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#38BDF8', letterSpacing: '0.01em' }}>
+                    [THÔNG BÁO HOÀN TẤT PHÂN TÍCH VIDEO]
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px', fontSize: '12.5px' }}>
+                    <div><b>Video:</b> {language === 'vi' ? 'Giảng dạy tiếng Anh - Lớp 10A1' : 'English Teaching - Grade 10A1'}</div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#94A3B8' }}>Mã định danh: 8833bde7-0760-4398-9326-70af38d5a45e</div>
+                    <div><b>Thời lượng:</b> 42 phút 15 giây</div>
+                    <div><b>Chế độ xử lý:</b> Chunking (Phân đoạn song song)</div>
+                    <div><b>Thời gian xử lý:</b> 3m 20s</div>
+                    <div><b>Sự kiện trích xuất:</b> 28 sự kiện</div>
+                    <div><b>Đối chiếu Rubric:</b> 14 mục checklist</div>
+                    <div style={{ color: '#4ADE80' }}><b>Báo cáo quan sát:</b> Đã tạo thành công</div>
+                    <div style={{ color: '#4ADE80' }}><b>Qualitative Codebook:</b> Đã tổng hợp</div>
+                  </div>
+
+                  <div style={{ borderTop: '1px solid #334155', paddingTop: '8px', marginTop: '6px' }}>
+                    <span style={{ color: '#38BDF8', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}>
+                      Xem chi tiết kết quả trong hệ thống (/videos/8833bde7...)
+                    </span>
+                  </div>
+
+                  <div style={{ alignSelf: 'flex-end', fontSize: '10px', color: '#64748B', marginTop: '-4px' }}>
+                    16:45 • Đã chuyển phát
+                  </div>
+                </div>
+              )}
+
+              {selectedPreviewFlow === 'pipeline_failed' && (
+                <div style={{
+                  backgroundColor: '#1E293B',
+                  color: '#F8FAFC',
+                  borderRadius: '12px',
+                  padding: '16px 18px',
+                  fontSize: '13px',
+                  lineHeight: '1.6',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  border: '1px solid #7F1D1D',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }}>
+                  <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#F87171', letterSpacing: '0.01em' }}>
+                    [CẢNH BÁO SỰ CỐ PHÂN TÍCH VIDEO]
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px', fontSize: '12.5px' }}>
+                    <div><b>Video:</b> {language === 'vi' ? 'Tiết dạy Toán thực nghiệm' : 'Experimental Math Lesson'}</div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#94A3B8' }}>Mã định danh: c182de44-991b-4f76-8501-92be34df90a1</div>
+                    <div><b>Công đoạn lỗi:</b> <code>event_extraction</code></div>
+                    <div style={{ color: '#FCA5A5', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '6px 8px', borderRadius: '6px', fontFamily: 'var(--font-mono)', fontSize: '11.5px', marginTop: '4px' }}>
+                      Chi tiết lỗi: Google Vertex AI 429 Quota Exceeded (Resource exhausted)
+                    </div>
+                  </div>
+
+                  <div style={{ borderTop: '1px solid #334155', paddingTop: '8px', marginTop: '6px' }}>
+                    <span style={{ color: '#38BDF8', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}>
+                      Xem chi tiết sự cố trong hệ thống (/videos/c182de44...)
+                    </span>
+                  </div>
+
+                  <div style={{ alignSelf: 'flex-end', fontSize: '10px', color: '#64748B', marginTop: '-4px' }}>
+                    17:12 • Đã chuyển phát
+                  </div>
+                </div>
+              )}
+
+              {selectedPreviewFlow === 'interview_transcribed' && (
+                <div style={{
+                  backgroundColor: '#1E293B',
+                  color: '#F8FAFC',
+                  borderRadius: '12px',
+                  padding: '16px 18px',
+                  fontSize: '13px',
+                  lineHeight: '1.6',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  border: '1px solid #9E4A28',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }}>
+                  <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#FDBA74', letterSpacing: '0.01em' }}>
+                    [THÔNG BÁO GỠ BĂNG ÂM THANH PHỎNG VẤN]
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px', fontSize: '12.5px' }}>
+                    <div><b>Giáo viên:</b> <code style={{ color: '#FDBA74' }}>T02</code></div>
+                    <div><b>Tệp âm thanh:</b> interview_t02_record.m4a</div>
+                    <div><b>Thời lượng âm thanh:</b> 18 phút 45 giây (1125.0s)</div>
+                    <div><b>Ngôn ngữ:</b> Tiếng Việt (VI)</div>
+                    <div><b>Thời gian gỡ băng:</b> 9.8s (Tức thì)</div>
+                    <div><b>Độ dài văn bản:</b> 5,246 ký tự</div>
+                    
+                    <div style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                      borderLeft: '3px solid #FDBA74',
+                      padding: '8px 10px',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      fontStyle: 'italic',
+                      color: '#E2E8F0',
+                      marginTop: '6px',
+                    }}>
+                      Trích đoạn: "Chào thầy, hôm nay chúng ta tiếp tục trao đổi về các phương pháp đặt câu hỏi tương tác trong lớp học tiếng Anh..."
+                    </div>
+                  </div>
+
+                  <div style={{ borderTop: '1px solid #334155', paddingTop: '8px', marginTop: '6px' }}>
+                    <span style={{ color: '#38BDF8', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}>
+                      Mở Interview Studio để duyệt bản gỡ (/interview-analysis?teacher=T02)
+                    </span>
+                  </div>
+
+                  <div style={{ alignSelf: 'flex-end', fontSize: '10px', color: '#64748B', marginTop: '-4px' }}>
+                    18:30 • Đã chuyển phát
+                  </div>
+                </div>
+              )}
+
+              {selectedPreviewFlow === 'interview_qa_aligned' && (
+                <div style={{
+                  backgroundColor: '#1E293B',
+                  color: '#F8FAFC',
+                  borderRadius: '12px',
+                  padding: '16px 18px',
+                  fontSize: '13px',
+                  lineHeight: '1.6',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  border: '1px solid #9E4A28',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }}>
+                  <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#FDBA74', letterSpacing: '0.01em' }}>
+                    [THÔNG BÁO BÓC TÁCH THẺ Q&A PHỎNG VẤN]
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px', fontSize: '12.5px' }}>
+                    <div><b>Giáo viên:</b> <code style={{ color: '#FDBA74' }}>T02</code></div>
+                    <div><b>Số lượng thẻ Q&A đã tạo:</b> 5 thẻ câu hỏi - trả lời</div>
+                    <div><b>Thời gian phân tích AI:</b> 45s</div>
+                    
+                    <div style={{ marginTop: '4px' }}>
+                      <b>Danh sách câu hỏi đã bóc tách:</b>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '4px', paddingLeft: '8px', borderLeft: '2px solid #9E4A28', fontSize: '12px', color: '#E2E8F0' }}>
+                        <div>• Phương pháp đặt câu hỏi tương tác trong tiết dạy</div>
+                        <div>• Quản lý thời lượng hoạt động nhóm</div>
+                        <div>• Khó khăn khi triển khai hoạt động Speaking</div>
+                        <div>• Đánh giá mức độ tiếp thu của học sinh yếu</div>
+                        <div style={{ fontStyle: 'italic', color: '#94A3B8' }}>...và 1 câu hỏi khác</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ borderTop: '1px solid #334155', paddingTop: '8px', marginTop: '6px' }}>
+                    <span style={{ color: '#38BDF8', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}>
+                      Xem chi tiết thẻ Q&A trong Interview Studio (/interview-analysis?teacher=T02)
+                    </span>
+                  </div>
+
+                  <div style={{ alignSelf: 'flex-end', fontSize: '10px', color: '#64748B', marginTop: '-4px' }}>
+                    18:32 • Đã chuyển phát
+                  </div>
+                </div>
+              )}
 
               <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center' }}>
                 {language === 'vi'
-                  ? 'Khi pipeline phân tích thất bại, bot cũng sẽ tự động gửi cảnh báo chi tiết bước lỗi và nguyên nhân.'
-                  : 'If the video pipeline encounters errors, the bot automatically dispatches failure alerts with diagnostic details.'}
+                  ? 'Bấm nút "Xem mẫu" ở từng sự kiện phía trên để kiểm tra trước định dạng tin nhắn Telegram tương ứng.'
+                  : 'Click "View Sample" on any event above to preview its Telegram notification layout.'}
               </p>
             </div>
           </div>

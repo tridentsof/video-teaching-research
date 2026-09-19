@@ -15,6 +15,10 @@ export const translations: TranslationDict = {
   // Brand & Sidebar
   brandTitle: { en: 'Observation Studio', vi: 'Observation Studio' },
   brandSub: { en: 'Classroom Video Lab', vi: 'Classroom Video Lab' },
+  navGroupSetup: { en: 'Foundation & Ingestion', vi: 'Nền Tảng & Nạp Dữ Liệu' },
+  navGroupObservation: { en: 'Observation & Reports', vi: 'Quan Sát & Báo Cáo' },
+  navGroupQualitative: { en: 'Qualitative & Interview', vi: 'Quy Nạp & Phỏng Vấn Sâu' },
+  navGroupSystem: { en: 'System Administration', vi: 'Hệ Thống & Quản Trị' },
   navVideos: { en: 'Video Repository', vi: 'Kho Video Bài Giảng' },
   navUpload: { en: 'Upload Video', vi: 'Tải Lên Video' },
   navChecklists: { en: 'Observation Checklist', vi: 'Khung Tiêu Chí Quan Sát' },
@@ -47,8 +51,38 @@ export const translations: TranslationDict = {
     en: 'Upload 1 single continuous audio recording (.mp3, .m4a, .wav) for this teacher. AI will transcribe and segment Q&A pairs.',
     vi: 'Tải lên 1 file ghi âm liên tục (.mp3, .m4a, .wav) cho giáo viên này. AI sẽ tự động bóc băng và phân tách cặp câu hỏi - trả lời.'
   },
+  iaDragDropLabel: { en: 'Drag & drop audio file here or click to browse', vi: 'Kéo & thả file ghi âm vào đây hoặc Click chọn' },
+  iaDragDropActive: { en: 'Drop audio recording here to upload!', vi: 'Thả file ghi âm vào đây để tải lên!' },
+  iaDragDropHint: { en: 'Supported formats: MP3, M4A, WAV, OGG (Max 100MB)', vi: 'Định dạng: MP3, M4A, WAV, OGG (Tối đa 100MB)' },
+  iaOverwriteModalTitle: { en: 'Confirm Interview Data Overwrite', vi: 'Xác Nhận Ghi Đè Dữ Liệu Phỏng Vấn' },
+  iaOverwriteModalDesc: {
+    en: 'Teacher {teacher} already has interview data in the system. How would you like to handle the new audio file?',
+    vi: 'Giáo viên {teacher} đã có dữ liệu phỏng vấn trong hệ thống. Hãy chọn cách xử lý với file ghi âm mới:'
+  },
+  iaOverwriteOptAudioTitle: { en: 'Replace Audio Recording Only', vi: 'Chỉ thay thế file âm thanh gốc' },
+  iaOverwriteOptAudioBadge: { en: 'RECOMMENDED', vi: 'KHUYÊN DÙNG' },
+  iaOverwriteOptAudioDesc: {
+    en: 'Updates the audio file for playback. Safely preserves existing manual transcript edits, meaning units, and golden quotes.',
+    vi: 'Cập nhật file audio mới cho trình phát. Bảo toàn nguyên vẹn bản gỡ băng, đơn vị ý nghĩa (Meaning Units) và trích dẫn đã có.'
+  },
+  iaOverwriteOptResetTitle: { en: 'Full Reset for Teacher {teacher}', vi: 'Làm mới toàn diện cho giáo viên {teacher}' },
+  iaOverwriteOptResetBadge: { en: 'RESET & RE-TRANSCRIBE', vi: 'XÓA & PHÂN TÍCH LẠI' },
+  iaOverwriteOptResetDesc: {
+    en: 'Deletes old audio, meaning units, and golden quotes for this teacher to re-transcribe from scratch. Does not affect other teachers.',
+    vi: 'Xóa bản ghi âm cũ, đơn vị ý nghĩa và trích dẫn riêng của giáo viên này để bóc băng lại từ đầu. Không ảnh hưởng đến các giáo viên khác.'
+  },
+  iaOverwriteKeepCurrentAudio: { en: 'Current audio file:', vi: 'File hiện tại:' },
+  iaOverwriteKeepUnitsCount: { en: 'Meaning Units:', vi: 'Đơn vị ý nghĩa:' },
+  iaOverwriteKeepQuotesCount: { en: 'Golden Quotes:', vi: 'Trích dẫn tiêu biểu:' },
+  iaOverwriteBtnReplace: { en: 'Continue Upload', vi: 'Tiếp tục tải lên' },
+  iaOverwriteBtnReset: { en: 'Reset Old Data & Upload New', vi: 'Xóa dữ liệu cũ & Tải lên mới' },
   iaTranscribeBtn: { en: 'Transcribe with AI', vi: 'Bóc Băng Bằng AI' },
   iaTranscribing: { en: 'Transcribing audio...', vi: 'Đang bóc băng âm thanh...' },
+  iaCancel: { en: 'Cancel', vi: 'Hủy' },
+  iaCancelTranscribe: { en: 'Cancel Transcription', vi: 'Hủy bóc băng' },
+  iaCancelling: { en: 'Cancelling...', vi: 'Đang hủy...' },
+  iaCancelledOperation: { en: 'Operation cancelled', vi: 'Đã hủy thao tác' },
+  iaNotAnalyzedYet: { en: 'N/A', vi: 'N/A' },
   iaFinalizeBtn: { en: 'Finalize Transcript', vi: 'Chốt & Lưu Lời Thoại' },
   iaFinalizedSuccess: { en: 'Transcript finalized successfully', vi: 'Đã chốt và lưu câu trả lời thành công' },
   iaStatusUploaded: { en: 'Audio Uploaded', vi: 'Đã tải lên audio' },
@@ -84,6 +118,201 @@ export const translations: TranslationDict = {
   iaQuoteSource: { en: 'Source', vi: 'Nguồn' },
   iaRelevanceType: { en: 'Relevance Type', vi: 'Loại liên quan' },
   iaSelectedQuotes: { en: 'Selected for Thesis', vi: 'Chọn đưa vào luận văn' },
+  iaAnalysisRun: { en: 'Analysis Run:', vi: 'Phiên phân tích:' },
+  iaVerbatimTimeline: { en: 'Verbatim Timeline', vi: 'Dòng thời gian nguyên văn' },
+  iaRawTranscriptTip: {
+    en: 'Tip: Click timestamps [MM:SS] to jump audio playback directly. You can edit the text below.',
+    vi: 'Mẹo: Nhấp vào mốc thời gian [MM:SS] để tua audio trực tiếp. Bạn có thể sửa văn bản ngay bên dưới.',
+  },
+  iaRawPlaceholder: {
+    en: 'Raw transcript with timestamps and speakers will appear here once transcribed...',
+    vi: 'Lời thoại thô kèm mốc thời gian và lượt thoại sẽ hiển thị ở đây sau khi bóc băng...',
+  },
+  iaLoadingTeacher: {
+    en: 'Loading Teacher {teacher} interview data...',
+    vi: 'Đang tải dữ liệu phỏng vấn của Giáo viên {teacher}...',
+  },
+  iaEmptyTitle: {
+    en: 'No interview records found for Teacher {teacher}',
+    vi: 'Chưa có bản ghi phỏng vấn nào cho Giáo viên {teacher}',
+  },
+  iaEmptyDesc: {
+    en: 'This teacher does not have an audio recording or raw transcript yet. Please upload an audio file or enter text directly to begin structured Q&A alignment.',
+    vi: 'Giáo viên này chưa được tải lên file ghi âm hoặc chưa có dữ liệu bóc băng. Hãy tải lên file âm thanh hoặc nhập trực tiếp lời thoại để bắt đầu bóc tách Q&A chuẩn hóa.',
+  },
+  iaEmptyUploadBtn: {
+    en: 'Upload Interview Audio (.mp3)',
+    vi: 'Tải Lên File Ghi Âm (.mp3)',
+  },
+  iaEmptyInputTextBtn: {
+    en: 'Input Raw Transcript Directly',
+    vi: 'Nhập Trực Tiếp Lời Thoại Thô',
+  },
+  iaEmptyNoAudioYet: {
+    en: 'No audio recording uploaded yet',
+    vi: 'Chưa có file ghi âm nào được tải lên',
+  },
+  iaStructuredDesc: {
+    en: 'Structured view pairing interview inquiry questions and corresponding teacher responses for qualitative analysis.',
+    vi: 'Giao diện cấu trúc hóa câu hỏi và câu trả lời tương ứng phục vụ phân tích định tính.',
+  },
+  iaStructuredBadge: { en: 'Structured Q&A Cards', vi: 'Thẻ Q&A có cấu trúc' },
+  iaStep1LockedTitle: { en: 'Step Locked', vi: 'Bước này đang bị khóa' },
+  iaStep1LockedMsg: {
+    en: 'Please complete and finalize Step 1 (Audio & Structured Q&A Cards Review) for this teacher before proceeding to subsequent analysis steps.',
+    vi: 'Vui lòng rà soát và chốt (Finalize) Bước 1 (Ghi âm & Thẻ Q&A chuẩn hóa) cho giáo viên này trước khi chuyển sang các bước phân tích tiếp theo.',
+  },
+  iaLockedBadge: { en: 'Locked', vi: 'Khóa' },
+  iaRationaleTitle: { en: 'Crucial Step: Review & Align Structured Q&A Cards', vi: 'Bước quan trọng: Tách & Kiểm duyệt Thẻ Q&A Chuẩn Hóa' },
+  iaRationaleSubtitle: { en: 'Required before unlocking Step 2 (Meaning Units)', vi: 'Bắt buộc hoàn thành trước khi mở khóa Step 2' },
+  iaRationaleDesc: {
+    en: 'You have generated the raw transcript. To maintain qualitative research rigor, the continuous audio transcript must be structured into question-and-answer pairs aligned with your research questions before segmentation and coding:',
+    vi: 'Bạn đã có văn bản ghi âm thô. Để đảm bảo tính nghiêm cẩn của nghiên cứu định tính, đoạn thoại liên tục cần được cấu trúc hóa thành các cặp hỏi - đáp gắn với từng câu hỏi nghiên cứu trước khi phân đoạn và mã hóa:',
+  },
+  iaRationaleContextTitle: { en: 'Contextual Research Anchoring', vi: 'Định vị chính xác ngữ cảnh nghiên cứu' },
+  iaRationaleContextDesc: {
+    en: 'Anchors teacher responses directly to target inquiry questions (turn-taking, wait time, reluctant learners), preventing AI from confusing context.',
+    vi: 'Gắn câu trả lời trực tiếp vào 11 câu hỏi trọng tâm (turn-taking, wait time, học sinh ngại nói...), tránh AI bị nhầm lẫn ngữ cảnh.',
+  },
+  iaRationaleHumanTitle: { en: 'Human-in-the-Loop Verification', vi: 'Kiểm duyệt tính chính xác (Human-in-the-loop)' },
+  iaRationaleHumanDesc: {
+    en: 'Enables researchers to inspect question-answer attribution, refine wording, eliminate audio artifacts, or clarify nuances before automated coding.',
+    vi: 'Cho phép nhà nghiên cứu rà soát việc phân bổ câu hỏi - câu trả lời, chỉnh sửa câu chữ, lược bỏ tạp âm hoặc bổ sung trước khi AI mã hóa.',
+  },
+  iaRationaleQuotesTitle: { en: 'Thesis Quotation Integrity', vi: 'Bảo toàn trích dẫn cho Luận văn' },
+  iaRationaleQuotesDesc: {
+    en: 'Ensures representative quotes in Step 6 automatically inherit authentic, traceable context rather than generic recording labels.',
+    vi: 'Đảm bảo các trích dẫn tiêu biểu ở Step 6 tự động có đầy đủ nguồn minh chứng học thuật rõ ràng thay vì gắn nhãn chung chung.',
+  },
+  iaAutoAlignBtn: { en: 'Auto-Align into Structured Q&A Cards (AI)', vi: 'Tự động phân bổ sang 11 Q&A Cards (AI Alignment)' },
+  iaViewMode2Btn: { en: 'Review & Edit in Mode 2', vi: 'Xem & Chỉnh sửa chi tiết ở Mode 2' },
+  iaQaDraftPendingTitle: { en: 'Structured Q&A Cards (AI Draft) — Verification Required', vi: 'Đã phân bổ thẻ Q&A (Bản nháp AI) — Cần thẩm định & chốt nội dung' },
+  iaQaDraftPendingSubtitle: { en: 'Review progress: {finalized}/{total} cards finalized', vi: 'Tiến độ thẩm định: {finalized}/{total} thẻ đã chốt' },
+  iaQaDraftPendingDesc: {
+    en: 'To preserve qualitative research rigor, please inspect teacher responses across all inquiry questions below. Once verified, click "Finalize All" to validate research data and unlock Step 2.',
+    vi: 'Để đảm bảo độ tin cậy của nghiên cứu định tính, vui lòng rà soát lại câu trả lời của giáo viên ở từng câu hỏi bên dưới. Sau khi hoàn tất, hãy bấm "Chốt Toàn Bộ" để xác thực dữ liệu và mở khóa Step 2.',
+  },
+  iaQaCompletedBanner: {
+    en: 'All {count} Q&A cards have been reviewed and finalized for Teacher {teacher}. All subsequent analysis steps are unlocked.',
+    vi: 'Toàn bộ {count} thẻ Q&A đã được rà soát và chốt (Finalized) cho Giáo viên {teacher}. Các bước phân tích tiếp theo đã được mở khóa.',
+  },
+  iaFinalizeAllQABtn: { en: 'Finalize All & Unlock Step 2', vi: 'Chốt Toàn Bộ & Mở Khóa Step 2' },
+  iaFinalizeCardBtn: { en: 'Finalize Card', vi: 'Chốt thẻ này' },
+  iaCardFinalizedBadge: { en: 'Finalized', vi: 'Đã chốt' },
+  iaCardDraftBadge: { en: 'AI Draft (Needs review)', vi: 'Bản nháp AI (Cần duyệt)' },
+  iaProceedToUnitsBtn: { en: 'Proceed to Step 2: Meaning Units', vi: 'Chuyển sang Step 2: Meaning Units' },
+  iaMode2NotCreated: { en: 'Not created', vi: 'Chưa tạo' },
+  iaRawBottomHint: {
+    en: 'Once transcription is complete, proceed to align into structured Q&A cards to review and unlock subsequent analysis steps.',
+    vi: 'Sau khi bóc băng xong, hãy phân bổ sang các thẻ Q&A chuẩn hóa để kiểm duyệt và mở khóa các bước phân tích tiếp theo.',
+  },
+  iaQuestionNumber: { en: 'Question #', vi: 'Câu hỏi #' },
+  iaTeacherLabel: { en: 'Teacher', vi: 'Giáo viên' },
+  iaTeacherQuestionPlaceholder: { en: 'Teacher Interview Question', vi: 'Câu hỏi phỏng vấn giáo viên' },
+  iaTeacherAnswerPlaceholder: { en: "Teacher's answer...", vi: 'Câu trả lời của giáo viên...' },
+  iaEmptyQa: {
+    en: 'No Q&A data available yet. Please upload audio and click Transcribe with AI.',
+    vi: 'Chưa có dữ liệu câu hỏi - trả lời. Vui lòng tải lên audio và bấm Bóc Băng Bằng AI.',
+  },
+  iaAlignQABtn: { en: 'Align Q&A with Interview Questions', vi: 'Tự Động Phân Tách Q&A Bằng AI' },
+  iaAlignQADesc: {
+    en: 'Uses the qualitative analysis AI model to map the verbatim transcript to this teacher\'s planned interview questions.',
+    vi: 'Dùng AI đối chiếu lời thoại phỏng vấn với bộ câu hỏi đã chuẩn bị sẵn của giáo viên này.',
+  },
+  iaAlignQASuccess: {
+    en: 'Successfully aligned and structured Q&A cards!',
+    vi: 'Đã phân tách thành công các thẻ Q&A theo câu hỏi phỏng vấn!',
+  },
+  iaAlignQALoading: {
+    en: 'Aligning Q&A with prepared questions...',
+    vi: 'Đang dùng AI phân tách câu hỏi & trả lời...',
+  },
+  iaEmptyQaCta: {
+    en: 'Click the button below to automatically map the transcript into structured questions and answers.',
+    vi: 'Bấm nút dưới đây để AI tự động phân tách lời thoại thành các câu hỏi - câu trả lời tương ứng.',
+  },
+  iaProceedUnits: { en: 'Proceed to Step 2 (Meaning Units) →', vi: 'Chuyển sang Bước 2 (Đơn vị ý nghĩa) →' },
+  iaUnitsTitle: { en: 'Meaning Units Segmentation', vi: 'Phân Tách Đơn Vị Ý Nghĩa' },
+  iaUnitsSubtitle: {
+    en: 'Segment discrete pedagogical statements following Qualitative Content Analysis (Schreier, 2012).',
+    vi: 'Tách từng ý sư phạm độc lập theo chuẩn Qualitative Content Analysis (Schreier, 2012).',
+  },
+  iaProceedCoding: { en: 'Proceed to Step 3 (Coding) →', vi: 'Sang Bước 3 (Gắn Mã) →' },
+  iaAddUnitPlaceholder: {
+    en: 'Manually add a new meaning unit...',
+    vi: 'Nhập thủ công thêm một đơn vị ý nghĩa (Meaning Unit)...',
+  },
+  iaActions: { en: 'Actions', vi: 'Thao tác' },
+  iaUncoded: { en: 'Uncoded', vi: 'Chưa gắn mã' },
+  iaUncategorized: { en: 'Uncategorized', vi: 'Chưa phân loại' },
+  iaEmptyUnits: {
+    en: 'No meaning units found yet. Click "AI Segment Meaning Units" to automatically extract from teacher responses.',
+    vi: 'Chưa có Meaning Units nào. Bấm nút "AI Tách Meaning Units" để tự động bóc tách từ câu trả lời của giáo viên.',
+  },
+  iaCodingTitle: { en: 'Initial Qualitative Coding & Categorization', vi: 'Bảng Mã Định Tính Ban Đầu & Phân Loại' },
+  iaCodingSubtitle: {
+    en: 'Assign pedagogical codes and group into categories for thesis inquiry.',
+    vi: 'Gắn mã hành vi sư phạm và gom cụm thành các Category cho luận văn.',
+  },
+  iaProceedTriangulation: { en: 'Proceed to Step 4 (Triangulation) →', vi: 'Sang Bước 4 (Đối Chiếu) →' },
+  iaVerbatimQuote: { en: 'Meaning Unit (Verbatim Quote)', vi: 'Đơn Vị Ý Nghĩa (Trích Dẫn Nguyên Văn)' },
+  iaAssignCodePlaceholder: { en: 'Assign initial code...', vi: 'Gán mã ban đầu...' },
+  iaAssignCategoryPlaceholder: { en: 'Assign category...', vi: 'Gán category...' },
+  iaAggregatedCodebook: {
+    en: 'Aggregated Interview Codebook (All Teachers)',
+    vi: 'Tổng Hợp Sổ Mã Phỏng Vấn (Toàn Bộ Giáo Viên)',
+  },
+  iaTriangulationTitle: { en: 'Observation–Interview Triangulation Matrix', vi: 'Ma Trận Đối Chiếu Tam Giác Quan Sát – Phỏng Vấn' },
+  iaTriangulationSubtitle: {
+    en: 'Empirical triangulation between classroom video observation findings and teacher interview self-reports.',
+    vi: 'Đối chiếu tam giác giữa phát hiện quan sát thực tế (Video) và trần thuật phỏng vấn của giáo viên.',
+  },
+  iaEmptyTriangulation: {
+    en: 'No triangulation data available yet. Click "Run Triangulation Analysis" for automated AI comparison.',
+    vi: 'Chưa có dữ liệu đối chiếu tam giác. Bấm "Chạy Đối Chiếu Tam Giác" để AI tự động so sánh toàn diện.',
+  },
+  iaProfileTitle: { en: 'Video Observation Profile', vi: 'Hồ Sơ Quan Sát Video' },
+  iaProfileDesc: {
+    en: 'Observation evidence extracted from 2 analyzed lessons of this teacher.',
+    vi: 'Dữ liệu quan sát rút ra từ 2 tiết dạy thực tế của giáo viên này.',
+  },
+  iaVideoLessons: { en: 'Video Lessons', vi: 'Bài Giảng Video' },
+  iaTriangulatedConfirmations: { en: 'Triangulated Confirmations', vi: 'Đối Chiếu Xác Nhận' },
+  iaTriangulatedFindingsCount: {
+    en: 'findings triangulated with interview statements.',
+    vi: 'phát hiện đã được đối chiếu với phát ngôn phỏng vấn.',
+  },
+  iaExplanationsTitle: { en: 'Interview Explanations', vi: 'Giải Thích Phỏng Vấn' },
+  iaExplanationsDesc: {
+    en: 'Direct statements from in-depth interview with this teacher.',
+    vi: 'Phát ngôn trực tiếp từ buổi phỏng vấn sâu của giáo viên này.',
+  },
+  iaEmptyTeacherUnits: {
+    en: 'No meaning units found for this teacher.',
+    vi: 'Chưa có đơn vị ý nghĩa cho giáo viên này.',
+  },
+  iaQuotesSubtitle: {
+    en: 'Curated golden excerpts categorized by Research Questions (RQ1, RQ2, RQ3).',
+    vi: 'Tuyển chọn những câu trích dẫn đắt giá nhất phân theo Research Questions (RQ1, RQ2, RQ3).',
+  },
+  iaQuotesThesisCitation: { en: '(Thesis Findings Citations)', vi: '(Trích Dẫn Kết Quả Luận Văn)' },
+  iaAllRqs: { en: 'All RQs', vi: 'Tất Cả RQs' },
+  iaEmptyQuotes: {
+    en: 'No quotes available yet. Click "AI Select Golden Quotes" to curate golden excerpts from interview data.',
+    vi: 'Chưa có câu trích dẫn nào. Bấm "AI Tuyển Chọn Trích Dẫn Vàng" để lọc các phát ngôn xuất sắc nhất từ dữ liệu phỏng vấn.',
+  },
+  iaCopyQuote: { en: 'Copy quote', vi: 'Sao chép trích dẫn' },
+  iaQuoteCopied: { en: 'Copied to clipboard', vi: 'Đã sao chép vào bộ nhớ tạm' },
+  iaStatusDraft: { en: 'Draft', vi: 'Bản Nháp' },
+  iaMaxAudioSize: { en: 'Max 250MB • Bilingual EN / VI', vi: 'Tối đa 250MB • Đa ngữ EN / VI' },
+  iaGeneral: { en: 'General', vi: 'Chung' },
+  iaInterviewSource: { en: 'Interview', vi: 'Phỏng vấn' },
+  iaAiFlowConfig: { en: 'AI Flow Config', vi: 'Cấu hình AI Flow' },
+  iaStatusLabel: { en: 'Status:', vi: 'Trạng thái:' },
+  iaLanguageLabel: { en: 'Language:', vi: 'Ngôn ngữ:' },
+  iaPlaybackPause: { en: 'Pause', vi: 'Tạm dừng' },
+  iaPlaybackPlay: { en: 'Play', vi: 'Phát' },
+  iaTranscriptTitle: { en: 'Interview Transcript', vi: 'Lời Thoại Phỏng Vấn' },
 
   // Research Analytics & Trends (Qualitative Evidence & Thematic Synthesis)
 
@@ -332,6 +561,15 @@ export const translations: TranslationDict = {
   aiStudioKeyDefaultBadge: { en: 'Default Key', vi: 'Khóa Mặc Định' },
   aiStudioKeySetDefault: { en: 'Set as Default for Provider', vi: 'Đặt làm khóa mặc định cho nhà cung cấp' },
   aiStudioKeyStatusActive: { en: 'Active in Flow Routing', vi: 'Kích hoạt sử dụng trong chuỗi' },
+  aiStudioModuleVideo: { en: 'Module 1 • Video Observation Pipeline', vi: 'Module 1 • Pipeline Phân Tích Video Quan Sát' },
+  aiStudioModuleVideoSub: { en: 'Auto-triggered on video upload or manual re-run in Video Detail', vi: 'Kích hoạt khi nạp video tại trang Upload hoặc bấm Chạy Lại trong Chi Tiết Video' },
+  aiStudioModuleSynthesis: { en: 'Module 2 • Qualitative Corpus Synthesis', vi: 'Module 2 • Quy Nạp & Tổng Hợp Định Tính Tập Mẫu' },
+  aiStudioModuleSynthesisSub: { en: 'On-demand qualitative induction across Code Book, Themes, and Interview Guide', vi: 'Suy luận quy nạp định tính theo yêu cầu tại các màn hình Sổ Mã, Chủ Đề và Bộ Phỏng Vấn' },
+  aiStudioModuleInterview: { en: 'Module 3 • Interview Qualitative Pipeline', vi: 'Module 3 • Pipeline Phân Tích Định Tính Phỏng Vấn' },
+  aiStudioModuleInterviewSub: { en: 'Multimodal audio transcription, meaning units, inductive coding & triangulation', vi: 'Bóc băng ghi âm đa ngữ, bóc tách đơn vị ý nghĩa, mã quy nạp và đối chiếu tam giác' },
+  aiStudioTagUIVideo: { en: 'UI: Video Detail (/videos/:id)', vi: 'UI: Chi Tiết Video (/videos/:id)' },
+  aiStudioTagUIThemes: { en: 'UI: /codebook • /themes • /interview', vi: 'UI: /codebook • /themes • /interview' },
+  aiStudioTagUIInterview: { en: 'UI: Interview Analysis (/interview-analysis)', vi: 'UI: Phân Tích Phỏng Vấn (/interview-analysis)' },
 
   // Admin & Settings Tabs
   tabAdminCenter: { en: 'API Config & Routing', vi: 'Cấu Hình API & Định Tuyến' },
@@ -1046,7 +1284,7 @@ export const translations: TranslationDict = {
   wfReferenceBadge: { en: 'Foundational rubric (Auto-referenced)', vi: 'Khung tiêu chí mẫu (Tham chiếu tự động)' },
   wfSemiAutoBadge: { en: 'Semi-automated (Auto evidence sync)', vi: 'Bán tự động (Tự đồng bộ dẫn chứng)' },
 
-  wfVideosStep: { en: 'Step 1 / 5: Central Data Hub', vi: 'Bước 1 / 5: Trung Tâm Dữ Liệu' },
+  wfVideosStep: { en: 'Step 1 / 6: Central Data Hub', vi: 'Bước 1 / 6: Trung Tâm Dữ Liệu' },
   wfVideosRunsAfter: { en: 'Starts upon video ingestion', vi: 'Khởi đầu ngay khi tải video lên hệ thống' },
   wfVideosAutoText: { en: 'Auto-runs AI pipeline on upload', vi: 'Tự động chạy pipeline khi có video mới' },
   wfVideosDesc: { en: 'When videos are uploaded, the multimodal AI pipeline triggers automatically (Chunking ➔ Event Extraction ➔ Rubric Mapping ➔ Report). Track live progress or re-run anytime.', vi: 'Khi tải video lên, hệ thống tự động khởi chạy chuỗi xử lý AI (Chunking ➔ Trích xuất sự kiện ➔ Ánh xạ tiêu chí ➔ Tạo báo cáo). Bạn có thể theo dõi tiến độ thời gian thực hoặc bấm chạy lại từng video.' },
@@ -1061,30 +1299,35 @@ export const translations: TranslationDict = {
   wfChecklistsAutoText: { en: 'Auto-referenced by AI during analysis', vi: 'Được AI tham chiếu tự động khi phân tích' },
   wfChecklistsDesc: { en: 'Standard 5-section rubric (A-E). AI models automatically load these criteria during Step 3 (Mapping) to score pedagogical events. Criteria can be customized anytime.', vi: 'Khung tiêu chí chuẩn 5 phần (A: Giàn giáo, B: Đặt câu hỏi, C: Khen ngợi, D: Công cụ số, E: Học sinh tự chủ). Mô hình AI tự động đọc bảng kiểm này trong bước Mapping để đối soát và đánh giá từng sự kiện video.' },
 
-  wfCodebookStep: { en: 'Step 2 / 5: Qualitative Coding', vi: 'Bước 2 / 5: Mã Hóa Định Tính' },
+  wfCodebookStep: { en: 'Step 2 / 6: Qualitative Coding', vi: 'Bước 2 / 6: Mã Hóa Định Tính' },
   wfCodebookRunsAfter: { en: 'Runs after Video Analysis completes (report_generated)', vi: 'Chạy sau khi Video phân tích xong (Step: report_generated)' },
   wfCodebookAutoText: { en: 'Auto-generates codes upon video completion', vi: 'Tự động tạo mã sau khi video hoàn tất phân tích' },
   wfCodebookDesc: { en: 'Automatically extracts pedagogical codebook (Definitions, Inclusion/Exclusion criteria, Grounded quotes) from completed videos. Export single or combined research reports.', vi: 'Tính năng này trích xuất tự động bảng mã sư phạm (Định nghĩa, Tiêu chí đưa vào/loại trừ, Dẫn chứng trích đoạn) từ các sự kiện video đã hoàn thành. Bạn có thể xem riêng từng video hoặc xuất sổ mã tổng hợp.' },
 
-  wfReportsStep: { en: 'Step 2.5 / 5: Individual Lesson Reports', vi: 'Bước 2.5 / 5: Báo Cáo Từng Tiết Dạy' },
+  wfReportsStep: { en: 'Step 2.5 / 6: Individual Lesson Reports', vi: 'Bước 2.5 / 6: Báo Cáo Từng Tiết Dạy' },
   wfReportsRunsAfter: { en: 'Runs after Video Analysis completes (report_generated)', vi: 'Chạy sau khi Video phân tích xong (Step: report_generated)' },
   wfReportsAutoText: { en: 'Auto-generated immediately when analysis finishes', vi: 'Tự động sinh báo cáo đầy đủ ngay khi phân tích xong' },
   wfReportsDesc: { en: 'Comprehensive observation transcripts, rubric mapping, and duration stats are 100% auto-generated upon video pipeline completion. Ready for Word/DOCX export individually or in batch.', vi: 'Toàn bộ biên bản quan sát, phân loại theo rubric và thống kê thời lượng được tạo tự động 100% khi quy trình phân tích video kết thúc. Sẵn sàng xem chi tiết và xuất Word/DOCX chuyên khảo đơn lẻ hoặc hàng loạt.' },
 
-  wfAnalyticsStep: { en: 'Step 3 / 5: Corpus-Wide Benchmarking', vi: 'Bước 3 / 5: Đối Sánh Toàn Tập Mẫu' },
+  wfAnalyticsStep: { en: 'Step 3 / 6: Corpus-Wide Benchmarking', vi: 'Bước 3 / 6: Đối Sánh Toàn Tập Mẫu' },
   wfAnalyticsRunsAfter: { en: 'Runs after 1 or more videos finish analysis', vi: 'Chạy sau khi có một hoặc nhiều video hoàn tất phân tích' },
   wfAnalyticsAutoText: { en: 'Real-time Auto-aggregation from analyzed videos', vi: 'Tự động tổng hợp thời gian thực (Real-time Sync)' },
   wfAnalyticsDesc: { en: 'No manual batch run needed. All longitudinal charts (Trajectory, 5D Radar, Lesson Stream, Pedagogical Quadrant) auto-refresh in real time as videos finish.', vi: 'Không cần bấm nút chạy hay đợi xử lý theo đợt. Ngay khi bất kỳ video nào phân tích xong, các biểu đồ (Xu hướng tiến triển, Radar 5 chiều, Dòng chảy tiết học, Ma trận phong cách) tự động cập nhật ngay lập tức.' },
 
-  wfThemesStep: { en: 'Step 4 / 5: Grounded Theory Synthesis', vi: 'Bước 4 / 5: Quy Nạp Chủ Đề Grounded Theory' },
+  wfThemesStep: { en: 'Step 4 / 6: Grounded Theory Synthesis', vi: 'Bước 4 / 6: Quy Nạp Chủ Đề Grounded Theory' },
   wfThemesRunsAfter: { en: 'Runs after the video corpus is fully analyzed', vi: 'Chạy sau khi toàn bộ tập video đã được phân tích đầy đủ' },
   wfThemesAutoText: { en: 'Manual / On-demand run (Click "Run Analysis")', vi: 'Chạy thủ công theo yêu cầu (Bấm "Khởi chạy phân tích")' },
   wfThemesDesc: { en: 'Because this is a multi-stage deep AI inductive process (5 stages across entire corpus), researchers trigger it manually once sufficient video data is collected.', vi: 'Do là tiến trình suy luận quy nạp AI chuyên sâu qua 5 giai đoạn (Gom cụm ➔ Phát hiện Patterns ➔ Grounded Theory ➔ Tổng hợp câu hỏi RQ1-RQ3 ➔ Hồ sơ giáo viên), bạn chủ động bấm nút khởi chạy khi tập mẫu sẵn sàng.' },
 
-  wfInterviewStep: { en: 'Step 5 / 5: Post-Observation Protocol', vi: 'Bước 5 / 5: Hướng Dẫn Phỏng Vấn Hậu Quan Sát' },
+  wfInterviewStep: { en: 'Step 5 / 6: Post-Observation Protocol', vi: 'Bước 5 / 6: Hướng Dẫn Phỏng Vấn Hậu Quan Sát' },
   wfInterviewRunsAfter: { en: 'Runs after video analysis & Teaching Themes synthesis', vi: 'Chạy sau khi phân tích video và hoàn tất tổng hợp Themes' },
   wfInterviewAutoText: { en: 'Semi-automated (Auto-links evidence, manual review)', vi: 'Bán tự động (Tự liên kết bằng chứng, duyệt câu hỏi)' },
-  wfInterviewDesc: { en: 'System auto-associates observed teacher evidence with questions. Core 22 questions (RQ1–RQ3) can be approved or re-synthesized by AI on demand.', vi: 'Hệ thống tự động liên kết bằng chứng quan sát của từng giáo viên từ các video đã phân tích. Bộ câu hỏi cốt lõi 22 câu (RQ1–RQ3) có thể được phê duyệt hoặc AI tổng hợp lại theo nhu cầu nghiên cứu.' }
+  wfInterviewDesc: { en: 'System auto-associates observed teacher evidence with questions. Core 22 questions (RQ1–RQ3) can be approved or re-synthesized by AI on demand.', vi: 'Hệ thống tự động liên kết bằng chứng quan sát của từng giáo viên từ các video đã phân tích. Bộ câu hỏi cốt lõi 22 câu (RQ1–RQ3) có thể được phê duyệt hoặc AI tổng hợp lại theo nhu cầu nghiên cứu.' },
+
+  wfInterviewAnalysisStep: { en: 'Step 6 / 6: Post-Interview Qualitative Analysis', vi: 'Bước 6 / 6: Phân Tích Định Tính Sau Phỏng Vấn' },
+  wfInterviewAnalysisRunsAfter: { en: 'Runs after Post-Observation Protocol (Step 5) & Audio Recording collection', vi: 'Chạy sau khi lập Hướng Dẫn Phỏng Vấn (Bước 5) và thu thập file ghi âm' },
+  wfInterviewAnalysisAutoText: { en: 'Semi-automated (AI transcription, unit segmentation, qualitative coding & triangulation)', vi: 'Bán tự động (AI bóc băng, tách đơn vị ý nghĩa, mã hóa định tính và đối chiếu tam giác)' },
+  wfInterviewAnalysisDesc: { en: 'Comprehensive qualitative inquiry pipeline: Audio transcription, dual-mode review, meaning units segmentation, inductive coding, and observation-interview triangulation matrix.', vi: 'Quy trình phân tích định tính toàn diện: Bóc băng ghi âm đa phương thức, rà soát 2 chế độ, bóc tách đơn vị ý nghĩa, mã hóa quy nạp và xây dựng ma trận đối chiếu tam giác quan sát - phỏng vấn.' }
 };
 
 interface I18nContextType {

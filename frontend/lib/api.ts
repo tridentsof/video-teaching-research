@@ -94,6 +94,26 @@ export interface PipelineStatusSummary {
   jobs: PipelineJob[];
 }
 
+export interface TelegramFlowEventItem {
+  event: string;
+  name: string;
+  status: 'success' | 'failure' | string;
+  description: string;
+}
+
+export interface TelegramFlowItem {
+  id: string;
+  name: string;
+  name_vi: string;
+  module: string;
+  icon: string;
+  is_active: boolean;
+  trigger: string;
+  description: string;
+  target_url: string;
+  events?: TelegramFlowEventItem[];
+}
+
 export interface AnalysisRunItem {
   id: string;
   status: string;
@@ -413,7 +433,7 @@ export interface InterviewResponseItem {
   audio_duration_sec: number;
   language: string;
   raw_transcript?: string;
-  transcript_status: 'draft' | 'uploading' | 'transcribing' | 'transcribed' | 'reviewed' | 'finalized' | 'failed';
+  transcript_status: 'draft' | 'uploaded' | 'uploading' | 'transcribing' | 'transcribed' | 'reviewed' | 'finalized' | 'failed';
   response_text: string;
   recorded_at?: string;
   created_at: string;
@@ -465,8 +485,24 @@ export interface TeacherComparisonData {
   triangulation: TriangulationEntryItem[];
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
+export function getApiBase(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  if (typeof window !== 'undefined') {
+    // When running in browser, connect directly to backend port 8000
+    // to bypass Next.js internal 30-second proxy rewrite timeout for AI operations
+    const port = window.location.port;
+    if (port === '3000' || !port) {
+      return `${window.location.protocol}//${window.location.hostname}:8000/api`;
+    }
+  }
+  return '/api';
+}
 
+export const API_BASE = (typeof window !== 'undefined' && (window.location.port === '3000' || !window.location.port))
+  ? `${window.location.protocol}//${window.location.hostname}:8000/api`
+  : (process.env.NEXT_PUBLIC_API_URL || '/api');
 
 function getAuthHeader(): Record<string, string> {
   if (typeof window === 'undefined') return {};
@@ -484,7 +520,8 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     ...options.headers,
   };
 
-  const res = await fetch(`${API_BASE}${endpoint}`, {
+  const apiBase = getApiBase();
+  const res = await fetch(`${apiBase}${endpoint}`, {
     ...options,
     headers,
   });
@@ -993,6 +1030,7 @@ export const api = {
     has_static_chat_id: boolean;
     active_subscribers: number;
     bot_username: string;
+    active_flows?: TelegramFlowItem[];
   }> {
     return request('/settings/telegram/status');
   },
@@ -1015,11 +1053,19 @@ export const api = {
 
   // --- Post-Interview Analysis API ---
 
-  async uploadInterviewAudio(teacherId: string, runId: string, file: File): Promise<InterviewResponseItem> {
+  async uploadInterviewAudio(
+    teacherId: string,
+    runId: string,
+    file: File,
+    overwriteMode?: 'replace_audio' | 'full_reset'
+  ): Promise<InterviewResponseItem> {
     const formData = new FormData();
     formData.append('teacher_id', teacherId);
     formData.append('analysis_run_id', runId);
     formData.append('audio_file', file);
+    if (overwriteMode) {
+      formData.append('overwrite_mode', overwriteMode);
+    }
 
     const headers = getAuthHeader();
     const res = await fetch(`${API_BASE}/interview-analysis/upload-audio`, {
@@ -1035,8 +1081,15 @@ export const api = {
     return res.json();
   },
 
-  async transcribeInterviewAudio(responseId: string): Promise<InterviewResponseItem> {
+  async transcribeInterviewAudio(responseId: string, signal?: AbortSignal): Promise<InterviewResponseItem> {
     return request<InterviewResponseItem>(`/interview-analysis/responses/${responseId}/transcribe`, {
+      method: 'POST',
+      signal,
+    });
+  },
+
+  async cancelInterviewTranscription(responseId: string): Promise<void> {
+    return request<void>(`/interview-analysis/responses/${responseId}/cancel-transcribe`, {
       method: 'POST',
     });
   },
@@ -1066,15 +1119,38 @@ export const api = {
     return data.responses || [];
   },
 
+  async alignAndSplitQA(
+    teacherId: string,
+    runId?: string,
+    rawTranscript?: string,
+    signal?: AbortSignal
+  ): Promise<InterviewResponseItem[]> {
+    const data = await request<{ responses?: InterviewResponseItem[] } | InterviewResponseItem[]>(
+      '/interview-analysis/responses/align-qa',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          teacher_id: teacherId,
+          analysis_run_id: runId,
+          raw_transcript: rawTranscript,
+        }),
+        signal,
+      }
+    );
+    if (Array.isArray(data)) return data;
+    return (data as any)?.responses || [];
+  },
+
   async deleteInterviewResponse(responseId: string): Promise<void> {
     return request<void>(`/interview-analysis/responses/${responseId}`, {
       method: 'DELETE',
     });
   },
 
-  async segmentMeaningUnits(responseId: string): Promise<MeaningUnitItem[]> {
+  async segmentMeaningUnits(responseId: string, signal?: AbortSignal): Promise<MeaningUnitItem[]> {
     const data = await request<{ meaning_units: MeaningUnitItem[] }>(`/interview-analysis/responses/${responseId}/segment`, {
       method: 'POST',
+      signal,
     });
     return data.meaning_units || [];
   },
@@ -1115,7 +1191,7 @@ export const api = {
     });
   },
 
-  async generateInterviewCodes(teacherId: string, runId?: string): Promise<{
+  async generateInterviewCodes(teacherId: string, runId?: string, signal?: AbortSignal): Promise<{
     meaning_units: MeaningUnitItem[];
     codes: InterviewCodeItem[];
   }> {
@@ -1125,6 +1201,7 @@ export const api = {
     }>('/interview-analysis/codes/generate', {
       method: 'POST',
       body: JSON.stringify({ teacher_id: teacherId, analysis_run_id: runId }),
+      signal,
     });
   },
 
@@ -1134,10 +1211,11 @@ export const api = {
     return data.codes || [];
   },
 
-  async runInterviewTriangulation(runId: string): Promise<TriangulationEntryItem[]> {
+  async runInterviewTriangulation(runId: string, signal?: AbortSignal): Promise<TriangulationEntryItem[]> {
     const data = await request<{ triangulation_entries: TriangulationEntryItem[] }>('/interview-analysis/triangulate', {
       method: 'POST',
       body: JSON.stringify({ analysis_run_id: runId }),
+      signal,
     });
     return data.triangulation_entries || [];
   },
@@ -1164,10 +1242,11 @@ export const api = {
     return request<TeacherComparisonData>(`/interview-analysis/teacher-comparison/${teacherId}${query}`);
   },
 
-  async selectRepresentativeQuotes(runId: string): Promise<RepresentativeQuoteItem[]> {
+  async selectRepresentativeQuotes(runId: string, signal?: AbortSignal): Promise<RepresentativeQuoteItem[]> {
     const data = await request<{ quotes: RepresentativeQuoteItem[] }>('/interview-analysis/quotes/select', {
       method: 'POST',
       body: JSON.stringify({ analysis_run_id: runId }),
+      signal,
     });
     return data.quotes || [];
   },
