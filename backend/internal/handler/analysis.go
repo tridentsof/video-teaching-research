@@ -230,6 +230,51 @@ func (h *AnalysisHandler) GetTeacherAnalysis(c *gin.Context) {
 	})
 }
 
+// GenerateTeacherAnalysis generates analysis and interview questions for a single teacher.
+// POST /api/analysis/:run_id/teachers/:teacher_id/generate
+func (h *AnalysisHandler) GenerateTeacherAnalysis(c *gin.Context) {
+	param := c.Param("run_id")
+	var runID uuid.UUID
+	var err error
+
+	if param == "latest" || param == "default" {
+		latestRun, err := h.svc.GetLatestRun(c.Request.Context())
+		if err != nil {
+			RespondError(c, http.StatusInternalServerError, "failed to query latest analysis run: "+err.Error())
+			return
+		}
+		if latestRun == nil {
+			RespondError(c, http.StatusNotFound, "no analysis run found; please run initial thematic analysis first")
+			return
+		}
+		runID = latestRun.ID
+	} else {
+		runID, err = uuid.Parse(param)
+		if err != nil {
+			RespondError(c, http.StatusBadRequest, "invalid analysis run ID")
+			return
+		}
+	}
+
+	teacherID := strings.TrimSpace(c.Param("teacher_id"))
+	if teacherID == "" {
+		RespondError(c, http.StatusBadRequest, "teacher_id is required")
+		return
+	}
+
+	ta, questions, err := h.svc.GenerateSingleTeacherAnalysisAndQuestions(c.Request.Context(), runID, teacherID)
+	if err != nil {
+		RespondError(c, http.StatusInternalServerError, "failed to generate questions for teacher: "+err.Error())
+		return
+	}
+
+	RespondSuccess(c, gin.H{
+		"run_id":              runID,
+		"teacher_analysis":    ta,
+		"interview_questions": questions,
+	})
+}
+
 // ExportInterviewMarkdown downloads the interview questions as a markdown file for the researcher.
 // GET /api/analysis/:run_id/teachers/:teacher_id/interview.md
 func (h *AnalysisHandler) ExportInterviewMarkdown(c *gin.Context) {

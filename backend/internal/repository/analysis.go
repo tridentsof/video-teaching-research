@@ -550,3 +550,54 @@ func (r *AnalysisRepository) CleanOrphanedRuns(ctx context.Context) error {
 	}
 	return nil
 }
+
+// UpsertTeacherAnalysis updates or inserts analysis and questions for a single teacher within a run,
+// without affecting other teachers in that run.
+func (r *AnalysisRepository) UpsertTeacherAnalysis(
+	ctx context.Context,
+	ta *model.TeacherAnalysis,
+	questions []model.InterviewQuestion,
+) error {
+	tx, err := r.db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Delete existing teacher_analyses for this specific teacher in this run.
+	// ON DELETE CASCADE will delete its corresponding interview_questions.
+	delQuery := `DELETE FROM teacher_analyses WHERE analysis_run_id = $1 AND teacher_id = $2`
+	if _, err := tx.Exec(ctx, delQuery, ta.AnalysisRunID, ta.TeacherID); err != nil {
+		return fmt.Errorf("failed to delete existing teacher analysis: %w", err)
+	}
+
+	// 2. Insert new teacher_analysis
+	taQuery := `
+		INSERT INTO teacher_analyses (id, analysis_run_id, teacher_id, theme_ids, context_summary, markdown_content, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`
+	thIDs := ta.ThemeIDs
+	if thIDs == nil {
+		thIDs = []uuid.UUID{}
+	}
+	if _, err := tx.Exec(ctx, taQuery,
+		ta.ID, ta.AnalysisRunID, ta.TeacherID, thIDs, ta.ContextSummary, ta.MarkdownContent, ta.CreatedAt,
+	); err != nil {
+		return fmt.Errorf("failed to insert teacher analysis: %w", err)
+	}
+
+	// 3. Insert questions
+	qQuery := `
+		INSERT INTO interview_questions (id, teacher_analysis_id, teacher_id, type, rq_category, question_text, evidence_ref, is_user_edited, sort_order, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	`
+	for _, q := range questions {
+		if _, err := tx.Exec(ctx, qQuery,
+			q.ID, ta.ID, q.TeacherID, q.Type, q.RQCategory, q.QuestionText, q.EvidenceRef, q.IsUserEdited, q.SortOrder, q.CreatedAt,
+		); err != nil {
+			return fmt.Errorf("failed to insert interview question: %w", err)
+		}
+	}
+
+	return tx.Commit(ctx)
+}

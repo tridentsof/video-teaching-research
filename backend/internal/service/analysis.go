@@ -1089,3 +1089,93 @@ func (s *AnalysisService) UpdateInterviewQuestion(ctx context.Context, qID uuid.
 	return s.analysisRepo.UpdateInterviewQuestion(ctx, qID, questionText, rqCategory)
 }
 
+// GenerateSingleTeacherAnalysisAndQuestions generates analysis and evidence-cited dynamic interview questions
+// for a single specified teacher within an existing analysis run, without modifying other teachers.
+func (s *AnalysisService) GenerateSingleTeacherAnalysisAndQuestions(
+	ctx context.Context,
+	runID uuid.UUID,
+	teacherID string,
+) (*model.TeacherAnalysis, []model.InterviewQuestion, error) {
+	teacherID = strings.TrimSpace(teacherID)
+	if teacherID == "" {
+		return nil, nil, fmt.Errorf("teacher_id cannot be empty")
+	}
+
+	var run *model.AnalysisRun
+	var err error
+	if runID == uuid.Nil {
+		run, err = s.analysisRepo.GetLatestRun(ctx)
+		if err != nil || run == nil {
+			return nil, nil, fmt.Errorf("no analysis run found; please run initial thematic analysis first")
+		}
+		runID = run.ID
+	} else {
+		run, err = s.analysisRepo.GetRun(ctx, runID)
+		if err != nil || run == nil {
+			return nil, nil, fmt.Errorf("analysis run not found: %s", runID)
+		}
+	}
+
+	themes, err := s.analysisRepo.GetThemesByRunID(ctx, runID)
+	if err != nil || len(themes) == 0 {
+		return nil, nil, fmt.Errorf("no themes found for run %s; please ensure themes have been generated", runID)
+	}
+
+	var coreQuestions []model.CoreQuestionItem
+	if run.CoreQuestions != "" && run.CoreQuestions != "[]" {
+		_ = json.Unmarshal([]byte(run.CoreQuestions), &coreQuestions)
+	}
+	if len(coreQuestions) == 0 {
+		coreQuestions = DefaultSynthesizedCoreQuestions
+	}
+
+	reportItems, err := s.reportRepo.ListAllReportItemsWithContext(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to list report items: %w", err)
+	}
+
+	var teacherItems []repository.ReportItemContext
+	groupStrategyTotal := make(map[string]int)
+	uniqueTeachers := make(map[string]bool)
+
+	for _, item := range reportItems {
+		if item.TeacherID != "" {
+			uniqueTeachers[item.TeacherID] = true
+			if item.TeacherID == teacherID {
+				teacherItems = append(teacherItems, item)
+			}
+		}
+		if item.Count > 0 {
+			chText := strings.TrimSpace(item.ChecklistText)
+			if chText != "" {
+				groupStrategyTotal[chText] += item.Count
+			}
+		}
+	}
+
+	if len(teacherItems) == 0 {
+		return nil, nil, fmt.Errorf("no lesson report data found for teacher '%s'; please ensure videos are uploaded and Phase 1-5 analysis is completed", teacherID)
+	}
+
+	numTeachers := len(uniqueTeachers)
+	if numTeachers == 0 {
+		numTeachers = 1
+	}
+
+	log.Printf("[SingleTeacher] Generating analysis and questions for teacher %s in run %s (%d items)...", teacherID, runID, len(teacherItems))
+
+	ta, questions, err := s.generateTeacherAnalysisAndQuestions(
+		ctx, runID, teacherID, themes, teacherItems, groupStrategyTotal, numTeachers, coreQuestions,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate interview questions for teacher %s: %w", teacherID, err)
+	}
+
+	if err := s.analysisRepo.UpsertTeacherAnalysis(ctx, ta, questions); err != nil {
+		return nil, nil, fmt.Errorf("failed to save analysis for teacher %s: %w", teacherID, err)
+	}
+
+	log.Printf("[SingleTeacher] Successfully saved analysis and %d questions for teacher %s", len(questions), teacherID)
+	return ta, questions, nil
+}
+

@@ -15,7 +15,9 @@ import {
   RefreshCw,
   X,
   Clock,
+  Sparkles,
 } from 'lucide-react';
+import { usePipelineSync, markVideoReanalyzed, markStepSynced } from '@/lib/pipelineSync';
 
 export const PipelineNotificationCenter: React.FC = () => {
   const router = useRouter();
@@ -25,6 +27,10 @@ export const PipelineNotificationCenter: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'activity' | 'sync'>('activity');
+  const [syncingKey, setSyncingKey] = useState<string | null>(null);
+
+  const { reanalyzedGroups, reanalyzedCount, refresh: refreshSync } = usePipelineSync();
 
   const prevStatusesRef = useRef<Record<string, string>>({});
   const initialLoadDone = useRef(false);
@@ -57,6 +63,7 @@ export const PipelineNotificationCenter: React.FC = () => {
                 }
               );
             } else if (v.status === 'report_generated' || v.status === 'completed') {
+              markVideoReanalyzed(v.id);
               toast.success(
                 language === 'vi'
                   ? `Báo cáo phân tích sư phạm cho "${v.title || v.teacher_id}" đã sẵn sàng.`
@@ -134,6 +141,7 @@ export const PipelineNotificationCenter: React.FC = () => {
     e.stopPropagation();
     try {
       setRetryingId(videoId);
+      markVideoReanalyzed(videoId);
       // Optimistically update video status in local state so badge and list update immediately
       setVideos((prev) =>
         prev.map((v) =>
@@ -185,11 +193,43 @@ export const PipelineNotificationCenter: React.FC = () => {
     }
   };
 
+  const handleQuickSync = async (e: React.MouseEvent, group: typeof reanalyzedGroups[0]) => {
+    e.stopPropagation();
+    try {
+      setSyncingKey(group.videoId);
+      try {
+        await api.generateCodebook(group.videoId);
+      } catch {
+        // ignore if not applicable
+      }
+      markStepSynced('codebook', group.videoId);
+      markStepSynced('themes');
+      markStepSynced('interview');
+      localStorage.removeItem(`pipeline_video_reanalyzed_${group.videoId}`);
+      window.dispatchEvent(new CustomEvent('pipeline-sync-updated', { detail: { videoId: group.videoId } }));
+      toast.success(
+        language === 'vi'
+          ? `Đã đồng bộ thành công các bước hạ nguồn cho "${group.title}".`
+          : `Successfully synchronized downstream steps for "${group.title}".`,
+        {
+          title: language === 'vi' ? 'Đã đồng bộ' : 'Synchronized',
+        }
+      );
+      await refreshSync();
+    } catch (err: any) {
+      toast.error(err.message || 'Error syncing', { title: 'Sync Error' });
+    } finally {
+      setSyncingKey(null);
+    }
+  };
+
   const manualRefresh = async () => {
     setLoading(true);
-    await fetchVideosAndCheckTransitions();
+    await Promise.all([fetchVideosAndCheckTransitions(), refreshSync()]);
     setLoading(false);
   };
+
+  const totalBadgesWithSync = totalBadges + reanalyzedGroups.length;
 
   return (
     <div style={{ position: 'relative' }} ref={popoverRef}>
@@ -206,16 +246,18 @@ export const PipelineNotificationCenter: React.FC = () => {
           borderRadius: 'var(--radius-sm)',
           cursor: 'pointer',
           boxShadow: 'var(--shadow-sm)',
-          color: (failedVideos.length > 0 || cancelledVideos.length > 0) ? (failedVideos.length > 0 ? '#DC2626' : '#D97706') : 'var(--text-main)',
+          color: (failedVideos.length > 0 || cancelledVideos.length > 0 || reanalyzedGroups.length > 0)
+            ? (failedVideos.length > 0 ? '#DC2626' : '#D97706')
+            : 'var(--text-main)',
           fontWeight: 600,
           fontSize: '13px',
           transition: 'all 0.15s ease',
         }}
-        title="Video Analysis Activity"
+        title="Video Analysis & Pipeline Activity"
       >
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
           <Bell size={16} />
-          {(failedVideos.length > 0 || cancelledVideos.length > 0) && (
+          {(failedVideos.length > 0 || cancelledVideos.length > 0 || reanalyzedGroups.length > 0) && (
             <span
               style={{
                 position: 'absolute',
@@ -278,6 +320,20 @@ export const PipelineNotificationCenter: React.FC = () => {
           >
             {cancelledVideos.length} {t('filterCancelled')}
           </span>
+        ) : reanalyzedGroups.length > 0 ? (
+          <span
+            style={{
+              backgroundColor: '#FEF3C7',
+              color: '#B45309',
+              border: '1px solid #FDE68A',
+              padding: '1px 6px',
+              borderRadius: '10px',
+              fontSize: '11px',
+              fontWeight: 700,
+            }}
+          >
+            {reanalyzedGroups.length} {t('wfSyncTabTitle')}
+          </span>
         ) : null}
       </button>
 
@@ -288,8 +344,8 @@ export const PipelineNotificationCenter: React.FC = () => {
             position: 'absolute',
             top: 'calc(100% + 8px)',
             right: 0,
-            width: '400px',
-            maxWidth: '90vw',
+            width: '420px',
+            maxWidth: '92vw',
             backgroundColor: '#FFFFFF',
             border: '1px solid var(--card-border)',
             borderRadius: 'var(--radius-md)',
@@ -302,7 +358,7 @@ export const PipelineNotificationCenter: React.FC = () => {
           {/* Popover Header */}
           <div
             style={{
-              padding: '14px 18px',
+              padding: '12px 18px',
               backgroundColor: '#FAF8F4',
               borderBottom: '1px solid var(--card-border)',
               display: 'flex',
@@ -314,7 +370,7 @@ export const PipelineNotificationCenter: React.FC = () => {
               <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-main)' }}>
                 {t('actCenterTitle')}
               </span>
-              {totalBadges > 0 && (
+              {totalBadgesWithSync > 0 && (
                 <span
                   style={{
                     fontSize: '11px',
@@ -325,7 +381,7 @@ export const PipelineNotificationCenter: React.FC = () => {
                     color: failedVideos.length > 0 ? '#991B1B' : runningVideos.length > 0 ? '#3730A3' : '#92400E',
                   }}
                 >
-                  {totalBadges}
+                  {totalBadgesWithSync}
                 </span>
               )}
             </div>
@@ -366,10 +422,254 @@ export const PipelineNotificationCenter: React.FC = () => {
             </div>
           </div>
 
+          {/* Sub Tabs: Activity vs Sync Required */}
+          <div
+            style={{
+              display: 'flex',
+              borderBottom: '1px solid var(--card-border)',
+              backgroundColor: '#FAF8F4',
+              padding: '0 12px',
+              gap: '6px',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setActiveTab('activity')}
+              style={{
+                flex: 1,
+                padding: '8px 10px',
+                fontSize: '12px',
+                fontWeight: 600,
+                border: 'none',
+                background: 'none',
+                borderBottom: activeTab === 'activity' ? '2px solid var(--accent)' : '2px solid transparent',
+                color: activeTab === 'activity' ? 'var(--accent)' : 'var(--text-muted)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+              }}
+            >
+              <span>{language === 'vi' ? 'Tiến Trình Video' : 'Pipeline Activity'}</span>
+              {totalBadges > 0 && (
+                <span
+                  style={{
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    padding: '1px 6px',
+                    borderRadius: '999px',
+                    backgroundColor: failedVideos.length > 0 ? '#FEE2E2' : '#E5DFD5',
+                    color: failedVideos.length > 0 ? '#991B1B' : 'var(--text-main)',
+                  }}
+                >
+                  {totalBadges}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('sync')}
+              style={{
+                flex: 1,
+                padding: '8px 10px',
+                fontSize: '12px',
+                fontWeight: 600,
+                border: 'none',
+                background: 'none',
+                borderBottom: activeTab === 'sync' ? '2px solid #D97706' : '2px solid transparent',
+                color: activeTab === 'sync' ? '#D97706' : 'var(--text-muted)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <AlertTriangle size={12} style={{ color: reanalyzedGroups.length > 0 ? '#D97706' : 'inherit' }} />
+                <span>{t('wfSyncTabTitle')}</span>
+              </div>
+              {reanalyzedGroups.length > 0 && (
+                <span
+                  style={{
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    padding: '1px 6px',
+                    borderRadius: '999px',
+                    backgroundColor: '#FEF3C7',
+                    color: '#B45309',
+                    border: '1px solid #FDE68A',
+                  }}
+                >
+                  {reanalyzedGroups.length}
+                </span>
+              )}
+            </button>
+          </div>
+
           {/* List Content */}
-          <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
-            {/* Failed Items First */}
-            {failedVideos.map((video) => (
+          <div style={{ maxHeight: '380px', overflowY: 'auto' }}>
+            {activeTab === 'sync' ? (
+              /* TAB: SYNC REQUIRED */
+              <div>
+                {reanalyzedGroups.length === 0 ? (
+                  <div style={{ padding: '36px 20px', textAlign: 'center' }}>
+                    <div
+                      style={{
+                        width: '42px',
+                        height: '42px',
+                        borderRadius: '50%',
+                        backgroundColor: '#DCFCE7',
+                        color: '#15803D',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto 12px auto',
+                      }}
+                    >
+                      <CheckCircle2 size={22} />
+                    </div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '4px' }}>
+                      {t('wfStatusSynced')}
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5, maxWidth: '280px', margin: '0 auto' }}>
+                      {t('wfSyncAllClean')}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    {reanalyzedGroups.map((group) => (
+                      <div
+                        key={group.videoId}
+                        style={{
+                          padding: '14px 16px',
+                          borderBottom: '1px solid var(--card-border)',
+                          backgroundColor: '#FFFDF9',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '10px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div
+                              style={{
+                                width: '26px',
+                                height: '26px',
+                                borderRadius: '6px',
+                                backgroundColor: '#FEF3C7',
+                                color: '#D97706',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                              }}
+                            >
+                              <AlertTriangle size={14} />
+                            </div>
+                            <div>
+                              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
+                                {group.title}
+                              </div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Clock size={11} />
+                                <span>{new Date(group.reanalyzedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                <span style={{ opacity: 0.5 }}>•</span>
+                                <span>{group.teacherId}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => handleQuickSync(e, group)}
+                            disabled={syncingKey === group.videoId}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '3px 9px',
+                              borderRadius: '6px',
+                              backgroundColor: '#D97706',
+                              color: '#FFFFFF',
+                              border: 'none',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              cursor: syncingKey === group.videoId ? 'not-allowed' : 'pointer',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            <RefreshCw size={11} className={syncingKey === group.videoId ? 'animate-spin' : ''} />
+                            <span>{syncingKey === group.videoId ? t('wfSyncingBtn') : (language === 'vi' ? 'Sync Tất Cả' : 'Sync All')}</span>
+                          </button>
+                        </div>
+
+                        {/* Affected Steps List */}
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px',
+                            backgroundColor: '#FAF8F4',
+                            padding: '8px 10px',
+                            borderRadius: '8px',
+                            border: '1px solid #EFEAE1',
+                          }}
+                        >
+                          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>
+                            {t('wfSyncAffectedSteps')}
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {group.affectedSteps.map((step) => (
+                              <button
+                                key={step.featureKey}
+                                type="button"
+                                onClick={() => {
+                                  setIsOpen(false);
+                                  router.push(step.route);
+                                }}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '4px 8px',
+                                  borderRadius: '6px',
+                                  backgroundColor: '#FFFFFF',
+                                  border: '1px solid #E5DFD5',
+                                  fontSize: '11px',
+                                  color: 'var(--text-main)',
+                                  cursor: 'pointer',
+                                  fontWeight: 500,
+                                  transition: 'all 0.15s ease',
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.borderColor = 'var(--accent, #9E4A28)';
+                                  e.currentTarget.style.color = 'var(--accent, #9E4A28)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.borderColor = '#E5DFD5';
+                                  e.currentTarget.style.color = 'var(--text-main)';
+                                }}
+                                title={language === 'vi' ? step.actionLabelVi : step.actionLabelEn}
+                              >
+                                <span>{language === 'vi' ? step.nameVi.split('(')[0].trim() : step.nameEn}</span>
+                                <ArrowRight size={10} style={{ opacity: 0.6 }} />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* TAB: PIPELINE ACTIVITY */
+              <div>
+                {/* Failed Items First */}
+                {failedVideos.map((video) => (
               <div
                 key={video.id}
                 onClick={() => {
@@ -728,6 +1028,8 @@ export const PipelineNotificationCenter: React.FC = () => {
                 <span style={{ fontSize: '12px' }}>
                   {t('actAllClearSub')}
                 </span>
+              </div>
+            )}
               </div>
             )}
           </div>

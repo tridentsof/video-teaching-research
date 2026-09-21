@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { useTranslation } from '@/lib/i18n';
+import { useToast } from '@/components/ToastProvider';
+import { usePipelineSync } from '@/lib/pipelineSync';
 import {
   CornerDownRight,
   Zap,
@@ -11,6 +13,10 @@ import {
   Info,
   ChevronDown,
   ChevronUp,
+  AlertTriangle,
+  RefreshCw,
+  CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 
 export type FeatureWorkflowKey =
@@ -26,6 +32,7 @@ export type FeatureWorkflowKey =
 
 interface FeatureWorkflowBannerProps {
   featureKey: FeatureWorkflowKey;
+  videoId?: string;
   defaultExpanded?: boolean;
 }
 
@@ -105,10 +112,20 @@ const FEATURE_META_MAP: Record<FeatureWorkflowKey, FeatureMeta> = {
 
 export const FeatureWorkflowBanner: React.FC<FeatureWorkflowBannerProps> = ({
   featureKey,
+  videoId,
   defaultExpanded = true,
 }) => {
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
+  const toast = useToast();
   const [expanded, setExpanded] = useState(defaultExpanded);
+
+  const {
+    syncState,
+    staleReasonVi,
+    staleReasonEn,
+    isSyncing,
+    triggerSync,
+  } = usePipelineSync(featureKey, videoId);
 
   const meta = FEATURE_META_MAP[featureKey];
   if (!meta) return null;
@@ -209,13 +226,14 @@ export const FeatureWorkflowBanner: React.FC<FeatureWorkflowBannerProps> = ({
       style={{
         backgroundColor: '#FFFFFF',
         border: '1px solid var(--card-border, #E8E3D9)',
-        borderLeft: '4px solid var(--accent, #9E4A28)',
+        borderLeft: syncState === 'stale' ? '4px solid #D97706' : '4px solid var(--accent, #9E4A28)',
         borderRadius: 'var(--radius-md, 14px)',
         padding: '14px 18px',
         display: 'flex',
         flexDirection: 'column',
         gap: '10px',
         boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(40, 30, 20, 0.04))',
+        transition: 'all 0.2s ease',
       }}
     >
       {/* Top row: Step Sequence, Predecessor, Automation Badge, Collapse Toggle */}
@@ -253,7 +271,7 @@ export const FeatureWorkflowBanner: React.FC<FeatureWorkflowBannerProps> = ({
             {t(meta.stepKey)}
           </span>
 
-          {/* Predecessor step */}
+          {/* Predecessor step with Dynamic Status */}
           <span
             style={{
               display: 'inline-flex',
@@ -272,6 +290,58 @@ export const FeatureWorkflowBanner: React.FC<FeatureWorkflowBannerProps> = ({
               <strong style={{ color: 'var(--text-main, #1A1612)' }}>{t('wfRunsAfterLabel')}</strong>{' '}
               {t(meta.runsAfterKey)}
             </span>
+
+            {/* Dynamic Sync Status Pill */}
+            {featureKey !== 'videos' && featureKey !== 'upload' && featureKey !== 'checklists' && (
+              <span
+                style={{
+                  marginLeft: '4px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  padding: '1px 8px',
+                  borderRadius: '999px',
+                  backgroundColor:
+                    syncState === 'stale'
+                      ? '#FEF3C7'
+                      : syncState === 'running_predecessor'
+                      ? '#DBEAFE'
+                      : '#DCFCE7',
+                  color:
+                    syncState === 'stale'
+                      ? '#B45309'
+                      : syncState === 'running_predecessor'
+                      ? '#1E40AF'
+                      : '#15803D',
+                  border: `1px solid ${
+                    syncState === 'stale'
+                      ? '#FDE68A'
+                      : syncState === 'running_predecessor'
+                      ? '#BFDBFE'
+                      : '#BBF7D0'
+                  }`,
+                }}
+              >
+                {syncState === 'stale' ? (
+                  <>
+                    <AlertTriangle size={10} />
+                    <span>{t('wfStatusStale')}</span>
+                  </>
+                ) : syncState === 'running_predecessor' ? (
+                  <>
+                    <Loader2 size={10} className="animate-spin" />
+                    <span>{t('wfStatusRunning')}</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={10} />
+                    <span>{t('wfStatusSynced')}</span>
+                  </>
+                )}
+              </span>
+            )}
           </span>
         </div>
 
@@ -299,6 +369,97 @@ export const FeatureWorkflowBanner: React.FC<FeatureWorkflowBannerProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Dynamic Warning & Take Action Box when Stale */}
+      {syncState === 'stale' && (
+        <div
+          style={{
+            backgroundColor: '#FFFBEB',
+            border: '1px solid #FDE68A',
+            borderRadius: '10px',
+            padding: '10px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', flex: 1, minWidth: '240px' }}>
+            <div
+              style={{
+                width: '26px',
+                height: '26px',
+                borderRadius: '6px',
+                backgroundColor: '#FEF3C7',
+                color: '#D97706',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                marginTop: '1px',
+              }}
+            >
+              <AlertTriangle size={15} />
+            </div>
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#92400E' }}>
+                {t('wfSyncWarningTitle')}
+              </div>
+              <div style={{ fontSize: '12px', color: '#B45309', marginTop: '2px', lineHeight: 1.4 }}>
+                {(language === 'vi' ? staleReasonVi : staleReasonEn) || t('wfSyncWarningDesc')}
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={async () => {
+              const ok = await triggerSync();
+              if (ok) {
+                toast.success(
+                  language === 'vi'
+                    ? `Đã kích hoạt đồng bộ thành công cho bước ${t(meta.stepKey)}.`
+                    : `Successfully triggered synchronization for ${t(meta.stepKey)}.`,
+                  {
+                    title: language === 'vi' ? 'Đồng bộ thành công' : 'Sync Succeeded',
+                  }
+                );
+              } else {
+                toast.info(
+                  language === 'vi'
+                    ? 'Đang tiến hành đồng bộ dữ liệu với kết quả mới nhất.'
+                    : 'Synchronizing with latest video analysis results.',
+                  {
+                    title: language === 'vi' ? 'Đang đồng bộ' : 'Syncing Data',
+                  }
+                );
+              }
+            }}
+            disabled={isSyncing}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              backgroundColor: '#D97706',
+              color: '#FFFFFF',
+              border: 'none',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: isSyncing ? 'not-allowed' : 'pointer',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
+              opacity: isSyncing ? 0.7 : 1,
+              transition: 'all 0.15s ease',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <RefreshCw size={12} className={isSyncing ? 'animate-spin' : ''} />
+            <span>{isSyncing ? t('wfSyncingBtn') : t('wfTakeActionBtn')}</span>
+          </button>
+        </div>
+      )}
 
       {/* Expandable description and operational guide */}
       {expanded && (

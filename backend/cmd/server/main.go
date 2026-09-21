@@ -294,6 +294,7 @@ func main() {
 						analysis.POST("/themes/merge", analysisHandler.MergeThemes)
 						analysis.PUT("/themes/:id/confirm", analysisHandler.ConfirmTheme)
 						analysis.GET("/:run_id/teachers/:teacher_id", analysisHandler.GetTeacherAnalysis)
+						analysis.POST("/:run_id/teachers/:teacher_id/generate", analysisHandler.GenerateTeacherAnalysis)
 						analysis.GET("/:run_id/teachers/:teacher_id/interview.md", analysisHandler.ExportInterviewMarkdown)
 						analysis.GET("/:run_id/core-questions", analysisHandler.GetCoreQuestions)
 						analysis.POST("/:run_id/core-questions/synthesize", analysisHandler.SynthesizeCoreQuestions)

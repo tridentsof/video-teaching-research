@@ -7,6 +7,7 @@ import { Video, RawEvent, PipelineJob, api } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n';
 import { useToast } from '@/components/ToastProvider';
 import { useUpload } from '@/lib/uploadContext';
+import { markVideoReanalyzed } from '@/lib/pipelineSync';
 import { PipelineStepper } from '@/components/PipelineStepper';
 import { EventTimeline } from '@/components/EventTimeline';
 import {
@@ -336,6 +337,7 @@ export default function VideoDetailPage() {
       });
 
       await api.triggerPipeline(id, undefined, rerunChunking, effectiveMode);
+      markVideoReanalyzed(id);
       toast.info(
         isResuming
           ? `Resuming analysis from checkpoint for "${video?.title || id}".`

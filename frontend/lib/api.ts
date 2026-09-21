@@ -767,6 +767,12 @@ export const api = {
     return request(`/analysis/${runId}/teachers/${teacherId}`);
   },
 
+  async generateTeacherQuestions(runId: string, teacherId: string): Promise<{ run_id?: string; teacher_analysis: TeacherAnalysis; interview_questions: InterviewQuestion[] }> {
+    return request(`/analysis/${runId}/teachers/${teacherId}/generate`, {
+      method: 'POST',
+    });
+  },
+
   getInterviewDownloadUrl(runId: string, teacherId: string): string {
     return `${API_BASE}/analysis/${runId}/teachers/${teacherId}/interview.md`;
   },

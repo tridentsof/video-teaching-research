@@ -22,6 +22,7 @@ import {
   Check,
   Loader2,
   AlertCircle,
+  AlertTriangle,
   ExternalLink,
   BookOpen,
   Plus,
@@ -102,6 +103,11 @@ export default function InterviewStudioPage() {
 
   // Edit individual interview question modal
   const [editingQuestion, setEditingQuestion] = useState<InterviewQuestion | null>(null);
+
+  // Single teacher generation & response protection states
+  const [teacherResponsesCount, setTeacherResponsesCount] = useState<number>(0);
+  const [isGeneratingTeacher, setIsGeneratingTeacher] = useState<boolean>(false);
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState<boolean>(false);
 
   // 1. Initial Page Load
   useEffect(() => {
@@ -198,8 +204,17 @@ export default function InterviewStudioPage() {
     const fetchTeacherData = async () => {
       setLoading(true);
       try {
-        const data = await api.getTeacherAnalysis(latestRunId || 'latest', selectedTeacher);
+        const [data, responses] = await Promise.all([
+          api.getTeacherAnalysis(latestRunId || 'latest', selectedTeacher).catch(() => null),
+          api.getInterviewResponses(selectedTeacher, latestRunId || undefined).catch(() => []),
+        ]);
         if (isCancelled) return;
+
+        if (responses && Array.isArray(responses)) {
+          setTeacherResponsesCount(responses.length);
+        } else {
+          setTeacherResponsesCount(0);
+        }
 
         if (data && data.interview_questions && data.interview_questions.length > 0) {
           const core = data.interview_questions.filter((q) => q.type === 'core');
@@ -221,6 +236,7 @@ export default function InterviewStudioPage() {
           setDynamicQuestions([]);
           setTeacherAnalysis(null);
           setIsLiveFromBackend(false);
+          setTeacherResponsesCount(0);
         }
       } finally {
         if (!isCancelled) setLoading(false);
@@ -233,6 +249,33 @@ export default function InterviewStudioPage() {
       isCancelled = true;
     };
   }, [selectedTeacher, latestRunId]);
+
+  // Single Teacher Question Generation
+  const handleGenerateTeacherQuestions = async () => {
+    setIsGeneratingTeacher(true);
+    try {
+      toast.info(t('interviewGeneratingToast').replace('{teacher}', selectedTeacher));
+      const data = await api.generateTeacherQuestions(latestRunId || 'latest', selectedTeacher);
+      if (data && data.interview_questions) {
+        const core = data.interview_questions.filter((q) => q.type === 'core');
+        const dyn = data.interview_questions.filter((q) => q.type === 'dynamic');
+
+        setCoreQuestions(core);
+        setDynamicQuestions(dyn);
+        setTeacherAnalysis(data.teacher_analysis || null);
+        setIsLiveFromBackend(true);
+        toast.success(
+          t('interviewGenerateSuccess')
+            .replace('{count}', String(dyn.length))
+            .replace('{teacher}', selectedTeacher)
+        );
+      }
+    } catch (err: any) {
+      toast.error(t('interviewGenerateError') + (err.message || 'Unknown error'));
+    } finally {
+      setIsGeneratingTeacher(false);
+    }
+  };
 
   // Flow A: Synthesize Core Questions
   const handleSynthesizeCore = async () => {
@@ -997,6 +1040,79 @@ export default function InterviewStudioPage() {
             </div>
 
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              {/* Generate / Regenerate for this Teacher */}
+              <button
+                type="button"
+                disabled={isGeneratingTeacher}
+                onClick={() => {
+                  if (teacherResponsesCount > 0) {
+                    setShowRegenerateConfirm(true);
+                  } else {
+                    handleGenerateTeacherQuestions();
+                  }
+                }}
+                style={{
+                  height: '30px',
+                  padding: '0 12px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  border: '1px solid var(--accent)',
+                  backgroundColor: dynamicQuestions.length === 0 ? 'var(--accent)' : '#FFFFFF',
+                  color: dynamicQuestions.length === 0 ? '#FFFFFF' : 'var(--accent)',
+                  cursor: isGeneratingTeacher ? 'not-allowed' : 'pointer',
+                  opacity: isGeneratingTeacher ? 0.7 : 1,
+                  boxShadow: 'var(--shadow-sm)',
+                  transition: 'all 0.15s ease',
+                }}
+                title={dynamicQuestions.length === 0 
+                  ? t('interviewGenerateForTeacher').replace('{teacher}', selectedTeacher)
+                  : t('interviewRegenerateForTeacher').replace('{teacher}', selectedTeacher)
+                }
+              >
+                {isGeneratingTeacher ? (
+                  <>
+                    <Loader2 size={13} className="animate-spin" />
+                    <span>{language === 'vi' ? 'Đang xử lý...' : 'Processing...'}</span>
+                  </>
+                ) : dynamicQuestions.length === 0 ? (
+                  <>
+                    <Sparkles size={13} />
+                    <span>{t('interviewGenerateForTeacher').replace('{teacher}', selectedTeacher)}</span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw size={12} />
+                    <span>{t('interviewRegenerateForTeacher').replace('{teacher}', selectedTeacher)}</span>
+                  </>
+                )}
+              </button>
+
+              {teacherResponsesCount > 0 && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    height: '28px',
+                    padding: '0 10px',
+                    borderRadius: '999px',
+                    backgroundColor: '#ECFDF5',
+                    color: '#065F46',
+                    border: '1px solid #A7F3D0',
+                  }}
+                  title={t('interviewTeacherProtectedTooltip')}
+                >
+                  <ShieldCheck size={13} color="#059669" />
+                  <span>{t('interviewTeacherProtected').replace('{count}', String(teacherResponsesCount))}</span>
+                </span>
+              )}
+
               {/* Copy Questions */}
               <button
                 onClick={handleCopy}
@@ -1247,16 +1363,84 @@ export default function InterviewStudioPage() {
                 flexDirection: 'column',
                 gap: '14px',
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Sparkles size={18} color="var(--accent-green)" />
                     <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>
                       {t('interviewDynamicColTitle')} — {selectedTeacher}
                     </h3>
                   </div>
-                  <span className="badge badge-audio" style={{ fontSize: '11px' }}>
-                    {dynamicQuestions.length} {t('interviewFollowupsCount')}
-                  </span>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    {teacherResponsesCount > 0 && (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          padding: '3px 10px',
+                          borderRadius: '999px',
+                          backgroundColor: '#ECFDF5',
+                          color: '#065F46',
+                          border: '1px solid #A7F3D0',
+                        }}
+                        title={t('interviewTeacherProtectedTooltip')}
+                      >
+                        <ShieldCheck size={13} color="#059669" />
+                        <span>{t('interviewTeacherProtected').replace('{count}', String(teacherResponsesCount))}</span>
+                      </span>
+                    )}
+
+                    <span className="badge badge-audio" style={{ fontSize: '11px' }}>
+                      {dynamicQuestions.length} {t('interviewFollowupsCount')}
+                    </span>
+
+                    <button
+                      type="button"
+                      disabled={isGeneratingTeacher}
+                      onClick={() => {
+                        if (teacherResponsesCount > 0) {
+                          setShowRegenerateConfirm(true);
+                        } else {
+                          handleGenerateTeacherQuestions();
+                        }
+                      }}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        padding: '5px 12px',
+                        borderRadius: '6px',
+                        border: '1px solid var(--accent)',
+                        backgroundColor: dynamicQuestions.length === 0 ? 'var(--accent)' : '#FFFFFF',
+                        color: dynamicQuestions.length === 0 ? '#FFFFFF' : 'var(--accent)',
+                        cursor: isGeneratingTeacher ? 'not-allowed' : 'pointer',
+                        opacity: isGeneratingTeacher ? 0.7 : 1,
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {isGeneratingTeacher ? (
+                        <>
+                          <Loader2 size={13} className="animate-spin" />
+                          <span>{language === 'vi' ? 'Đang xử lý...' : 'Processing...'}</span>
+                        </>
+                      ) : dynamicQuestions.length === 0 ? (
+                        <>
+                          <Sparkles size={13} />
+                          <span>{t('interviewGenerateForTeacher').replace('{teacher}', selectedTeacher)}</span>
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw size={12} />
+                          <span>{t('interviewRegenerateForTeacher').replace('{teacher}', selectedTeacher)}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>
@@ -1340,8 +1524,43 @@ export default function InterviewStudioPage() {
                       border: '1px dashed var(--card-border)',
                       color: 'var(--text-muted)',
                       fontSize: '13px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '14px',
                     }}>
-                      {t('interviewDynamicEmpty')}
+                      <div>{t('interviewDynamicEmpty')}</div>
+                      <button
+                        type="button"
+                        disabled={isGeneratingTeacher}
+                        onClick={handleGenerateTeacherQuestions}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '12.5px',
+                          fontWeight: 600,
+                          padding: '7px 16px',
+                          borderRadius: '6px',
+                          backgroundColor: 'var(--accent)',
+                          color: '#FFFFFF',
+                          border: 'none',
+                          cursor: isGeneratingTeacher ? 'not-allowed' : 'pointer',
+                          boxShadow: 'var(--shadow-sm)',
+                        }}
+                      >
+                        {isGeneratingTeacher ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" />
+                            <span>{language === 'vi' ? 'Đang phân tích & sinh câu hỏi...' : 'Generating...'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles size={14} />
+                            <span>{t('interviewGenerateForTeacher').replace('{teacher}', selectedTeacher)}</span>
+                          </>
+                        )}
+                      </button>
                     </div>
                   )}
                 </div>
@@ -2010,6 +2229,95 @@ export default function InterviewStudioPage() {
               </button>
               <button onClick={handleSaveQuestion} className="btn btn-primary">
                 {t('interviewSave')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: Confirm Question Regeneration for Protected Teacher */}
+      {showRegenerateConfirm && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px',
+        }}>
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 'var(--radius-md, 12px)',
+            maxWidth: '520px',
+            width: '100%',
+            padding: '24px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '8px',
+                backgroundColor: '#FEF2F2',
+                color: '#DC2626',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <AlertTriangle size={22} />
+              </div>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#991B1B' }}>
+                {t('interviewRegenerateConfirmTitle').replace('{teacher}', selectedTeacher)}
+              </h3>
+            </div>
+
+            <p style={{ margin: 0, fontSize: '13.5px', color: '#4B5563', lineHeight: 1.55 }}>
+              {t('interviewRegenerateConfirmDesc')
+                .replace('{teacher}', selectedTeacher)
+                .replace('{count}', String(teacherResponsesCount))}
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+              <button
+                type="button"
+                onClick={() => setShowRegenerateConfirm(false)}
+                className="btn btn-secondary"
+                style={{ fontSize: '13px' }}
+              >
+                {t('interviewRegenerateCancelBtn')}
+              </button>
+              <button
+                type="button"
+                disabled={isGeneratingTeacher}
+                onClick={() => {
+                  setShowRegenerateConfirm(false);
+                  handleGenerateTeacherQuestions();
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 18px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: '#DC2626',
+                  color: '#FFFFFF',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: isGeneratingTeacher ? 'not-allowed' : 'pointer',
+                }}
+              >
+                <RefreshCw size={13} />
+                <span>{t('interviewRegenerateConfirmBtn')}</span>
               </button>
             </div>
           </div>

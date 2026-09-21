@@ -1140,8 +1140,52 @@ export const translations: TranslationDict = {
     vi: 'Sinh trực tiếp từ Chronological Interaction Log (lời thoại & hành vi), bắt buộc gắn nhãn RQ1–RQ3 và trích dẫn bằng chứng mốc thời gian.'
   },
   interviewDynamicEmpty: {
-    en: 'No specific follow-up questions generated yet for this teacher. Click "Approve & Generate Guides" in the banner above.',
-    vi: 'Chưa có câu hỏi đào sâu riêng biệt cho giáo viên này. Nhấn "Approve & Generate Guides" ở banner trên để sinh câu hỏi.'
+    en: 'No specific follow-up questions generated yet for this teacher. Click "Approve & Generate Guides" in the banner above or use the button below to generate for this teacher.',
+    vi: 'Chưa có câu hỏi đào sâu riêng biệt cho giáo viên này. Nhấn "Approve & Generate Guides" ở banner trên hoặc nhấn nút bên dưới để sinh riêng cho giáo viên này.'
+  },
+  interviewGenerateForTeacher: {
+    en: 'Generate Questions for {teacher}',
+    vi: 'Sinh câu hỏi cho {teacher}',
+  },
+  interviewRegenerateForTeacher: {
+    en: 'Regenerate Questions for {teacher}',
+    vi: 'Sinh lại câu hỏi cho {teacher}',
+  },
+  interviewTeacherProtected: {
+    en: 'Interview Recorded ({count} responses)',
+    vi: 'Đã phỏng vấn ({count} câu trả lời)',
+  },
+  interviewTeacherProtectedTooltip: {
+    en: 'This teacher already has recorded interview responses in the database. Questions are protected to preserve qualitative data validity.',
+    vi: 'Giáo viên này đã có câu trả lời phỏng vấn được lưu trong hệ thống. Câu hỏi được bảo vệ để đảm bảo tính hợp lệ của dữ liệu nghiên cứu.',
+  },
+  interviewRegenerateConfirmTitle: {
+    en: 'Confirm Question Regeneration ({teacher})',
+    vi: 'Xác Nhận Sinh Lại Câu Hỏi ({teacher})',
+  },
+  interviewRegenerateConfirmDesc: {
+    en: 'Teacher {teacher} already has {count} recorded interview response(s) in the database. Regenerating will update the dynamic questions, potentially causing discrepancy with answers already collected. Do you still wish to proceed?',
+    vi: 'Giáo viên {teacher} đã có {count} câu trả lời phỏng vấn được ghi âm/bóc băng trong cơ sở dữ liệu. Việc sinh lại sẽ thay đổi bộ câu hỏi đào sâu, có thể gây lệch với dữ liệu đã phỏng vấn thực tế. Bạn có chắc chắn muốn tiếp tục không?',
+  },
+  interviewRegenerateConfirmBtn: {
+    en: 'Confirm & Regenerate',
+    vi: 'Xác nhận & Sinh lại',
+  },
+  interviewRegenerateCancelBtn: {
+    en: 'Cancel',
+    vi: 'Hủy bỏ',
+  },
+  interviewGeneratingToast: {
+    en: 'AI is analyzing observation evidence and generating questions for {teacher}...',
+    vi: 'AI đang phân tích bằng chứng bài giảng và sinh câu hỏi cho {teacher}...',
+  },
+  interviewGenerateSuccess: {
+    en: 'Successfully generated {count} follow-up questions for {teacher}!',
+    vi: 'Đã sinh thành công {count} câu hỏi đào sâu cho {teacher}!',
+  },
+  interviewGenerateError: {
+    en: 'Failed to generate questions: ',
+    vi: 'Lỗi khi sinh câu hỏi: ',
   },
   interviewExportWord: { en: 'Word', vi: 'Word' },
   interviewExportSingleTeacher: { en: 'Word ({teacher})', vi: 'Word ({teacher})' },
@@ -1335,7 +1379,21 @@ export const translations: TranslationDict = {
   wfInterviewAnalysisStep: { en: 'Step 6 / 6: Post-Interview Qualitative Analysis', vi: 'Bước 6 / 6: Phân Tích Định Tính Sau Phỏng Vấn' },
   wfInterviewAnalysisRunsAfter: { en: 'Runs after Post-Observation Protocol (Step 5) & Audio Recording collection', vi: 'Chạy sau khi lập Hướng Dẫn Phỏng Vấn (Bước 5) và thu thập file ghi âm' },
   wfInterviewAnalysisAutoText: { en: 'Semi-automated (AI transcription, unit segmentation, qualitative coding & triangulation)', vi: 'Bán tự động (AI bóc băng, tách đơn vị ý nghĩa, mã hóa định tính và đối chiếu tam giác)' },
-  wfInterviewAnalysisDesc: { en: 'Comprehensive qualitative inquiry pipeline: Audio transcription, dual-mode review, meaning units segmentation, inductive coding, and observation-interview triangulation matrix.', vi: 'Quy trình phân tích định tính toàn diện: Bóc băng ghi âm đa phương thức, rà soát 2 chế độ, bóc tách đơn vị ý nghĩa, mã hóa quy nạp và xây dựng ma trận đối chiếu tam giác quan sát - phỏng vấn.' }
+  wfInterviewAnalysisDesc: { en: 'Comprehensive qualitative inquiry pipeline: Audio transcription, dual-mode review, meaning units segmentation, inductive coding, and observation-interview triangulation matrix.', vi: 'Quy trình phân tích định tính toàn diện: Bóc băng ghi âm đa phương thức, rà soát 2 chế độ, bóc tách đơn vị ý nghĩa, mã hóa quy nạp và xây dựng ma trận đối chiếu tam giác quan sát - phỏng vấn.' },
+
+  // Dynamic Workflow Changes & Sync-up Guidance
+  wfStatusSynced: { en: 'Up-to-date', vi: 'Đã đồng bộ mới nhất' },
+  wfStatusStale: { en: 'Outdated — Sync required', vi: 'Dữ liệu cũ — Cần đồng bộ' },
+  wfStatusRunning: { en: 'Predecessor re-running...', vi: 'Bước trước đang phân tích lại...' },
+  wfTakeActionBtn: { en: 'Sync Up Now', vi: 'Đồng bộ hóa ngay' },
+  wfSyncingBtn: { en: 'Syncing...', vi: 'Đang đồng bộ...' },
+  wfSyncWarningTitle: { en: 'Upstream Video Re-analyzed (Action Required)', vi: 'Video phía trước vừa phân tích lại (Cần đồng bộ)' },
+  wfSyncWarningDesc: { en: 'One or more predecessor videos have completed re-analysis after this step was generated. Please sync to update downstream findings.', vi: 'Một hoặc nhiều video phía trước vừa được phân tích lại sau khi dữ liệu bước này được tạo. Vui lòng bấm đồng bộ để cập nhật phát hiện sư phạm mới nhất.' },
+  wfSyncTabTitle: { en: 'Sync Required', vi: 'Cần đồng bộ' },
+  wfSyncAllClean: { en: 'All downstream steps are fully synchronized with the latest video analysis.', vi: 'Tất cả các bước hạ nguồn đều đã được đồng bộ với kết quả phân tích video mới nhất.' },
+  wfSyncBatchAction: { en: 'Review & Sync', vi: 'Xem & Đồng bộ' },
+  wfSyncAffectedSteps: { en: 'Affected downstream steps:', vi: 'Các bước hạ nguồn cần đồng bộ:' },
+  wfSyncSuccessToast: { en: 'Successfully initiated sync for', vi: 'Đã kích hoạt đồng bộ thành công cho' }
 };
 
 interface I18nContextType {
