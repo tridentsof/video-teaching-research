@@ -87,6 +87,13 @@ export default function InterviewAnalysisPage() {
   const [isLoadingTeacher, setIsLoadingTeacher] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // In-memory cache for instant teacher switching without skeleton screens or network delays
+  const teacherCacheRef = useRef<Record<string, {
+    responses: InterviewResponseItem[];
+    meaningUnits: MeaningUnitItem[];
+  }>>({});
+  const prevRunIdRef = useRef<string>('');
+
   // Drag & drop and Overwrite confirmation state
   const [isDragging, setIsDragging] = useState(false);
   const [showOverwriteModal, setShowOverwriteModal] = useState(false);
@@ -170,21 +177,48 @@ export default function InterviewAnalysisPage() {
     loadRuns();
   }, []);
 
-  // Reload teacher responses when selectedTeacher or activeRunId changes with cancellation protection
+  // Invalidate cache if activeRunId changes
+  useEffect(() => {
+    if (activeRunId && prevRunIdRef.current !== activeRunId) {
+      prevRunIdRef.current = activeRunId;
+      teacherCacheRef.current = {};
+    }
+  }, [activeRunId]);
+
+  // Reload teacher responses with cancellation protection & instant in-memory cache (0ms switch)
   useEffect(() => {
     let isCancelled = false;
 
     async function fetchTeacherData() {
       if (!selectedTeacher) return;
-      setIsLoadingTeacher(true);
 
-      // Immediately clear state so previous teacher's data is never displayed for the new teacher
-      setResponses([]);
-      setActiveResponse(null);
-      setEditingRawText('');
-      setEditingResponseText('');
-      setMeaningUnits([]);
+      const cached = teacherCacheRef.current[selectedTeacher];
+      if (cached) {
+        // Fast path: Immediately apply cached data for instant 0ms teacher switching!
+        setResponses(cached.responses);
+        if (cached.responses.length > 0) {
+          const primary = cached.responses[0];
+          setActiveResponse(primary);
+          setEditingRawText(primary.raw_transcript || '');
+          setEditingResponseText(primary.response_text || '');
+        } else {
+          setActiveResponse(null);
+          setEditingRawText('');
+          setEditingResponseText('');
+        }
+        setMeaningUnits(cached.meaningUnits);
+        setIsLoadingTeacher(false);
+      } else {
+        // Slow path: Teacher not yet cached, show loading skeleton
+        setIsLoadingTeacher(true);
+        setResponses([]);
+        setActiveResponse(null);
+        setEditingRawText('');
+        setEditingResponseText('');
+        setMeaningUnits([]);
+      }
 
+      // Revalidate in the background (Stale-While-Revalidate)
       try {
         const [res, units] = await Promise.all([
           api.getInterviewResponses(selectedTeacher, activeRunId),
@@ -194,26 +228,36 @@ export default function InterviewAnalysisPage() {
         if (isCancelled) return;
 
         const responseList = res || [];
+        const unitList = units || [];
+
+        // Save fresh data to cache
+        teacherCacheRef.current[selectedTeacher] = {
+          responses: responseList,
+          meaningUnits: unitList,
+        };
+
         setResponses(responseList);
         if (responseList.length > 0) {
           const primary = responseList[0];
           setActiveResponse(primary);
-          setEditingRawText(primary.raw_transcript || '');
-          setEditingResponseText(primary.response_text || '');
+          setEditingRawText((prev) => (prev.trim() ? prev : (primary.raw_transcript || '')));
+          setEditingResponseText((prev) => (prev.trim() ? prev : (primary.response_text || '')));
         } else {
           setActiveResponse(null);
           setEditingRawText('');
           setEditingResponseText('');
         }
-        setMeaningUnits(units || []);
+        setMeaningUnits(unitList);
       } catch (err) {
         if (!isCancelled) {
           console.error('Failed to load teacher data:', err);
-          setResponses([]);
-          setActiveResponse(null);
-          setEditingRawText('');
-          setEditingResponseText('');
-          setMeaningUnits([]);
+          if (!cached) {
+            setResponses([]);
+            setActiveResponse(null);
+            setEditingRawText('');
+            setEditingResponseText('');
+            setMeaningUnits([]);
+          }
         }
       } finally {
         if (!isCancelled) {
@@ -235,19 +279,43 @@ export default function InterviewAnalysisPage() {
     loadRunLevelData();
   }, [activeRunId]);
 
-  // Fetch summary status for all teachers
+  // Fetch summary status for all teachers & pre-populate teacherCacheRef for 0ms switches
   async function loadAllTeacherStatuses() {
     if (!activeRunId) return;
     try {
       const all = await api.getInterviewResponses('all', activeRunId);
       if (all && all.length > 0) {
         const map: Record<string, string> = {};
+        const grouped: Record<string, InterviewResponseItem[]> = {};
+
         all.forEach((r) => {
           if (!map[r.teacher_id] || r.transcript_status === 'transcribing' || r.transcript_status === 'finalized') {
             map[r.teacher_id] = r.transcript_status;
           }
+          if (!grouped[r.teacher_id]) {
+            grouped[r.teacher_id] = [];
+          }
+          grouped[r.teacher_id].push(r);
         });
         setAllTeacherStatuses(map);
+
+        // Pre-populate teacherCacheRef for ALL teachers so switching is 0ms instant!
+        teachers.forEach((tid) => {
+          const tResponses = grouped[tid] || [];
+          const tUnits: MeaningUnitItem[] = [];
+          tResponses.forEach((r) => {
+            if (r.meaning_units && r.meaning_units.length > 0) {
+              tUnits.push(...r.meaning_units);
+            }
+          });
+          // Set or update cache if not actively dirty
+          if (!teacherCacheRef.current[tid] || teacherCacheRef.current[tid].responses.length === 0) {
+            teacherCacheRef.current[tid] = {
+              responses: tResponses,
+              meaningUnits: tUnits,
+            };
+          }
+        });
       }
     } catch {
       // ignore
@@ -327,7 +395,8 @@ export default function InterviewAnalysisPage() {
 
   async function loadTeacherData(showLoading = false) {
     if (!selectedTeacher) return;
-    if (showLoading) {
+    const hasCache = !!teacherCacheRef.current[selectedTeacher];
+    if (showLoading && !hasCache) {
       setIsLoadingTeacher(true);
       setResponses([]);
       setActiveResponse(null);
@@ -341,6 +410,14 @@ export default function InterviewAnalysisPage() {
         api.getMeaningUnits(selectedTeacher).catch(() => []),
       ]);
       const responseList = res || [];
+      const unitList = units || [];
+
+      // Update cache
+      teacherCacheRef.current[selectedTeacher] = {
+        responses: responseList,
+        meaningUnits: unitList,
+      };
+
       setResponses(responseList);
       if (responseList.length > 0) {
         const primary = responseList[0];
@@ -352,10 +429,10 @@ export default function InterviewAnalysisPage() {
         setEditingRawText('');
         setEditingResponseText('');
       }
-      setMeaningUnits(units || []);
+      setMeaningUnits(unitList);
     } catch (err) {
       console.error('Failed to load teacher data:', err);
-      if (showLoading) {
+      if (showLoading && !hasCache) {
         setResponses([]);
         setActiveResponse(null);
         setEditingRawText('');
@@ -363,9 +440,7 @@ export default function InterviewAnalysisPage() {
         setMeaningUnits([]);
       }
     } finally {
-      if (showLoading) {
-        setIsLoadingTeacher(false);
-      }
+      setIsLoadingTeacher(false);
     }
   }
 
@@ -584,6 +659,9 @@ export default function InterviewAnalysisPage() {
     try {
       const units = await api.segmentMeaningUnits(activeResponse.id, controller.signal);
       setMeaningUnits(units);
+      if (teacherCacheRef.current[selectedTeacher]) {
+        teacherCacheRef.current[selectedTeacher].meaningUnits = units;
+      }
       toast.success(
         language === 'vi'
           ? `Đã tách thành công ${units.length} đơn vị ý nghĩa (Meaning Units)!`
@@ -611,7 +689,11 @@ export default function InterviewAnalysisPage() {
         unit_text: newUnitText.trim(),
         unit_index: meaningUnits.length + 1,
       });
-      setMeaningUnits([...meaningUnits, created]);
+      const updated = [...meaningUnits, created];
+      setMeaningUnits(updated);
+      if (teacherCacheRef.current[selectedTeacher]) {
+        teacherCacheRef.current[selectedTeacher].meaningUnits = updated;
+      }
       setNewUnitText('');
       toast.success(language === 'vi' ? 'Đã thêm đơn vị ý nghĩa' : 'Added meaning unit');
     } catch (err: any) {
@@ -623,7 +705,11 @@ export default function InterviewAnalysisPage() {
   async function handleDeleteMeaningUnit(id: string) {
     try {
       await api.deleteMeaningUnit(id);
-      setMeaningUnits(meaningUnits.filter((u) => u.id !== id));
+      const updated = meaningUnits.filter((u) => u.id !== id);
+      setMeaningUnits(updated);
+      if (teacherCacheRef.current[selectedTeacher]) {
+        teacherCacheRef.current[selectedTeacher].meaningUnits = updated;
+      }
       toast.success(language === 'vi' ? 'Đã xóa ý' : 'Deleted unit');
     } catch (err: any) {
       toast.error(err.message || 'Failed to delete unit');
@@ -642,6 +728,9 @@ export default function InterviewAnalysisPage() {
     try {
       const res = await api.generateInterviewCodes(selectedTeacher, activeRunId, controller.signal);
       setMeaningUnits(res.meaning_units);
+      if (teacherCacheRef.current[selectedTeacher]) {
+        teacherCacheRef.current[selectedTeacher].meaningUnits = res.meaning_units;
+      }
       setInterviewCodes(res.codes);
       toast.success(
         language === 'vi'

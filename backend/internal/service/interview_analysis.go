@@ -550,16 +550,22 @@ func (s *InterviewAnalysisService) GetResponsesByTeacher(ctx context.Context, ru
 		return nil, err
 	}
 
-	// Populate meaning units for each response
-	for i := range responses {
-		units, _ := s.repo.ListMeaningUnitsByTeacher(ctx, responses[i].TeacherID)
-		var matched []model.MeaningUnit
+	// Populate meaning units efficiently in a single query with O(1) hash map lookup
+	var units []model.MeaningUnit
+	if strings.ToLower(strings.TrimSpace(teacherID)) == "all" {
+		units, _ = s.repo.ListMeaningUnitsByRun(ctx, runID)
+	} else if len(responses) > 0 {
+		units, _ = s.repo.ListMeaningUnitsByTeacher(ctx, teacherID)
+	}
+
+	if len(units) > 0 {
+		unitsByResponse := make(map[uuid.UUID][]model.MeaningUnit, len(units))
 		for _, u := range units {
-			if u.ResponseID == responses[i].ID {
-				matched = append(matched, u)
-			}
+			unitsByResponse[u.ResponseID] = append(unitsByResponse[u.ResponseID], u)
 		}
-		responses[i].MeaningUnits = matched
+		for i := range responses {
+			responses[i].MeaningUnits = unitsByResponse[responses[i].ID]
+		}
 	}
 
 	return responses, nil
