@@ -122,3 +122,96 @@ func TestMergeSegmentTranscriptionResults_JSON(t *testing.T) {
 		t.Errorf("expected RawTranscript to contain offset [10:15], got: %s", parsed.RawTranscript)
 	}
 }
+
+func TestModelRequiresAudioChunking(t *testing.T) {
+	tests := []struct {
+		model    string
+		expected bool
+	}{
+		// Dedicated short-context speech models must chunk
+		{"gemini-3.5-transcribe-preview", true},
+		{"gemini-3.5-transcribe", true},
+		{"", true}, // safe fallback
+
+		// Multimodal Flash and Pro models support 1M+ tokens and skip chunking
+		{"gemini-2.5-flash", false},
+		{"gemini-3.6-flash", false},
+		{"gemini-1.5-flash", false},
+		{"gemini-flash-latest", false},
+		{"gemini-1.5-pro", false},
+		{"gemini-2.5-pro", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.model, func(t *testing.T) {
+			result := ModelRequiresAudioChunking(tt.model)
+			if result != tt.expected {
+				t.Errorf("ModelRequiresAudioChunking(%q) = %v, want %v", tt.model, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestReconcileOverlapText(t *testing.T) {
+	tests := []struct {
+		name     string
+		prev     string
+		next     string
+		expected string
+	}{
+		{
+			name:     "No overlap",
+			prev:     "[09:50] Giáo viên: Chúng tôi đã kết thúc phần 1.",
+			next:     "[10:05] Phỏng vấn viên: Tiếp theo câu hỏi số 2.",
+			expected: "[10:05] Phỏng vấn viên: Tiếp theo câu hỏi số 2.",
+		},
+		{
+			name:     "Overlap 4 words stripped from next",
+			prev:     "[09:55] Thầy giáo: chúng tôi đã chuẩn bị bài rất kỹ.",
+			next:     "bài rất kỹ. Và học sinh cũng rất tích cực tham gia.",
+			expected: "Và học sinh cũng rất tích cực tham gia.",
+		},
+		{
+			name:     "Overlap with leading timestamp preserved",
+			prev:     "[09:55] Thầy giáo: chúng tôi đã chuẩn bị bài rất kỹ.",
+			next:     "[10:00] bài rất kỹ. Và các em học sinh rất vui.",
+			expected: "[10:00] Và các em học sinh rất vui.",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ReconcileOverlapText(tt.prev, tt.next)
+			if strings.TrimSpace(result) != strings.TrimSpace(tt.expected) {
+				t.Errorf("got %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestFindOptimalSplitPoint(t *testing.T) {
+	silences := []SilenceInterval{
+		{Start: 120.0, End: 121.0, Duration: 1.0},
+		{Start: 588.0, End: 589.2, Duration: 1.2}, // within [600-45, 600+45] = [555, 645]
+		{Start: 800.0, End: 801.0, Duration: 1.0},
+	}
+
+	// 1. Target 600s should match silence at 588s -> mid = 589s
+	cut, found := findOptimalSplitPoint(600, 45, silences)
+	if !found {
+		t.Fatalf("expected to find silence split point near 600s")
+	}
+	if cut < 588 || cut > 590 {
+		t.Errorf("expected cut near 588-590, got %d", cut)
+	}
+
+	// 2. Target 300s (no silence within 45s) -> fallback to 300s
+	cut2, found2 := findOptimalSplitPoint(300, 45, silences)
+	if found2 {
+		t.Errorf("expected not to find silence near 300s, but found at %d", cut2)
+	}
+	if cut2 != 300 {
+		t.Errorf("expected fallback to 300, got %d", cut2)
+	}
+}
+

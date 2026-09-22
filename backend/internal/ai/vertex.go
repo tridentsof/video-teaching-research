@@ -599,11 +599,18 @@ func (v *VertexAIProvider) TranscribeAudio(ctx context.Context, audioFilePath st
 
 	transcribeStart := time.Now()
 
-	// 1. Probe audio duration to determine if batch segmenting is required
+	// 1. Check if configured model requires audio chunking
+	// Multimodal models (Gemini Flash, Pro) have 1M+ token context and ingest audio directly without chunking.
+	if !ModelRequiresAudioChunking(model) {
+		log.Printf("[VertexAI TranscribeAudio] Model %s supports large multimodal context. Skipping chunking and transcribing in single-pass...", model)
+		return v.transcribeSingleAudio(ctx, audioFilePath, prompt, model)
+	}
+
+	// 2. Probe audio duration to determine if batch segmenting is required for narrow-context models
 	durationSec, err := ProbeAudioDurationSec(ctx, audioFilePath)
 	if err == nil && durationSec > MaxSingleAudioDurationSec {
-		log.Printf("[VertexAI TranscribeAudio] Audio %s duration is %ds (> %ds limit). Batching into chunks of %ds using model %s...",
-			filepath.Base(audioFilePath), durationSec, MaxSingleAudioDurationSec, AudioChunkDurationSec, model)
+		log.Printf("[VertexAI TranscribeAudio] Audio %s duration is %ds (> %ds limit). Batching into chunks with silence detection using model %s...",
+			filepath.Base(audioFilePath), durationSec, MaxSingleAudioDurationSec, model)
 
 		segments, cleanup, splitErr := SplitAudioFile(ctx, audioFilePath, durationSec, AudioChunkDurationSec)
 		if splitErr == nil {
@@ -628,7 +635,7 @@ func (v *VertexAIProvider) TranscribeAudio(ctx context.Context, audioFilePath st
 		log.Printf("[VertexAI TranscribeAudio] Warning: failed to split audio (%v), attempting single-pass transcription...", splitErr)
 	}
 
-	// 2. Single-pass transcription for files under the threshold
+	// 3. Single-pass transcription for files under the threshold
 	return v.transcribeSingleAudio(ctx, audioFilePath, prompt, model)
 }
 
