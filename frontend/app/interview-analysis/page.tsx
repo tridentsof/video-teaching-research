@@ -23,6 +23,7 @@ import {
   FileText,
   Sparkles,
   CheckCircle2,
+  AlertCircle,
   Clock,
   Play,
   Pause,
@@ -168,7 +169,17 @@ export default function InterviewAnalysisPage() {
         const res = await api.listAnalysisRuns();
         if (res && res.length > 0) {
           setRuns(res);
-          setActiveRunId(res[0].id);
+          const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+          const queryRunId = urlParams?.get('run_id');
+          const storedRunId = typeof window !== 'undefined' ? localStorage.getItem('active_theme_run_id') : null;
+
+          if (queryRunId && res.some((r) => r.id === queryRunId)) {
+            setActiveRunId(queryRunId);
+          } else if (storedRunId && res.some((r) => r.id === storedRunId)) {
+            setActiveRunId(storedRunId);
+          } else {
+            setActiveRunId(res[0].id);
+          }
         }
       } catch (err) {
         console.error('Failed to load analysis runs:', err);
@@ -956,6 +967,8 @@ export default function InterviewAnalysisPage() {
         return <span className="badge badge-audio"><CheckCircle2 size={11} /> {t('iaStatusFinalized')}</span>;
       case 'transcribed':
         return <span className="badge badge-visual"><Clock size={11} /> {t('iaStatusTranscribed')}</span>;
+      case 'unanswered':
+        return <span className="badge badge-neutral" style={{ backgroundColor: '#F1F5F9', color: '#64748B', border: '1px solid #CBD5E1' }}><AlertCircle size={11} /> {language === 'vi' ? 'Chưa phản hồi' : 'Unanswered'}</span>;
       case 'transcribing':
         return <span className="badge badge-context"><RefreshCw size={11} className="animate-spin" /> {t('iaStatusTranscribing')}</span>;
       case 'uploaded':
@@ -1127,7 +1140,13 @@ export default function InterviewAnalysisPage() {
             <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{t('iaAnalysisRun')}</span>
             <select
               value={activeRunId}
-              onChange={(e) => setActiveRunId(e.target.value)}
+              onChange={(e) => {
+                const newId = e.target.value;
+                setActiveRunId(newId);
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('active_theme_run_id', newId);
+                }
+              }}
               style={{
                 padding: '6px 12px',
                 borderRadius: 'var(--radius-sm)',
@@ -2254,7 +2273,11 @@ export default function InterviewAnalysisPage() {
                             padding: '16px',
                             backgroundColor: 'var(--bg)',
                             border: '1px solid var(--card-border)',
-                            borderLeft: resp.transcript_status === 'finalized' ? '4px solid var(--accent-green)' : '4px solid #F59E0B',
+                            borderLeft: resp.transcript_status === 'finalized'
+                              ? '4px solid var(--accent-green)'
+                              : resp.transcript_status === 'unanswered'
+                              ? '4px solid #94A3B8'
+                              : '4px solid #F59E0B',
                             borderRadius: 'var(--radius-sm)',
                           }}
                         >
@@ -2276,6 +2299,20 @@ export default function InterviewAnalysisPage() {
                                   gap: '4px',
                                 }}>
                                   <CheckCircle2 size={11} /> {t('iaCardFinalizedBadge')}
+                                </span>
+                              ) : resp.transcript_status === 'unanswered' ? (
+                                <span style={{
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  color: '#64748B',
+                                  backgroundColor: '#F1F5F9',
+                                  padding: '2px 8px',
+                                  borderRadius: '12px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                }}>
+                                  <AlertCircle size={11} /> {language === 'vi' ? 'Chưa có phản hồi' : 'Unanswered'}
                                 </span>
                               ) : (
                                 <span style={{

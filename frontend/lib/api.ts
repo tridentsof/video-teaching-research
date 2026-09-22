@@ -433,7 +433,7 @@ export interface InterviewResponseItem {
   audio_duration_sec: number;
   language: string;
   raw_transcript?: string;
-  transcript_status: 'draft' | 'uploaded' | 'uploading' | 'transcribing' | 'transcribed' | 'reviewed' | 'finalized' | 'failed';
+  transcript_status: 'draft' | 'uploaded' | 'uploading' | 'transcribing' | 'transcribed' | 'reviewed' | 'finalized' | 'failed' | 'unanswered';
   response_text: string;
   recorded_at?: string;
   created_at: string;

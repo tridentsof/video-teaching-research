@@ -852,128 +852,16 @@ func (s *AnalysisService) DeleteRun(ctx context.Context, runID uuid.UUID) error 
 	return s.analysisRepo.DeleteRun(ctx, runID)
 }
 
-// SynthesizeCoreQuestions analyzes the 22 base questions, discovered themes, and RQs to synthesize the common Core Questions.
+// SynthesizeCoreQuestions sets the common Core Questions across RQ1-RQ3.
+// AI rephrasing has been removed to preserve the defined canonical question text with 100% fidelity.
 func (s *AnalysisService) SynthesizeCoreQuestions(
 	ctx context.Context,
 	runID uuid.UUID,
 	themes []model.Theme,
 ) ([]model.CoreQuestionItem, error) {
-	aiText := s.aiText
-	modelName := s.modelName
-	if s.aiRouter != nil {
-		rProvider, rModel, err := s.aiRouter.GetTextProviderForFlow(ctx, "interview_generator")
-		if err == nil && rProvider != nil {
-			aiText = rProvider
-			modelName = rModel
-		}
-	}
-
-	if aiText == nil {
-		return DefaultSynthesizedCoreQuestions, nil
-	}
-
-	// 1. Fetch base questions from DB or fallback to defaults
-	var baseList []model.InterviewBaseQuestion
-	if s.interviewBaseRepo != nil {
-		baseList, _ = s.interviewBaseRepo.List(ctx, true)
-	}
-
-	var sbBase strings.Builder
-	if len(baseList) > 0 {
-		for _, bq := range baseList {
-			sbBase.WriteString(fmt.Sprintf("%d. [%s / %s] %s\n", bq.QuestionIndex, bq.Section, bq.RQCategory, bq.QuestionText))
-		}
-	} else {
-		sbBase.WriteString("1. Could you briefly introduce yourself and describe your current teaching position? (Background)\n")
-		sbBase.WriteString("2. How many years have you been teaching English? (Background)\n")
-		sbBase.WriteString("3. How long have you been teaching online English classes? (Background)\n")
-		sbBase.WriteString("4. Which grades or age groups do you currently teach? (Background)\n")
-		sbBase.WriteString("5. Which online platforms do you usually use for your English speaking lessons? (Background)\n")
-		sbBase.WriteString("6. Could you describe how you usually manage an online English speaking lesson from the beginning to the end? (RQ1)\n")
-		sbBase.WriteString("7. How do you establish classroom rules and routines in your online speaking classes? (RQ1)\n")
-		sbBase.WriteString("8. How do you manage turn-taking during speaking activities? (RQ1)\n")
-		sbBase.WriteString("9. What strategies do you use to maintain learners' attention and engagement throughout the lesson? (RQ1)\n")
-		sbBase.WriteString("10. How do you support learners when they have difficulty speaking English? (RQ1)\n")
-		sbBase.WriteString("11. How do you use digital tools such as the chat box, breakout rooms, reaction icons, screen sharing, or digital whiteboards during speaking lessons? (RQ1)\n")
-		sbBase.WriteString("12. In your opinion, what role does classroom management play in promoting speaking participation among primary learners? (RQ2)\n")
-		sbBase.WriteString("13. Which classroom management strategies do you consider most effective? Why? (RQ2)\n")
-		sbBase.WriteString("14. How do these strategies influence learners' confidence and willingness to communicate? (RQ2)\n")
-		sbBase.WriteString("15. Do different learners respond differently to the same classroom management strategies? Could you explain? (RQ2)\n")
-		sbBase.WriteString("16. Have your views about classroom management changed since you began teaching online? If yes, how? (RQ2)\n")
-		sbBase.WriteString("17. What challenges do you most frequently encounter when managing online English speaking classes? (RQ3)\n")
-		sbBase.WriteString("18. Which challenges have the greatest impact on learners' speaking participation? (RQ3)\n")
-		sbBase.WriteString("19. How do you usually deal with learners who are reluctant to participate in speaking activities? (RQ3)\n")
-		sbBase.WriteString("20. How do you deal with technical problems that occur during online speaking lessons? (RQ3)\n")
-		sbBase.WriteString("21. Are there any classroom management challenges that remain difficult to address? Please explain. (RQ3)\n")
-		sbBase.WriteString("22. Is there anything else you would like to share about your experiences of managing online English speaking classes for primary EFL learners? (Closing)\n")
-	}
-
-	var sbThemes strings.Builder
-	for _, th := range themes {
-		trace := ""
-		if th.ReasoningTrace != nil {
-			trace = fmt.Sprintf(" — Rationale: %s", *th.ReasoningTrace)
-		}
-		sbThemes.WriteString(fmt.Sprintf("- Theme: %s%s\n", th.Name, trace))
-	}
-
-	systemPrompt := `You are an expert qualitative educational researcher analyzing primary EFL online classrooms.
-Your task is to synthesize the 22 canonical semi-structured interview base questions and Grounded Theory themes discovered from 24 classroom observation videos into a concise, high-impact set of Core Interview Questions for teachers.
-
-3 RESEARCH QUESTIONS (RQ1–RQ3):
-- RQ1: What classroom management strategies do primary EFL teachers use in online English speaking classes?
-- RQ2: How do teachers perceive the role/effectiveness of classroom management strategies in promoting learners’ speaking participation?
-- RQ3: What challenges do teachers encounter in managing online English speaking classes, and how do they address these challenges?
-
-CORE QUESTIONS SYNTHESIS METHODOLOGY:
-1. Core Questions MUST be directly synthesized from the 22 base questions, NOT invented from scratch.
-2. Retain the most vital questions answering RQ1, RQ2, and RQ3.
-3. Merge questions that overlap or are conceptually very close if merging does NOT lose a critical dimension of the RQ.
-4. Do NOT discard a question merely because it appears similar if it genuinely explores a distinct dimension of the research question.
-5. Create a concise set of 6 to 9 Core Questions spanning RQ1, RQ2, and RQ3 that seamlessly incorporates the recurring patterns and themes discovered from the 24 videos.
-6. For each question, output:
-   - "index": integer (1, 2, ...)
-   - "question_text": concise, high-impact interview question in English
-   - "rq_category": exactly "RQ1", "RQ2", or "RQ3"
-   - "rationale": brief qualitative explanation of which base questions were merged/selected and how it connects with observed classroom themes.
-
-Return ONLY valid JSON:
-{
-  "core_questions": [
-    {
-      "index": 1,
-      "question_text": "...",
-      "rq_category": "RQ1",
-      "rationale": "..."
-    }
-  ]
-}`
-
-	userPrompt := fmt.Sprintf(`22 CANONICAL SEMI-STRUCTURED BASE QUESTIONS:
-%s
-
-DISCOVERED GROUNDED THEORY THEMES IN CORPUS:
-%s
-
-Synthesize the Core Interview Questions based directly on the base questions and discovered themes.`,
-		sbBase.String(), sbThemes.String(),
-	)
-
-	var aiResp struct {
-		CoreQuestions []model.CoreQuestionItem `json:"core_questions"`
-	}
-
-	if err := aiText.CompleteJSON(ctx, modelName, systemPrompt, userPrompt, &aiResp); err != nil {
-		return nil, fmt.Errorf("AI core question synthesis failed: %w", err)
-	}
-
-	if len(aiResp.CoreQuestions) == 0 {
-		return DefaultSynthesizedCoreQuestions, nil
-	}
-
-	b, _ := json.Marshal(aiResp.CoreQuestions)
-	_ = s.analysisRepo.UpdateCoreQuestions(ctx, runID, string(b), "draft")
-	return aiResp.CoreQuestions, nil
+	b, _ := json.Marshal(DefaultSynthesizedCoreQuestions)
+	_ = s.analysisRepo.UpdateCoreQuestions(ctx, runID, string(b), "approved")
+	return DefaultSynthesizedCoreQuestions, nil
 }
 
 // GetCoreQuestions returns the core questions and approval status for a run.

@@ -8,7 +8,7 @@ import (
 // PromptTranscribeInterviewAudio creates the system and user prompt for Gemini multimodal audio transcription.
 func PromptTranscribeInterviewAudio(teacherID string, knownQuestions []string) (string, string) {
 	systemPrompt := `You are an expert bilingual qualitative research transcriptionist and English/Vietnamese education researcher.
-Your task is to transcribe a teacher interview audio recording with the highest level of verbatim accuracy, speaker diarization, and timestamping.`
+Your task is to transcribe a teacher's self-recorded interview audio recording with the highest level of verbatim accuracy, contextual fidelity, and timestamping.`
 
 	qList := ""
 	if len(knownQuestions) > 0 {
@@ -20,28 +20,34 @@ Your task is to transcribe a teacher interview audio recording with the highest 
 		qList = b.String()
 	}
 
-	userPrompt := fmt.Sprintf(`Please analyze and transcribe the attached audio recording for teacher %s.
-%s
+	userPrompt := fmt.Sprintf(`Please analyze and transcribe the attached audio recording for Teacher %[1]s.
+%[2]s
 
-Instructions:
+CRITICAL CONTEXT & METHODOLOGY (SOLO SELF-RECORDED AUDIO):
+1. This audio recording is a solo self-recording (độc thoại tự ghi âm) by Teacher %[1]s.
+2. There is ONLY ONE speaker in this recording (Teacher %[1]s). There is NO separate interviewer or second person.
+3. The teacher self-administers the interview protocol by reading each question out loud from their interview guide (e.g., "Câu hỏi 1...", "Next, Question 2...", "Phần ba câu 9...") and then immediately delivering their spoken response and reflections.
+4. DO NOT invent, hallucinate, or label any separate "Interviewer" or "Người phỏng vấn". All spoken content belongs entirely to Teacher %[1]s.
+
+Transcription Instructions:
 1. Detect whether the audio is primarily in Vietnamese, English, or a mix of both.
-2. Produce a clean, verbatim raw transcript with timestamps [MM:SS] and clear speaker labels:
-   - "Interviewer" / "Người phỏng vấn"
-   - "Teacher %s" / "Giáo viên %s"
-3. Identify and pair each question asked by the interviewer with the teacher's full answer.
+2. Produce a clean, verbatim raw transcript with timestamps [MM:SS] using the single speaker label:
+   - Label all speech as "Giáo viên %[1]s" (or "Teacher %[1]s").
+   - When the teacher reads out a question before answering, transcribe it faithfully as spoken by the teacher (for example: "[MM:SS] Giáo viên %[1]s: Câu 1: ..." or "[MM:SS] Giáo viên %[1]s: [Đọc câu hỏi] ...").
+3. Identify each question verbally read or addressed by the teacher, and pair it with the teacher's full answer in qa_pairs.
    If known questions were provided above, map the responses to those questions where applicable.
 4. Output MUST be strictly valid JSON matching this structure without markdown fences:
 {
   "language": "vi", // or "en" or "mixed"
   "audio_duration_sec": 320.0,
-  "raw_transcript": "[00:04] Người phỏng vấn: ...\n[00:15] Giáo viên: ...",
+  "raw_transcript": "[00:06] Giáo viên %[1]s: Câu 1: ...\n\n[00:15] Giáo viên %[1]s: ...",
   "qa_pairs": [
     {
-      "question_text": "Câu hỏi của người phỏng vấn...",
-      "answer_text": "Câu trả lời đầy đủ của giáo viên..."
+      "question_text": "Text of the interview question...",
+      "answer_text": "Full spoken response of the teacher..."
     }
   ]
-}`, teacherID, qList, teacherID, teacherID)
+}`, teacherID, qList)
 
 	return systemPrompt, userPrompt
 }
@@ -233,18 +239,26 @@ Verbatim Interview Transcript:
 Task & Guidelines for Semantic Alignment:
 1. In semi-structured interviews, teachers speak naturally and conversationally without stating question numbers or reading questions aloud.
 2. Read the transcript carefully and determine which question each part of the teacher's response corresponds to.
-3. For EACH planned question where the teacher provided relevant thoughts, techniques, reflections, or rationale:
-   - Extract the teacher's full, coherent answer for that specific question.
+3. For EVERY planned question provided above:
+   - You MUST output an entry in "aligned_qa" for each and every planned question (use the EXACT question_id and EXACT question_text provided above).
+   - Extract the teacher's full, coherent answer for that specific question into "answer_text".
    - Preserve the teacher's authentic voice, language (Vietnamese, English, or mixed), and terminology.
    - Do NOT invent or fabricate statements not present in the transcript.
-   - If a question was not answered or mentioned at all, do NOT include it, or leave "answer_text" empty.
-4. Output MUST be strictly valid JSON matching this schema without markdown fences:
+   - If a planned question was NOT answered, omitted, or not addressed in the transcript, STILL include it in "aligned_qa" with "answer_text": "". Do NOT drop or skip any planned questions.
+4. If the teacher discussed or answered an additional substantive question or topic in the transcript that does NOT match any planned question above, extract it into "unmatched_qa".
+5. Output MUST be strictly valid JSON matching this schema without markdown fences:
 {
   "aligned_qa": [
     {
-      "question_id": "uuid-of-question-from-above",
-      "question_text": "Exact question text",
-      "answer_text": "Teacher's coherent response to this question"
+      "question_id": "Exact uuid of the planned question from above",
+      "question_text": "Exact planned question text as provided above without paraphrasing",
+      "answer_text": "Teacher's coherent response to this question (or empty string if not answered)"
+    }
+  ],
+  "unmatched_qa": [
+    {
+      "question_text": "Brief topic or question text for additional response",
+      "answer_text": "Teacher's response to this additional question"
     }
   ]
 }`, teacherID, teacherID, qBuilder.String(), rawTranscript)

@@ -451,6 +451,10 @@ func (s *InterviewAnalysisService) AlignAndSplitQA(ctx context.Context, runID uu
 			QuestionText string `json:"question_text"`
 			AnswerText   string `json:"answer_text"`
 		} `json:"aligned_qa"`
+		UnmatchedQA []struct {
+			QuestionText string `json:"question_text"`
+			AnswerText   string `json:"answer_text"`
+		} `json:"unmatched_qa"`
 	}
 
 	if err := textProvider.CompleteJSON(ctx, modelName, sysPrompt, userPrompt, &parsed); err != nil {
@@ -461,15 +465,48 @@ func (s *InterviewAnalysisService) AlignAndSplitQA(ctx context.Context, runID uu
 	// 4. Persist aligned sub-responses into interview_responses
 	_ = s.repo.DeleteSubResponsesByTeacher(ctx, runID, teacherID)
 
+	processedMap := make(map[string]bool)
 	for _, qa := range parsed.AlignedQA {
 		ans := strings.TrimSpace(qa.AnswerText)
-		if ans == "" {
-			continue
+		var qID *uuid.UUID
+
+		rawQID := strings.TrimSpace(qa.QuestionID)
+		rawQID = strings.TrimPrefix(rawQID, "[ID: ")
+		rawQID = strings.TrimPrefix(rawQID, "ID: ")
+		rawQID = strings.TrimSuffix(rawQID, "]")
+		rawQID = strings.Trim(rawQID, `"'`)
+
+		if parsedUUID, err := uuid.Parse(rawQID); err == nil && parsedUUID != uuid.Nil {
+			qID = &parsedUUID
+			processedMap[parsedUUID.String()] = true
+		} else {
+			// Fallback: match by QuestionText against planned alignQuestions
+			for _, plannedQ := range alignQuestions {
+				if strings.EqualFold(strings.TrimSpace(plannedQ.QuestionText), strings.TrimSpace(qa.QuestionText)) {
+					if parsedUUID, err := uuid.Parse(plannedQ.ID); err == nil && parsedUUID != uuid.Nil {
+						qID = &parsedUUID
+						processedMap[plannedQ.ID] = true
+						break
+					}
+				}
+			}
 		}
 
-		var qID *uuid.UUID
-		if parsedUUID, err := uuid.Parse(qa.QuestionID); err == nil && parsedUUID != uuid.Nil {
-			qID = &parsedUUID
+		qText := qa.QuestionText
+		// Always prefer the exact, authoritative planned question text defined in the run
+		if qID != nil {
+			for _, plannedQ := range alignQuestions {
+				if plannedQ.ID == qID.String() && strings.TrimSpace(plannedQ.QuestionText) != "" {
+					qText = plannedQ.QuestionText
+					break
+				}
+			}
+		}
+
+		status := "transcribed"
+		if ans == "" {
+			ans = "(Chưa có phản hồi trong phần ghi âm phỏng vấn / No response recorded for this question)"
+			status = "unanswered"
 		}
 
 		subResp := &model.InterviewResponse{
@@ -477,9 +514,9 @@ func (s *InterviewAnalysisService) AlignAndSplitQA(ctx context.Context, runID uu
 			AnalysisRunID:    runID,
 			TeacherID:        teacherID,
 			QuestionID:       qID,
-			QuestionText:     qa.QuestionText,
+			QuestionText:     qText,
 			ResponseText:     ans,
-			TranscriptStatus: "transcribed",
+			TranscriptStatus: status,
 			RawTranscript:    &transcript,
 		}
 		if parentResp != nil {
@@ -491,6 +528,66 @@ func (s *InterviewAnalysisService) AlignAndSplitQA(ctx context.Context, runID uu
 
 		if err := s.repo.CreateResponse(ctx, subResp); err != nil {
 			log.Printf("[InterviewAnalysis] Error creating aligned response card: %v", err)
+		}
+	}
+
+	// Ensure any planned questions not returned in AlignedQA still get an unanswered card
+	for _, plannedQ := range alignQuestions {
+		if !processedMap[plannedQ.ID] {
+			var qID *uuid.UUID
+			if parsedUUID, err := uuid.Parse(plannedQ.ID); err == nil && parsedUUID != uuid.Nil {
+				qID = &parsedUUID
+			}
+			subResp := &model.InterviewResponse{
+				ID:               uuid.New(),
+				AnalysisRunID:    runID,
+				TeacherID:        teacherID,
+				QuestionID:       qID,
+				QuestionText:     plannedQ.QuestionText,
+				ResponseText:     "(Chưa có phản hồi trong phần ghi âm phỏng vấn / No response recorded for this question)",
+				TranscriptStatus: "unanswered",
+				RawTranscript:    &transcript,
+			}
+			if parentResp != nil {
+				subResp.AudioBlobPath = parentResp.AudioBlobPath
+				subResp.AudioFilename = parentResp.AudioFilename
+				subResp.AudioDurationSec = parentResp.AudioDurationSec
+				subResp.Language = parentResp.Language
+			}
+			if err := s.repo.CreateResponse(ctx, subResp); err != nil {
+				log.Printf("[InterviewAnalysis] Error creating fallback unanswered card: %v", err)
+			}
+		}
+	}
+
+	// Capture any extra/unmatched spontaneous responses from teacher
+	for _, u := range parsed.UnmatchedQA {
+		uAns := strings.TrimSpace(u.AnswerText)
+		uQ := strings.TrimSpace(u.QuestionText)
+		if uAns == "" {
+			continue
+		}
+		if uQ == "" {
+			uQ = "Additional Interview Reflection"
+		}
+		subResp := &model.InterviewResponse{
+			ID:               uuid.New(),
+			AnalysisRunID:    runID,
+			TeacherID:        teacherID,
+			QuestionID:       nil,
+			QuestionText:     uQ,
+			ResponseText:     uAns,
+			TranscriptStatus: "transcribed",
+			RawTranscript:    &transcript,
+		}
+		if parentResp != nil {
+			subResp.AudioBlobPath = parentResp.AudioBlobPath
+			subResp.AudioFilename = parentResp.AudioFilename
+			subResp.AudioDurationSec = parentResp.AudioDurationSec
+			subResp.Language = parentResp.Language
+		}
+		if err := s.repo.CreateResponse(ctx, subResp); err != nil {
+			log.Printf("[InterviewAnalysis] Error creating unmatched response card: %v", err)
 		}
 	}
 
