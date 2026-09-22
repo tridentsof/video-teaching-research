@@ -50,9 +50,11 @@ import {
   Info,
   FileAudio,
   X,
+  Package,
 } from 'lucide-react';
 import Link from 'next/link';
 import { FeatureWorkflowBanner } from '@/components/FeatureWorkflowBanner';
+import { exportQualitativeZipPackage } from '@/lib/qualitativeZipExport';
 
 export default function InterviewAnalysisPage() {
   const { t, language } = useTranslation();
@@ -118,6 +120,17 @@ export default function InterviewAnalysisPage() {
   const [copiedQuoteId, setCopiedQuoteId] = useState<string | null>(null);
   const [isExportingChapter4Word, setIsExportingChapter4Word] = useState<boolean>(false);
   const [isExportingTeacherCaseWord, setIsExportingTeacherCaseWord] = useState<boolean>(false);
+
+  // Download All Qualitative ZIP export state
+  const [showZipExportModal, setShowZipExportModal] = useState<boolean>(false);
+  const [zipExportScope, setZipExportScope] = useState<'all' | 'current'>('all');
+  const [isExportingZip, setIsExportingZip] = useState<boolean>(false);
+  const [zipExportProgress, setZipExportProgress] = useState<{
+    current: number;
+    total: number;
+    message: string;
+    percentage: number;
+  } | null>(null);
 
   // Derived state: transcribing in memory OR in database status
   const isCurrentlyTranscribing = isTranscribing || activeResponse?.transcript_status === 'transcribing';
@@ -818,6 +831,35 @@ export default function InterviewAnalysisPage() {
     }
   }
 
+  // Export & Download All Qualitative Data (.zip)
+  async function handleDownloadAllZip() {
+    try {
+      setIsExportingZip(true);
+      const toastId = toast.loading(t('iaExportZipStarting'));
+
+      await exportQualitativeZipPackage({
+        scope: zipExportScope,
+        selectedTeacher,
+        teacherList: teachers,
+        activeRunId,
+        lang: language as 'en' | 'vi',
+        onProgress: (progress) => {
+          setZipExportProgress(progress);
+        },
+      });
+
+      toast.dismiss(toastId);
+      toast.success(t('iaExportZipSuccess'));
+      setShowZipExportModal(false);
+    } catch (err) {
+      console.error('Failed to export qualitative ZIP package:', err);
+      toast.error(t('iaExportZipError'));
+    } finally {
+      setIsExportingZip(false);
+      setZipExportProgress(null);
+    }
+  }
+
   // Status badge styling matching Observation Studio aesthetic
   const renderStatusBadge = (status: string) => {
     switch (status) {
@@ -990,29 +1032,56 @@ export default function InterviewAnalysisPage() {
           </div>
         </div>
 
-        {/* Analysis Run Selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{t('iaAnalysisRun')}</span>
-          <select
-            value={activeRunId}
-            onChange={(e) => setActiveRunId(e.target.value)}
+        {/* Right Actions: Analysis Run Selector & Download All ZIP Package */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{t('iaAnalysisRun')}</span>
+            <select
+              value={activeRunId}
+              onChange={(e) => setActiveRunId(e.target.value)}
+              style={{
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--card-border)',
+                backgroundColor: 'var(--bg)',
+                color: 'var(--text-main)',
+                fontSize: '12.5px',
+                cursor: 'pointer',
+                outline: 'none',
+              }}
+            >
+              {runs.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.id.slice(0, 8)}... ({new Date(r.triggered_at).toLocaleDateString()})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Download All Qualitative Data ZIP Button */}
+          <button
+            onClick={() => setShowZipExportModal(true)}
+            disabled={isExportingZip}
             style={{
-              padding: '6px 12px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '7px',
+              padding: '6px 14px',
               borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--card-border)',
-              backgroundColor: 'var(--bg)',
-              color: 'var(--text-main)',
+              border: '1px solid rgba(158, 74, 40, 0.4)',
+              backgroundColor: 'rgba(158, 74, 40, 0.08)',
+              color: 'var(--accent)',
               fontSize: '12.5px',
-              cursor: 'pointer',
-              outline: 'none',
+              fontWeight: 600,
+              cursor: isExportingZip ? 'not-allowed' : 'pointer',
+              transition: 'all 0.15s ease',
+              boxShadow: 'var(--shadow-sm)',
             }}
+            title={t('iaDownloadAllZipTooltip')}
           >
-            {runs.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.id.slice(0, 8)}... ({new Date(r.triggered_at).toLocaleDateString()})
-              </option>
-            ))}
-          </select>
+            <Package size={14} />
+            <span>{t('iaDownloadAllZipBtn')}</span>
+          </button>
         </div>
       </div>
 
@@ -3498,6 +3567,271 @@ export default function InterviewAnalysisPage() {
                   </>
                 ) : (
                   <span>{overwriteMode === 'full_reset' ? t('iaOverwriteBtnReset') : t('iaOverwriteBtnReplace')}</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Download All Qualitative Data ZIP Modal */}
+      {showZipExportModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(26, 22, 18, 0.55)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px',
+          }}
+          onClick={() => {
+            if (!isExportingZip) {
+              setShowZipExportModal(false);
+            }
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#FFFFFF',
+              border: '1px solid var(--card-border)',
+              borderRadius: 'var(--radius-lg, 20px)',
+              maxWidth: '620px',
+              width: '100%',
+              padding: '28px',
+              boxShadow: 'var(--shadow-lg)',
+              position: 'relative',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div
+                  style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '12px',
+                    backgroundColor: 'rgba(158, 74, 40, 0.1)',
+                    border: '1px solid rgba(158, 74, 40, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--accent)',
+                  }}
+                >
+                  <Package size={22} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: 'var(--text-main)' }}>
+                    {t('iaDownloadAllModalTitle')}
+                  </h3>
+                  <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--text-muted)' }}>
+                    {t('iaDownloadAllModalSubtitle')}
+                  </p>
+                </div>
+              </div>
+
+              {!isExportingZip && (
+                <button
+                  type="button"
+                  onClick={() => setShowZipExportModal(false)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    padding: '4px',
+                    borderRadius: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+
+            {/* Scope Selection */}
+            {!isExportingZip ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '22px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)' }}>
+                  {t('iaExportScopeLabel')}
+                </label>
+
+                {/* Option 1: All 12 Teachers */}
+                <div
+                  onClick={() => setZipExportScope('all')}
+                  style={{
+                    padding: '14px 16px',
+                    borderRadius: 'var(--radius-md)',
+                    border: zipExportScope === 'all' ? '2px solid var(--accent)' : '1px solid var(--card-border)',
+                    backgroundColor: zipExportScope === 'all' ? 'rgba(158, 74, 40, 0.04)' : 'var(--bg)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '12px',
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="zipScope"
+                    checked={zipExportScope === 'all'}
+                    onChange={() => setZipExportScope('all')}
+                    style={{ marginTop: '3px', accentColor: 'var(--accent)', cursor: 'pointer' }}
+                  />
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span>{t('iaExportScopeAll')}</span>
+                      <span style={{
+                        fontSize: '10.5px',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: '10px',
+                        backgroundColor: 'rgba(158, 74, 40, 0.12)',
+                        color: 'var(--accent)',
+                      }}>
+                        {language === 'vi' ? 'Khuyên dùng' : 'Recommended'}
+                      </span>
+                    </div>
+                    <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                      {t('iaExportScopeAllDesc')}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Option 2: Current Teacher Only */}
+                <div
+                  onClick={() => setZipExportScope('current')}
+                  style={{
+                    padding: '14px 16px',
+                    borderRadius: 'var(--radius-md)',
+                    border: zipExportScope === 'current' ? '2px solid var(--accent)' : '1px solid var(--card-border)',
+                    backgroundColor: zipExportScope === 'current' ? 'rgba(158, 74, 40, 0.04)' : 'var(--bg)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '12px',
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="zipScope"
+                    checked={zipExportScope === 'current'}
+                    onChange={() => setZipExportScope('current')}
+                    style={{ marginTop: '3px', accentColor: 'var(--accent)', cursor: 'pointer' }}
+                  />
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}>
+                      {t('iaExportScopeCurrent').replace('{teacher}', selectedTeacher)}
+                    </div>
+                    <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                      {t('iaExportScopeCurrentDesc').replace('{teacher}', selectedTeacher)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Live Progress State */
+              <div style={{
+                padding: '20px',
+                borderRadius: 'var(--radius-md)',
+                backgroundColor: 'var(--bg)',
+                border: '1px solid var(--card-border)',
+                marginBottom: '22px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <RefreshCw size={15} className="animate-spin" style={{ color: 'var(--accent)' }} />
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
+                      {zipExportProgress?.message || t('iaExportZipStarting')}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent)' }}>
+                    {zipExportProgress?.percentage ?? 0}%
+                  </span>
+                </div>
+
+                {/* Progress Bar Track */}
+                <div style={{
+                  width: '100%',
+                  height: '8px',
+                  borderRadius: '4px',
+                  backgroundColor: 'rgba(0, 0, 0, 0.08)',
+                  overflow: 'hidden',
+                }}>
+                  <div style={{
+                    width: `${zipExportProgress?.percentage ?? 0}%`,
+                    height: '100%',
+                    backgroundColor: 'var(--accent)',
+                    transition: 'width 0.25s ease-out',
+                    borderRadius: '4px',
+                  }} />
+                </div>
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setShowZipExportModal(false)}
+                disabled={isExportingZip}
+                style={{
+                  padding: '9px 18px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--card-border)',
+                  backgroundColor: 'transparent',
+                  color: 'var(--text-main)',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  cursor: isExportingZip ? 'not-allowed' : 'pointer',
+                  opacity: isExportingZip ? 0.6 : 1,
+                }}
+              >
+                {t('iaCancel')}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDownloadAllZip}
+                disabled={isExportingZip}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '9px 20px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: 'none',
+                  backgroundColor: 'var(--accent)',
+                  color: '#FFFFFF',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: isExportingZip ? 'not-allowed' : 'pointer',
+                  boxShadow: 'var(--shadow-sm)',
+                  transition: 'opacity 0.15s ease',
+                  opacity: isExportingZip ? 0.8 : 1,
+                }}
+              >
+                {isExportingZip ? (
+                  <>
+                    <RefreshCw size={15} className="animate-spin" />
+                    <span>{zipExportProgress?.percentage ?? 0}%</span>
+                  </>
+                ) : (
+                  <>
+                    <Download size={15} />
+                    <span>{t('iaExportStartBtn')}</span>
+                  </>
                 )}
               </button>
             </div>

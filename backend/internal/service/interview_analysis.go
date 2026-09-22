@@ -445,12 +445,6 @@ func (s *InterviewAnalysisService) AlignAndSplitQA(ctx context.Context, runID uu
 
 	log.Printf("[InterviewAnalysis] Aligning Q&A for teacher %s (run %s) using model %s", teacherID, runID, modelName)
 
-	aiResult, err := textProvider.CompleteText(ctx, modelName, sysPrompt, userPrompt)
-	if err != nil {
-		return nil, fmt.Errorf("AI alignment failed: %w", err)
-	}
-
-	cleanedJSON := ai.ExtractJSONFromMarkdown(aiResult)
 	var parsed struct {
 		AlignedQA []struct {
 			QuestionID   string `json:"question_id"`
@@ -459,8 +453,8 @@ func (s *InterviewAnalysisService) AlignAndSplitQA(ctx context.Context, runID uu
 		} `json:"aligned_qa"`
 	}
 
-	if err := json.Unmarshal([]byte(cleanedJSON), &parsed); err != nil {
-		log.Printf("[InterviewAnalysis] Warning: failed to parse AI alignment JSON: %v (raw: %s)", err, aiResult)
+	if err := textProvider.CompleteJSON(ctx, modelName, sysPrompt, userPrompt, &parsed); err != nil {
+		log.Printf("[InterviewAnalysis] Warning: failed AI alignment CompleteJSON: %v", err)
 		return nil, fmt.Errorf("failed to parse AI alignment result: %w", err)
 	}
 
@@ -597,12 +591,7 @@ func (s *InterviewAnalysisService) SegmentMeaningUnits(ctx context.Context, resp
 	}
 
 	sysPrompt, userPrompt := PromptSegmentMeaningUnits(resp.TeacherID, resp.QuestionText, textToSegment)
-	aiResponse, err := textProvider.CompleteText(ctx, modelName, sysPrompt, userPrompt)
-	if err != nil {
-		return nil, fmt.Errorf("AI meaning unit segmentation failed: %w", err)
-	}
 
-	cleanedJSON := ai.ExtractJSONFromMarkdown(aiResponse)
 	var parsed struct {
 		MeaningUnits []struct {
 			UnitIndex int    `json:"unit_index"`
@@ -610,7 +599,7 @@ func (s *InterviewAnalysisService) SegmentMeaningUnits(ctx context.Context, resp
 		} `json:"meaning_units"`
 	}
 
-	if err := json.Unmarshal([]byte(cleanedJSON), &parsed); err != nil {
+	if err := textProvider.CompleteJSON(ctx, modelName, sysPrompt, userPrompt, &parsed); err != nil {
 		return nil, fmt.Errorf("failed to parse AI meaning units response: %w", err)
 	}
 
@@ -691,12 +680,6 @@ func (s *InterviewAnalysisService) GenerateInitialCodes(ctx context.Context, run
 	}
 
 	sysPrompt, userPrompt := PromptGenerateInitialCodes(teacherID, unitTexts)
-	aiResponse, err := textProvider.CompleteText(ctx, modelName, sysPrompt, userPrompt)
-	if err != nil {
-		return nil, nil, fmt.Errorf("AI initial coding failed: %w", err)
-	}
-
-	cleanedJSON := ai.ExtractJSONFromMarkdown(aiResponse)
 	var parsed struct {
 		CodedUnits []struct {
 			UnitIndex   int    `json:"unit_index"`
@@ -705,7 +688,7 @@ func (s *InterviewAnalysisService) GenerateInitialCodes(ctx context.Context, run
 		} `json:"coded_units"`
 	}
 
-	if err := json.Unmarshal([]byte(cleanedJSON), &parsed); err != nil {
+	if err := textProvider.CompleteJSON(ctx, modelName, sysPrompt, userPrompt, &parsed); err != nil {
 		return nil, nil, fmt.Errorf("failed to parse AI coding response: %w", err)
 	}
 
@@ -831,12 +814,6 @@ func (s *InterviewAnalysisService) RunTriangulation(ctx context.Context, runID u
 	}
 
 	sysPrompt, userPrompt := PromptTriangulateObservationInterview(obsFindings, intEvidence)
-	aiResponse, err := textProvider.CompleteText(ctx, modelName, sysPrompt, userPrompt)
-	if err != nil {
-		return nil, fmt.Errorf("AI triangulation failed: %w", err)
-	}
-
-	cleanedJSON := ai.ExtractJSONFromMarkdown(aiResponse)
 	var parsed struct {
 		TriangulationEntries []struct {
 			ObservationFinding string `json:"observation_finding"`
@@ -846,7 +823,7 @@ func (s *InterviewAnalysisService) RunTriangulation(ctx context.Context, runID u
 		} `json:"triangulation_entries"`
 	}
 
-	if err := json.Unmarshal([]byte(cleanedJSON), &parsed); err != nil {
+	if err := textProvider.CompleteJSON(ctx, modelName, sysPrompt, userPrompt, &parsed); err != nil {
 		return nil, fmt.Errorf("failed to parse AI triangulation output: %w", err)
 	}
 
@@ -947,12 +924,6 @@ func (s *InterviewAnalysisService) SelectRepresentativeQuotes(ctx context.Contex
 	}
 
 	sysPrompt, userPrompt := PromptSelectRepresentativeQuotes(corpus.String())
-	aiResponse, err := textProvider.CompleteText(ctx, modelName, sysPrompt, userPrompt)
-	if err != nil {
-		return nil, fmt.Errorf("AI quote selection failed: %w", err)
-	}
-
-	cleanedJSON := ai.ExtractJSONFromMarkdown(aiResponse)
 	var parsed struct {
 		Quotes []struct {
 			TeacherID     string `json:"teacher_id"`
@@ -963,8 +934,8 @@ func (s *InterviewAnalysisService) SelectRepresentativeQuotes(ctx context.Contex
 		} `json:"quotes"`
 	}
 
-	if err := json.Unmarshal([]byte(cleanedJSON), &parsed); err != nil {
-		log.Printf("[InterviewAnalysis] Quote selection JSON parse error: %v | Raw: %s", err, aiResponse)
+	if err := textProvider.CompleteJSON(ctx, modelName, sysPrompt, userPrompt, &parsed); err != nil {
+		log.Printf("[InterviewAnalysis] Quote selection JSON parse error: %v", err)
 		return nil, fmt.Errorf("failed to parse AI quote selection output: %w", err)
 	}
 

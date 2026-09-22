@@ -188,3 +188,41 @@ func TestProviderInterfaces(t *testing.T) {
 	var _ TextCompletionProvider = (*OpenRouterProvider)(nil)
 }
 
+func TestExtractCandidateText(t *testing.T) {
+	t.Run("Filters out thought parts and joins non-thought parts", func(t *testing.T) {
+		parts := []geminiCandidatePart{
+			{Text: "Let me think about how to map this.", Thought: true},
+			{Text: `{"aligned_qa": [`, Thought: false},
+			{Text: `{"question_id": "123"}]}`, Thought: false},
+		}
+		res := extractCandidateText(parts)
+		expected := `{"aligned_qa": [{"question_id": "123"}]}`
+		if res != expected {
+			t.Errorf("expected %q, got %q", expected, res)
+		}
+	})
+
+	t.Run("Fallback to thought parts if all parts are thoughts", func(t *testing.T) {
+		parts := []geminiCandidatePart{
+			{Text: "Thinking part 1. ", Thought: true},
+			{Text: "Thinking part 2.", Thought: true},
+		}
+		res := extractCandidateText(parts)
+		expected := "Thinking part 1. Thinking part 2."
+		if res != expected {
+			t.Errorf("expected %q, got %q", expected, res)
+		}
+	})
+
+	t.Run("Single non-thought part", func(t *testing.T) {
+		parts := []geminiCandidatePart{
+			{Text: "Hello world", Thought: false},
+		}
+		res := extractCandidateText(parts)
+		if res != "Hello world" {
+			t.Errorf("expected %q, got %q", "Hello world", res)
+		}
+	})
+}
+
+

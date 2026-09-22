@@ -68,10 +68,15 @@ type fileUploadResponse struct {
 	File GeminiFile `json:"file"`
 }
 
+type geminiThinkingConfig struct {
+	ThinkingBudget *int `json:"thinkingBudget,omitempty"`
+}
+
 type geminiConfig struct {
-	Temperature      float64 `json:"temperature,omitempty"`
-	MaxOutputTokens  int     `json:"maxOutputTokens,omitempty"`
-	ResponseMimeType string  `json:"responseMimeType,omitempty"`
+	Temperature      float64               `json:"temperature,omitempty"`
+	MaxOutputTokens  int                   `json:"maxOutputTokens,omitempty"`
+	ResponseMimeType string                `json:"responseMimeType,omitempty"`
+	ThinkingConfig   *geminiThinkingConfig `json:"thinkingConfig,omitempty"`
 }
 
 type geminiGenerateContentRequest struct {
@@ -95,12 +100,15 @@ type geminiFileData struct {
 	FileURI  string `json:"fileUri"`
 }
 
+type geminiCandidatePart struct {
+	Text    string `json:"text"`
+	Thought bool   `json:"thought,omitempty"`
+}
+
 type geminiGenerateContentResponse struct {
 	Candidates []struct {
 		Content struct {
-			Parts []struct {
-				Text string `json:"text"`
-			} `json:"parts"`
+			Parts []geminiCandidatePart `json:"parts"`
 		} `json:"content"`
 		FinishReason string `json:"finishReason,omitempty"`
 	} `json:"candidates"`
@@ -108,6 +116,26 @@ type geminiGenerateContentResponse struct {
 		Code    int    `json:"code"`
 		Message string `json:"message"`
 	} `json:"error,omitempty"`
+}
+
+// extractCandidateText extracts all non-thought text parts from a Gemini / Vertex candidate.
+// It joins all parts where thought is false. If no non-thought parts exist, it falls back to all parts.
+func extractCandidateText(parts []geminiCandidatePart) string {
+	var nonThought strings.Builder
+	for _, p := range parts {
+		if !p.Thought && p.Text != "" {
+			nonThought.WriteString(p.Text)
+		}
+	}
+	if nonThought.Len() > 0 {
+		return nonThought.String()
+	}
+	for _, p := range parts {
+		if p.Text != "" {
+			nonThought.WriteString(p.Text)
+		}
+	}
+	return nonThought.String()
 }
 
 // uploadFileToGemini uploads a local video file using Gemini Resumable File Upload API with retries.
@@ -467,7 +495,7 @@ func (g *GeminiDirectProvider) AnalyzeVideoChunk(ctx context.Context, videoFileP
 		}
 
 		log.Printf("[Gemini AnalyzeVideo] chunk (%s) processed successfully in %v", filepath.Base(videoFilePath), time.Since(analysisStart))
-		return genResp.Candidates[0].Content.Parts[0].Text, nil
+		return extractCandidateText(genResp.Candidates[0].Content.Parts), nil
 	}
 
 	return "", fmt.Errorf("exhausted retries for gemini video analysis")
@@ -654,7 +682,7 @@ func (g *GeminiDirectProvider) TranscribeAudio(ctx context.Context, audioFilePat
 		}
 
 		log.Printf("[Gemini TranscribeAudio] file (%s) transcribed successfully in %v", filepath.Base(audioFilePath), time.Since(analysisStart))
-		return genResp.Candidates[0].Content.Parts[0].Text, nil
+		return extractCandidateText(genResp.Candidates[0].Content.Parts), nil
 	}
 
 	return "", fmt.Errorf("exhausted retries for gemini audio transcription")
@@ -727,7 +755,19 @@ func (g *GeminiDirectProvider) transcribeWithInteractionsAPI(ctx context.Context
 
 // CompleteText sends a prompt to Gemini for text generation / reasoning.
 func (g *GeminiDirectProvider) CompleteText(ctx context.Context, model string, systemPrompt, userPrompt string) (string, error) {
+	return g.completeTextInternal(ctx, model, systemPrompt, userPrompt, false)
+}
 
+// CompleteJSON calls CompleteText with JSON enforcement and parses the response into target.
+func (g *GeminiDirectProvider) CompleteJSON(ctx context.Context, model string, systemPrompt, userPrompt string, target interface{}) error {
+	rawText, err := g.completeTextInternal(ctx, model, systemPrompt, userPrompt, true)
+	if err != nil {
+		return err
+	}
+	return UnmarshalJSONFlexible(rawText, target)
+}
+
+func (g *GeminiDirectProvider) completeTextInternal(ctx context.Context, model string, systemPrompt, userPrompt string, isJSON bool) (string, error) {
 	if g.apiKey == "" {
 		return "", fmt.Errorf("gemini API key is not configured")
 	}
@@ -740,6 +780,18 @@ func (g *GeminiDirectProvider) CompleteText(ctx context.Context, model string, s
 		model, g.apiKey,
 	)
 
+	budget := 2048
+	cfg := &geminiConfig{
+		Temperature:     0.1,
+		MaxOutputTokens: 16384,
+		ThinkingConfig: &geminiThinkingConfig{
+			ThinkingBudget: &budget,
+		},
+	}
+	if isJSON || strings.Contains(strings.ToLower(userPrompt), "json") || strings.Contains(strings.ToLower(systemPrompt), "json") {
+		cfg.ResponseMimeType = "application/json"
+	}
+
 	reqBody := geminiGenerateContentRequest{
 		Contents: []geminiContent{
 			{
@@ -750,9 +802,7 @@ func (g *GeminiDirectProvider) CompleteText(ctx context.Context, model string, s
 				},
 			},
 		},
-		GenerationConfig: &geminiConfig{
-			Temperature: 0.1,
-		},
+		GenerationConfig: cfg,
 	}
 
 	if systemPrompt != "" {
@@ -838,18 +888,10 @@ func (g *GeminiDirectProvider) CompleteText(ctx context.Context, model string, s
 			return "", fmt.Errorf("gemini returned empty response")
 		}
 
-		return genResp.Candidates[0].Content.Parts[0].Text, nil
+		return extractCandidateText(genResp.Candidates[0].Content.Parts), nil
 	}
 
 	return "", fmt.Errorf("exhausted retries for gemini text completion")
 }
 
-// CompleteJSON calls CompleteText and parses the response into target.
-func (g *GeminiDirectProvider) CompleteJSON(ctx context.Context, model string, systemPrompt, userPrompt string, target interface{}) error {
-	rawText, err := g.CompleteText(ctx, model, systemPrompt, userPrompt)
-	if err != nil {
-		return err
-	}
-	return UnmarshalJSONFlexible(rawText, target)
-}
 

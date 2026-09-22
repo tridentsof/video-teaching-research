@@ -444,7 +444,7 @@ func (v *VertexAIProvider) AnalyzeVideoChunk(ctx context.Context, videoFilePath 
 		}
 
 		log.Printf("[VertexAI AnalyzeVideo] chunk (%s) processed in %v", filepath.Base(videoFilePath), time.Since(analysisStart))
-		return genResp.Candidates[0].Content.Parts[0].Text, nil
+		return extractCandidateText(genResp.Candidates[0].Content.Parts), nil
 	}
 
 	return "", fmt.Errorf("exhausted retries for vertex AI video analysis")
@@ -452,9 +452,23 @@ func (v *VertexAIProvider) AnalyzeVideoChunk(ctx context.Context, videoFilePath 
 
 // CompleteText sends a text completion request to Vertex AI Gemini.
 func (v *VertexAIProvider) CompleteText(ctx context.Context, model string, systemPrompt, userPrompt string) (string, error) {
+	return v.completeTextInternal(ctx, model, systemPrompt, userPrompt, false)
+}
+
+// CompleteJSON calls CompleteText with JSON enforcement and parses the response into target.
+func (v *VertexAIProvider) CompleteJSON(ctx context.Context, model string, systemPrompt, userPrompt string, target interface{}) error {
+	rawText, err := v.completeTextInternal(ctx, model, systemPrompt, userPrompt, true)
+	if err != nil {
+		return err
+	}
+	return UnmarshalJSONFlexible(rawText, target)
+}
+
+func (v *VertexAIProvider) completeTextInternal(ctx context.Context, model string, systemPrompt, userPrompt string, isJSON bool) (string, error) {
 	if v.saKey == nil {
 		return "", fmt.Errorf("vertex AI service account credentials not configured")
 	}
+
 	if model == "" {
 		model = v.model
 	}
@@ -466,6 +480,18 @@ func (v *VertexAIProvider) CompleteText(ctx context.Context, model string, syste
 
 	generateURL := v.buildGenerateURL(model)
 
+	budget := 2048
+	cfg := &geminiConfig{
+		Temperature:     0.1,
+		MaxOutputTokens: 16384,
+		ThinkingConfig: &geminiThinkingConfig{
+			ThinkingBudget: &budget,
+		},
+	}
+	if isJSON || strings.Contains(strings.ToLower(userPrompt), "json") || strings.Contains(strings.ToLower(systemPrompt), "json") {
+		cfg.ResponseMimeType = "application/json"
+	}
+
 	reqBody := geminiGenerateContentRequest{
 		Contents: []geminiContent{
 			{
@@ -475,10 +501,7 @@ func (v *VertexAIProvider) CompleteText(ctx context.Context, model string, syste
 				},
 			},
 		},
-		GenerationConfig: &geminiConfig{
-			Temperature:     0.1,
-			MaxOutputTokens: 8192,
-		},
+		GenerationConfig: cfg,
 	}
 
 	if systemPrompt != "" {
@@ -554,55 +577,78 @@ func (v *VertexAIProvider) CompleteText(ctx context.Context, model string, syste
 			return "", fmt.Errorf("vertex AI returned empty response")
 		}
 
-		return genResp.Candidates[0].Content.Parts[0].Text, nil
+		return extractCandidateText(genResp.Candidates[0].Content.Parts), nil
 	}
 
 	return "", fmt.Errorf("exhausted retries for vertex AI text completion")
 }
 
-// CompleteJSON calls CompleteText and parses the response into target.
-func (v *VertexAIProvider) CompleteJSON(ctx context.Context, model string, systemPrompt, userPrompt string, target interface{}) error {
-	rawText, err := v.CompleteText(ctx, model, systemPrompt, userPrompt)
-	if err != nil {
-		return err
-	}
-	return UnmarshalJSONFlexible(rawText, target)
-}
-
-// TranscribeAudio uploads an audio file to GCS and transcribes it using Vertex AI (gemini-3.5-transcribe-preview).
+// TranscribeAudio uploads an audio file to GCS and transcribes it using Vertex AI.
+// For audio exceeding 12.5 minutes (e.g. 18-minute interviews), it automatically batches/slices
+// the file into shorter segments (< 10 minutes) and sends them to the configured model,
+// stitching the results and timestamps together cleanly without falling back to another model.
 func (v *VertexAIProvider) TranscribeAudio(ctx context.Context, audioFilePath string, prompt string) (string, error) {
 	if v.saKey == nil {
 		return "", fmt.Errorf("vertex AI service account credentials not configured")
 	}
 
-	transcribeStart := time.Now()
-	mimeType := detectAudioMimeType(audioFilePath)
-
-	// 1. Determine model: if configured model is a transcribe model or default, use it
 	model := v.model
-	if model == "" || !strings.Contains(model, "transcribe") {
-		// Prefer dedicated transcribe preview model on Vertex AI
+	if model == "" {
 		model = "gemini-3.5-transcribe-preview"
 	}
 
-	log.Printf("[VertexAI TranscribeAudio] Step 1: Uploading audio (%s, mime: %s) to GCS bucket %s...",
-		filepath.Base(audioFilePath), mimeType, v.gcsBucket)
+	transcribeStart := time.Now()
 
+	// 1. Probe audio duration to determine if batch segmenting is required
+	durationSec, err := ProbeAudioDurationSec(ctx, audioFilePath)
+	if err == nil && durationSec > MaxSingleAudioDurationSec {
+		log.Printf("[VertexAI TranscribeAudio] Audio %s duration is %ds (> %ds limit). Batching into chunks of %ds using model %s...",
+			filepath.Base(audioFilePath), durationSec, MaxSingleAudioDurationSec, AudioChunkDurationSec, model)
+
+		segments, cleanup, splitErr := SplitAudioFile(ctx, audioFilePath, durationSec, AudioChunkDurationSec)
+		if splitErr == nil {
+			defer cleanup()
+			var segOutputs []string
+			for _, seg := range segments {
+				log.Printf("[VertexAI TranscribeAudio] Transcribing chunk %d/%d (offset: %ds, duration: %ds) with %s...",
+					seg.Index+1, len(segments), seg.OffsetSec, seg.DurationSec, model)
+
+				out, segErr := v.transcribeSingleAudio(ctx, seg.FilePath, prompt, model)
+				if segErr != nil {
+					return "", fmt.Errorf("transcription failed on audio chunk %d: %w", seg.Index+1, segErr)
+				}
+				segOutputs = append(segOutputs, out)
+			}
+
+			merged := MergeSegmentTranscriptionResults(segOutputs, segments)
+			log.Printf("[VertexAI TranscribeAudio] Successfully transcribed and merged %d chunks for %s in %v",
+				len(segments), filepath.Base(audioFilePath), time.Since(transcribeStart))
+			return merged, nil
+		}
+		log.Printf("[VertexAI TranscribeAudio] Warning: failed to split audio (%v), attempting single-pass transcription...", splitErr)
+	}
+
+	// 2. Single-pass transcription for files under the threshold
+	return v.transcribeSingleAudio(ctx, audioFilePath, prompt, model)
+}
+
+// transcribeSingleAudio handles GCS upload and single generateContent API request for one audio segment.
+func (v *VertexAIProvider) transcribeSingleAudio(ctx context.Context, audioFilePath string, prompt string, model string) (string, error) {
+	transcribeStart := time.Now()
+	mimeType := detectAudioMimeType(audioFilePath)
+
+	// Step 1: Upload to GCS
 	gcsURI, err := v.uploadToGCSWithMimeType(ctx, audioFilePath, mimeType)
 	if err != nil {
 		return "", fmt.Errorf("failed to upload audio to GCS: %w", err)
 	}
 	defer v.deleteFromGCS(context.Background(), gcsURI)
 
-	// 2. Obtain OAuth2 access token
+	// Step 2: Obtain OAuth2 access token
 	token, err := v.getAccessToken(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to get access token: %w", err)
 	}
-
-	generateURL := v.buildGenerateURL(model)
-	log.Printf("[VertexAI TranscribeAudio] Step 2: Calling %s with model %s on %s...",
-		generateURL, model, gcsURI)
 
 	if prompt == "" {
 		prompt = "Transcribe this audio recording verbatim in Vietnamese. Include all spoken words accurately."
@@ -626,7 +672,7 @@ func (v *VertexAIProvider) TranscribeAudio(ctx context.Context, audioFilePath st
 			},
 		},
 		GenerationConfig: &geminiConfig{
-			MaxOutputTokens: 8192,
+			MaxOutputTokens: 65536,
 		},
 	}
 
@@ -635,6 +681,7 @@ func (v *VertexAIProvider) TranscribeAudio(ctx context.Context, audioFilePath st
 		return "", err
 	}
 
+	generateURL := v.buildGenerateURL(model)
 	const maxRetries = 3
 	backoff := 2 * time.Second
 
@@ -673,16 +720,18 @@ func (v *VertexAIProvider) TranscribeAudio(ctx context.Context, audioFilePath st
 			continue
 		}
 
+		bodyStr := string(body)
+
 		if resp.StatusCode == http.StatusTooManyRequests || (resp.StatusCode >= 500 && resp.StatusCode <= 599) {
 			if attempt == maxRetries {
-				return "", fmt.Errorf("vertex AI transcribe failed with status %d: %s", resp.StatusCode, string(body))
+				return "", fmt.Errorf("vertex AI transcribe failed with status %d: %s", resp.StatusCode, bodyStr)
 			}
 			log.Printf("[VertexAI TranscribeAudio] status %d, retrying in %v...", resp.StatusCode, backoff)
 			continue
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			return "", fmt.Errorf("vertex AI transcribe error (%d): %s", resp.StatusCode, string(body))
+			return "", fmt.Errorf("vertex AI transcribe error (%d): %s", resp.StatusCode, bodyStr)
 		}
 
 		var genResp geminiGenerateContentResponse
@@ -702,9 +751,9 @@ func (v *VertexAIProvider) TranscribeAudio(ctx context.Context, audioFilePath st
 			return "", fmt.Errorf("vertex AI returned empty response (finishReason: %s)", finishReason)
 		}
 
-		transcript := genResp.Candidates[0].Content.Parts[0].Text
-		log.Printf("[VertexAI TranscribeAudio] audio (%s) transcribed successfully in %v (%d chars)",
-			filepath.Base(audioFilePath), time.Since(transcribeStart), len(transcript))
+		transcript := extractCandidateText(genResp.Candidates[0].Content.Parts)
+		log.Printf("[VertexAI TranscribeAudio] segment (%s) transcribed successfully using model %s in %v (%d chars)",
+			filepath.Base(audioFilePath), model, time.Since(transcribeStart), len(transcript))
 		return transcript, nil
 	}
 
