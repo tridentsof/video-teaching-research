@@ -108,13 +108,20 @@ func (v *VertexAIProvider) GetAccessToken(ctx context.Context) (string, error) {
 	return v.getAccessToken(ctx)
 }
 
+// InvalidateTokenCache clears the cached OAuth2 token so the next call forces a fresh fetch.
+func (v *VertexAIProvider) InvalidateTokenCache() {
+	v.tokenMu.Lock()
+	defer v.tokenMu.Unlock()
+	v.tokenCache = nil
+}
+
 // getAccessToken returns a valid Google OAuth2 access token, refreshing if necessary.
 func (v *VertexAIProvider) getAccessToken(ctx context.Context) (string, error) {
 	v.tokenMu.Lock()
 	defer v.tokenMu.Unlock()
 
-	// Return cached token if still valid (with 60s buffer)
-	if v.tokenCache != nil && time.Now().Before(v.tokenCache.expiresAt.Add(-60*time.Second)) {
+	// Return cached token if still valid (with 5-minute buffer to avoid expired tokens)
+	if v.tokenCache != nil && time.Now().Before(v.tokenCache.expiresAt.Add(-5*time.Minute)) {
 		return v.tokenCache.accessToken, nil
 	}
 
@@ -229,6 +236,9 @@ func (v *VertexAIProvider) uploadToGCSWithMimeType(ctx context.Context, localPat
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusUnauthorized {
+			v.InvalidateTokenCache()
+		}
 		return "", fmt.Errorf("GCS upload returned %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -414,6 +424,17 @@ func (v *VertexAIProvider) AnalyzeVideoChunk(ctx context.Context, videoFilePath 
 			continue
 		}
 
+		if resp.StatusCode == http.StatusUnauthorized {
+			v.InvalidateTokenCache()
+			if attempt < maxRetries {
+				log.Printf("[VertexAI AnalyzeVideo] attempt %d/%d received 401 Unauthorized, refreshing token and retrying...", attempt+1, maxRetries+1)
+				if newToken, tErr := v.getAccessToken(ctx); tErr == nil {
+					token = newToken
+				}
+				continue
+			}
+		}
+
 		if resp.StatusCode == http.StatusTooManyRequests || (resp.StatusCode >= 500 && resp.StatusCode <= 599) {
 			if attempt == maxRetries {
 				return "", fmt.Errorf("vertex AI failed with status %d: %s", resp.StatusCode, string(body))
@@ -550,6 +571,17 @@ func (v *VertexAIProvider) completeTextInternal(ctx context.Context, model strin
 		resp.Body.Close()
 		if err != nil {
 			return "", fmt.Errorf("failed to read vertex AI response: %w", err)
+		}
+
+		if resp.StatusCode == http.StatusUnauthorized {
+			v.InvalidateTokenCache()
+			if attempt < maxRetries {
+				log.Printf("[VertexAI CompleteText] attempt %d/%d received 401 Unauthorized, refreshing token and retrying...", attempt+1, maxRetries+1)
+				if newToken, tErr := v.getAccessToken(ctx); tErr == nil {
+					token = newToken
+				}
+				continue
+			}
 		}
 
 		if resp.StatusCode == http.StatusTooManyRequests || (resp.StatusCode >= 500 && resp.StatusCode <= 599) {
@@ -728,6 +760,17 @@ func (v *VertexAIProvider) transcribeSingleAudio(ctx context.Context, audioFileP
 		}
 
 		bodyStr := string(body)
+
+		if resp.StatusCode == http.StatusUnauthorized {
+			v.InvalidateTokenCache()
+			if attempt < maxRetries {
+				log.Printf("[VertexAI TranscribeAudio] attempt %d/%d received 401 Unauthorized, refreshing token and retrying...", attempt+1, maxRetries+1)
+				if newToken, tErr := v.getAccessToken(ctx); tErr == nil {
+					token = newToken
+				}
+				continue
+			}
+		}
 
 		if resp.StatusCode == http.StatusTooManyRequests || (resp.StatusCode >= 500 && resp.StatusCode <= 599) {
 			if attempt == maxRetries {
